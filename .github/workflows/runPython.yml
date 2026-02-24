@@ -9,7 +9,7 @@ on:
         description: 'Cryptography scheme'
         required: true
         default: 'SchemeIBMETR/SchemeIBMETR.py'
-        type: choice
+        type: string
         options:
           - 'SchemeAAIBME/SchemeAAIBME.py'
           - 'SchemeAAIBME/SchemeFuzzyME.py'
@@ -27,6 +27,7 @@ on:
           - 'SchemeIBPRME/SchemeIBPRME.py'
           - 'SchemeIBPRME/SchemePBAC.py'
           - 'SchemeVLPSICA/SchemeVLPSICA.py'
+        multiple: true
       outputFormat:
         description: 'Output format'
         required: true

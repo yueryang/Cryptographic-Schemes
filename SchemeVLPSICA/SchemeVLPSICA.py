@@ -814,16 +814,15 @@ def main() -> int:
 								for idx in range(qLength, qvLength):
 									averages[idx] += result[idx]
 								for idx in range(qvLength, length):
-									averages[idx] = "N/A" if isinstance(averages[idx], str) or averages[idx] <= 0 or result[idx] <= 0 else averages[idx] + result[idx]
+									averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
 							averages[avgIndex] = runCount
 							for idx in range(qvLength, length):
-								averages[idx] = "N/A" if isinstance(averages[idx], str) or averages[idx] <= 0 else averages[idx] / runCount
-								if isinstance(averages[idx], float):
-									averages[idx] = round(averages[idx], decimalPrecision)
-									if averages[idx] <= 0:
-										averages[idx] = "N/A"
-									elif averages[idx].is_integer():
+								if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
+									averages[idx] /= runCount
+									if averages[idx].is_integer():
 										averages[idx] = int(averages[idx])
+								else:
+									averages[idx] = "N/A"
 							results.append(averages)
 							saver.save(results)
 		except KeyboardInterrupt:
