@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - .csv
+          - .htm
           - .html
           - .json
           - .tex
@@ -95,52 +96,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Python ${{ github.event.inputs.pythonVersion }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ github.event.inputs.pythonVersion }}
-    
-    - name: Install system dependencies
-      run: |
-        cd "${{ github.workspace }}"
-        sudo apt-get update
-        sudo apt-get install -y bison build-essential flex libfl-dev libgmp-dev libssl-dev wget
-    
-    - name: Build and install the PBC library
-      run: |
-        cd "${{ github.workspace }}"
-        wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
-        tar -xzf pbc-1.0.0.tar.gz
-        cd pbc-1.0.0
-        ./configure LDFLAGS="-lgmp"
-        make -j$(nproc)
-        sudo make install
-        sudo ldconfig
-    
-    - name: Build and install the Python charm library
-      run: |
-        cd "${{ github.workspace }}"
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        git clone https://github.com/JHUISI/charm.git
-        cd charm
-        chmod +x ./configure.sh
-        ./configure.sh
-        make -j$(nproc)
-        sudo make install
-    
-    - name: Get ready to run
+    - name: Get ready
       id: ready
       run: |
         cd "${{ github.workspace }}"
+        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
+        outputFileName="$(basename "${outputFilePath}")"
         echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
         echo "Output format: ${outputFormat}"
+        echo "Output file path: ${outputFilePath}"
+        echo "Output file name: ${outputFileName}"
         echo "Python version: ${pythonVersion}"
         echo "Run count: ${runCount}"
         echo "Decimal place: ${decimalPlace}"
-        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
         echo "outputFilePath=${outputFilePath}" >> ${GITHUB_OUTPUT}
-        echo "outputFileName=$(basename "${outputFilePath}")" >> ${GITHUB_OUTPUT}
+        echo "outputFileName=${outputFileName}" >> ${GITHUB_OUTPUT}
         echo "pythonVersion=${pythonVersion}" >> ${GITHUB_OUTPUT}
         echo "runCount=${runCount}" >> ${GITHUB_OUTPUT}
         if [[ "s" == "${decimalPlace}" || "second" == "${decimalPlace}" ]];
@@ -171,12 +141,48 @@ jobs:
         decimalPlace: ${{ github.event.inputs.decimalPlace || '9' }}
         TZ: 'Asia/Hong_Kong'
     
+    - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ steps.ready.outputs.pythonVersion }}
+    
+    - name: Install system dependencies
+      run: |
+        cd "${{ github.workspace }}"
+        sudo apt-get update
+        sudo apt-get install -y build-essential libgmp-dev libssl-dev wget
+    
+    - name: Build and install the PBC library
+      run: |
+        cd "${{ github.workspace }}"
+        wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
+        tar -xzf pbc-1.0.0.tar.gz
+        cd pbc-1.0.0
+        ./configure LDFLAGS="-lgmp"
+        make -j$(nproc)
+        sudo make install
+        sudo ldconfig
+    
+    - name: Build and install the Python charm library
+      run: |
+        cd "${{ github.workspace }}"
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        git clone https://github.com/JHUISI/charm.git
+        cd charm
+        chmod +x ./configure.sh
+        ./configure.sh
+        make -j$(nproc)
+        sudo make install
+    
     - name: Run the cryptography scheme
       run: |
         cd "${{ github.workspace }}"
         echo "The current working directory is \"$(pwd)\". "
         if [[ -f "${{ matrix.cryptographyScheme }}" ]];
         then
+          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -h"
+          python "${{ matrix.cryptographyScheme }}" -h
           echo "\$ python \"${{ matrix.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
           python "${{ matrix.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 y
         else

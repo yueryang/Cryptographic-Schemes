@@ -224,16 +224,20 @@ class Saver:
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
 		self.__folderPath = os.path.dirname(self.__outputFilePath)
 		self.__extensionName = os.path.splitext(os.path.split(self.__outputFilePath)[1])[1][1:].upper()
-		self.__Writer = None
-		self.__escape = None
-		self.__dumpJSON = None
-		self.__WorkbookXLS = None
-		self.__styleXLS = None
-		self.__WorkbookXLSX = None
-		self.__alignmentXLSX = None
-		self.__fontXLSX = None
-		self.__columnsXML = None
-		self.__dumpYAML = None
+		self.__Writer = None # CSV/TSV
+		self.__escapeHTML = None # HTM/HTML
+		self.__dumpJSON = None # JSON
+		self.__escapeTEX = None # TEX
+		self.__columnsTEX = None # TEX
+		self.__WorkbookXLS = None #XLS
+		self.__styleXLSColumns = None # XLS
+		self.__styleXLSValues = None # XLS
+		self.__WorkbookXLSX = None # XLSX
+		self.__alignmentXLSX = None # XLSX
+		self.__fontXLSXColumns = None # XLSX
+		self.__fontXLSXValues = None # XLSX
+		self.__columnsXML = None # XML
+		self.__dumpYAML = None # YAML/YML
 	def __handleFolder(self:object) -> bool:
 		if not self.__folderPath:
 			return True
@@ -257,12 +261,13 @@ class Saver:
 									if self.__Writer is None:
 										self.__Writer = __import__("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
-										writer = self.__Writer(f, fieldnames = self.__columns)
-										writer.writeheader()
-										writer.writerows(results)
-								elif "HTML" == self.__extensionName:
-									if self.__escape is None:
-										self.__escape = __import__("html").escape
+										writer = self.__Writer(f)
+										writer.writerow(self.__columns)
+										for result in results:
+											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
+								elif self.__extensionName in ("HTM", "HTML"):
+									if self.__escapeHTML is None:
+										self.__escapeHTML = __import__("html").escape
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										f.write("<!DOCTYPE html>{0}<html>{0}\t<head>{0}\t\t<title>{1}</title>{0}".format(os.linesep, Parser.getSchemeName()))
 										f.write("\t\t<style>{0}\t\t\ttable {{{0}\t\t\t\twidth: 80%;{0}\t\t\t\tmargin: 20px auto;{0}".format(os.linesep))
@@ -276,12 +281,14 @@ class Saver:
 										f.write("\t\t</style>{0}\t</head>{0}\t<body>{0}\t\t<table>{0}".format(os.linesep))
 										f.write("\t\t\t<caption>{1}</caption>{0}\t\t\t<thead>{0}\t\t\t\t<tr>{0}".format(os.linesep, Parser.getSchemeName()))
 										for column in self.__columns:
-											f.write("\t\t\t\t\t<th>{0}</th>{1}".format(self.__escape(column, quote = True), os.linesep))
+											f.write("\t\t\t\t\t<th>{0}</th>{1}".format(self.__escapeHTML(column, quote = True), os.linesep))
 										f.write("\t\t\t\t</tr>{0}\t\t\t</thead>{0}\t\t\t<tbody>{0}".format(os.linesep))
 										for result in results:
 											f.write("\t\t\t\t<tr>{0}".format(os.linesep))
 											for r in result:
-												f.write("\t\t\t\t\t<td>{0}</td>{1}".format(self.__escape("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else str(r), quote = True), os.linesep))
+												f.write("\t\t\t\t\t<td>{0}</td>{1}".format(																									\
+													self.__escapeHTML("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else str(r), quote = True), os.linesep	\
+												))
 											f.write("\t\t\t\t</tr>{0}".format(os.linesep))
 										f.write("\t\t\t</tbody>{0}\t\t</table>{0}\t</body>{0}</html>".format(os.linesep))
 								elif "JSON" == self.__extensionName:
@@ -290,75 +297,95 @@ class Saver:
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										self.__dumpJSON({"columns":self.__columns, "results":results}, f, indent = "\t")
 								elif "TEX" == self.__extensionName:
+									if self.__columnsTEX is None:
+										if self.__escapeTEX is None:
+											self.__escapeTEX = lambda x:"\\textbackslash{}".join(																			\
+												s.replace("&", "\\&").replace("%", "\\%").replace("$", "\\$").replace("#", "\\#").replace("_", "\\_").replace("{", "\\{")	\
+												.replace("}", "\\}").replace("~", "\\textasciitilde{}").replace("^", "\\textasciicircum{}") for s in str(x).split("\\")		\
+											)
+										self.__columnsTEX = tuple(self.__escapeTEX(column) for column in self.__columns)
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
-										maxLength = max(len(self.__columns) if isinstance(self.__columns, (tuple, list)) else 0, max(len(result) for result in results))
-										f.write("\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n\\usepackage{graphicx}\n\\usepackage{booktabs}\n")
-										f.write("\\usepackage{rotating}\n\n\\begin{document}\n\n\\begin{sidewaystable}\n\t\\caption{The comparison results. }\n")
-										f.write("\t\\centering\n\t\\resizebox{\\textwidth}{!}{%\n\t\t\\begin{tabular}{")
+										maxLength = max(len(self.__columnsTEX) if isinstance(self.__columnsTEX, (tuple, list)) else 0, max(len(result) for result in results))
+										f.write("\\documentclass[a4paper]{{article}}{0}\\setlength{{\\parindent}}{{0pt}}{0}".format(os.linesep))
+										f.write("\\usepackage{{graphicx}}{0}\\usepackage{{booktabs}}{0}\\usepackage{{rotating}}{0}{0}".format(os.linesep))
+										f.write("\\begin{{document}}{0}{0}\\begin{{sidewaystable}}{0}\t\\caption{{The comparison results. }}{0}".format(os.linesep))
+										f.write("\t\\centering{0}\t\\resizebox{{\\textwidth}}{{!}}{{%{0}\t\t\\begin{{tabular}}{{".format(os.linesep))
 										f.write("c" * maxLength)
-										f.write("}\n\t\t\t\\toprule\n\t\t\t\t")
-										if isinstance(self.__columns, (tuple, list)) and self.__columns:
-											f.write(" & ".join("\\textbf{{{0}}}".format(column) for column in self.__columns))
-											if len(self.__columns) < maxLength:
+										f.write("}}{0}\t\t\t\\toprule{0}\t\t\t\t".format(os.linesep))
+										if isinstance(self.__columnsTEX, (tuple, list)) and self.__columnsTEX:
+											f.write(" & ".join("\\textbf{{{0}}}".format(column) for column in self.__columnsTEX))
+											if len(self.__columnsTEX) < maxLength:
 												f.write(" & \\textbf{~}" * (maxLength - len(result)))
 										else:
 											f.write(" & ".join(("\\textbf{~}", ) * maxLength))
-										f.write(" \\\\\n\t\t\t\\midrule\n")
+										f.write(" \\\\{0}\t\t\t\\midrule{0}".format(os.linesep))
 										for result in results:
 											if result:
 												f.write("\t\t\t\t")
 												f.write(" & ".join((																	\
-													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)	\
-												).format(r) if isinstance(r, (float, int)) else str(r) for r in result))
+													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)		\
+												).format(r) if isinstance(r, (float, int)) else self.__escapeTEX(r) for r in result))
 												if len(result) < maxLength:
 													f.write(" & ~" * (maxLength - len(result)))
-												f.write(" \\\\\n")
-										f.write("\t\t\t\\bottomrule\n\t\t\\end{tabular}\n\t}\n\t\\label{tab:comparison}\n\\end{sidewaystable}\n\n\\end{document}")
+												f.write(" \\\\" + os.linesep)
+										f.write("\t\t\t\\bottomrule{0}\t\t\\end{{tabular}}{0}\t}}{0}\t\\label{{tab:comparison}}{0}".format(os.linesep))
+										f.write("\\end{{sidewaystable}}{0}{0}\\end{{document}}".format(os.linesep))
 								elif "TSV" == self.__extensionName:
 									if self.__Writer is None:
 										self.__Writer = __import__("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
-										writer = self.__Writer(f, fieldnames = self.__columns, delimiter = '\t')
-										writer.writeheader()
-										writer.writerows(results)
+										writer = self.__Writer(f, delimiter = '\t')
+										writer.writerow(self.__columns)
+										for result in results:
+											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
 								elif "XLS" == self.__extensionName:
 									if self.__WorkbookXLS is None:
 										self.__WorkbookXLS = __import__("xlwt").Workbook
-									if self.__styleXLS is None:
-										self.__styleXLS = __import__("xlwt").XFStyle()
-										self.__styleXLS.font = __import__("xlwt").Font()
-										self.__styleXLS.font.name = "Times New Roman"
-										self.__styleXLS.font.height = 240 # 12 * 20
-										self.__styleXLS.alignment = __import__("xlwt").Alignment()
-										self.__styleXLS.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										self.__styleXLS.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+									if self.__styleXLSColumns is None:
+										self.__styleXLSColumns = __import__("xlwt").XFStyle()
+										self.__styleXLSColumns.font = __import__("xlwt").Font()
+										self.__styleXLSColumns.font.name = "Times New Roman"
+										self.__styleXLSColumns.font.height = 240 # 12 * 20
+										self.__styleXLSColumns.font.bold = True
+										self.__styleXLSColumns.alignment = __import__("xlwt").Alignment()
+										self.__styleXLSColumns.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
+										self.__styleXLSColumns.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+									if self.__styleXLSValues is None:
+										self.__styleXLSValues = __import__("xlwt").XFStyle()
+										self.__styleXLSValues.font = __import__("xlwt").Font()
+										self.__styleXLSValues.font.name = "Times New Roman"
+										self.__styleXLSValues.font.height = 240 # 12 * 20
+										self.__styleXLSValues.alignment = __import__("xlwt").Alignment()
+										self.__styleXLSValues.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
+										self.__styleXLSValues.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
 									workbook = self.__WorkbookXLS(encoding = self.__encoding)
 									worksheet = workbook.add_sheet(Parser.getSchemeName())
-									self.__styleXLS.font.bold = True
-									for columnIndex, columnName in enumerate(self.__columns, start = 1):
-										worksheet.write(0, columnIndex, columnName, self.__styleXLS)
-									self.__styleXLS.font.bold = False
+									for columnIndex, columnName in enumerate(self.__columns):
+										worksheet.write(0, columnIndex, columnName, self.__styleXLSColumns)
 									for i, result in enumerate(results, start = 1):
 										for j, r in enumerate(result):
-											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLS)
+											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLSValues)
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if self.__WorkbookXLSX is None:
 										self.__WorkbookXLSX = __import__("openpyxl").Workbook
 									if self.__alignmentXLSX is None:
 										self.__alignmentXLSX = __import__("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
-									if self.__fontXLSX is None:
-										self.__fontXLSX = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+									if self.__fontXLSXColumns is None:
+										self.__fontXLSXColumns = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+									if self.__fontXLSXValues is None:
+										self.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									workbook = self.__WorkbookXLSX()
 									worksheet = workbook.active
 									for columnIndex, columnName in enumerate(self.__columns, start = 1):
 										cell = worksheet.cell(row = 1, column = columnIndex, value = columnName)
 										cell.alignment = self.__alignmentXLSX
-										cell.font = self.__fontXLSX
+										cell.font = self.__fontXLSXColumns
 									for i, result in enumerate(results, start = 2):
 										for j, r in enumerate(result, start = 1):
 											cell = worksheet.cell(row = i, column = j, value = "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r)
 											cell.alignment = self.__alignmentXLSX
+											cell.font = self.__fontXLSXValues
 									worksheet.freeze_panes = "A2"
 									workbook.save(self.__outputFilePath)
 								elif "XML" == self.__extensionName:
@@ -398,8 +425,23 @@ class Saver:
 								elif self.__extensionName in ("YAML", "YML"):
 									if self.__dumpYAML is None:
 										self.__dumpYAML = __import__("yaml").dump
+										__import__("yaml").add_representer(float, lambda dumper, x:dumper.represent_scalar("tag:yaml.org,2002:float", "{{0:.{0}f}}".format(self.__decimalPlace).format(x)))
+										__import__("yaml").add_representer(tuple, lambda dumper, x:dumper.represent_mapping("tag:yaml.org,2002:map", x))
+									vector, columnLength = [], len(self.__columns)
+									for result in results:
+										d, resultLength = {}, len(result)
+										for index in range(max(columnLength, resultLength)):
+											key, value = self.__columns[index] if index < columnLength else None, result[index] if index < resultLength else None
+											if key in d:
+												if isinstance(key, list):
+													d[key].append(value)
+												else:
+													d[key] = [d[key], value]
+											else:
+												d[key] = value
+										vector.append(tuple(d.items()))
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
-										self.__dumpYAML({"columns":self.__columns, "results":results}, f)
+										self.__dumpYAML(vector, f)
 								elif self.__extensionName in Parser.getProtectedExtensionNames():
 									print("Saver: Failed to save the results to {0} since {1} is one of the protected extension names. ".format(repr(self.__outputFilePath), self.__extensionName))
 									print("Saver: {0}".format({"columns":self.__columns, "results":results}))
@@ -684,13 +726,13 @@ def conductScheme(curveType:tuple|list|str, n:int = 30, k:int = 10, run:int|None
 			print("Is the system valid? No. \n\t{0}".format(e))
 			return (																																														\
 				([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [(curveType if isinstance(curveType, str) else None), None])		\
-				+ [n, k, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + [-1] * 19																													\
+				+ [n, k, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																													\
 			)
 	else:
 		print("Is the system valid? No. The parameters $n$ and $k$ should be two positive integers satisfying $2 \\leqslant k < n$. ")
 		return (																																														\
 			([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [(curveType if isinstance(curveType, str) else None), None])		\
-			+ [n if isinstance(n, int) else None, k if isinstance(k, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + [-1] * 19																	\
+			+ [n if isinstance(n, int) else None, k if isinstance(k, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																	\
 		)
 	print("curveType =", group.groupType())
 	print("secparam =", group.secparam)
