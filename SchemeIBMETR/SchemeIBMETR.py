@@ -260,7 +260,8 @@ class Saver:
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = self.__Writer(f, fieldnames = self.__columns)
 										writer.writeheader()
-										writer.writerows(results)
+										for result in results:
+											writer.writerow(["{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r])
 								elif "HTML" == self.__extensionName:
 									if self.__escape is None:
 										self.__escape = __import__("html").escape
@@ -321,7 +322,8 @@ class Saver:
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = self.__Writer(f, fieldnames = self.__columns, delimiter = '\t')
 										writer.writeheader()
-										writer.writerows(results)
+										for result in results:
+											writer.writerow(["{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r])
 								elif "XLS" == self.__extensionName:
 									if self.__WorkbookXLS is None:
 										self.__WorkbookXLS = __import__("xlwt").Workbook
