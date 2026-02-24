@@ -131,11 +131,6 @@ jobs:
     
     - name: Get ready to run
       id: ready
-      env:
-        outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
-        pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
-        runCount: ${{ github.event.inputs.runCount || 10 }}
-        decimalPlace: ${{ github.event.inputs.decimalPlace || '9' }}
       run: |
         cd "${{ github.workspace }}"
         echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
@@ -170,6 +165,10 @@ jobs:
           echo "decimalPlace=${decimalPlace}" >> ${GITHUB_OUTPUT}
         fi
       env:
+        outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
+        pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
+        runCount: ${{ github.event.inputs.runCount || 10 }}
+        decimalPlace: ${{ github.event.inputs.decimalPlace || '9' }}
         TZ: 'Asia/Hong_Kong'
     
     - name: Run the cryptography scheme
