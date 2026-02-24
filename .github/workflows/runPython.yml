@@ -151,7 +151,7 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
-        sudo apt-get install -y build-essential flex libgmp-dev libssl-dev wget
+        sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev wget
     
     - name: Build and install the PBC library
       run: |
