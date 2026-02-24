@@ -37,33 +37,41 @@ on:
         required: true
         default: 10
         type: number
-      decimalPrecision:
-        description: 'Decimal Precision'
+      decimalPlace:
+        description: 'Decimal Place'
         required: true
         default: '9'
         type: choice
         options:
           - 0
-          - 3
-          - 6
-          - 9
-          - 12
           - s
           - second
+          - 3
           - ms
           - millisecond
+          - 6
           - microsecond
+          - 9
           - ns
           - nanosecond
+          - 12
           - ps
           - picosecond
+          - 15
           - fs
           - femtosecond
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   runPython:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cryptographyScheme:
           - 'SchemeAAIBME/SchemeAAIBME.py'
@@ -123,30 +131,57 @@ jobs:
     
     - name: Get ready to run
       id: ready
+      env:
+        outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
+        pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
+        runCount: ${{ github.event.inputs.runCount || 10 }}
+        decimalPlace: ${{ github.event.inputs.decimalPlace || '9' }}
       run: |
         cd "${{ github.workspace }}"
         echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
-        echo "Output format: ${{ github.event.inputs.outputFormat }}"
-        echo "Python version: ${{ github.event.inputs.pythonVersion }}"
-        echo "Run count: ${{ github.event.inputs.runCount }}"
-        echo "Decimal precision: ${{ github.event.inputs.decimalPrecision }}"
-        inputFilePath="${{ matrix.cryptographyScheme }}"
-        outputFilePath="$(echo "${inputFilePath}" | sed "s/\.[^.]*\$/-Python${{ github.event.inputs.pythonVersion }}-r${{github.event.inputs.runCount}}-HKT$(date '+%Y%m%d%H%M%S')${{ github.event.inputs.outputFormat }}/g")"
+        echo "Output format: ${outputFormat}"
+        echo "Python version: ${pythonVersion}"
+        echo "Run count: ${runCount}"
+        echo "Decimal place: ${decimalPlace}"
+        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
         echo "outputFilePath=${outputFilePath}" >> ${GITHUB_OUTPUT}
         echo "outputFileName=$(basename "${outputFilePath}")" >> ${GITHUB_OUTPUT}
+        echo "pythonVersion=${pythonVersion}" >> ${GITHUB_OUTPUT}
+        echo "runCount=${runCount}" >> ${GITHUB_OUTPUT}
+        if [[ "s" == "${decimalPlace}" || "second" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=0" >> ${GITHUB_OUTPUT}
+        elif [[ "ms" == "${decimalPlace}" || "millisecond" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=3" >> ${GITHUB_OUTPUT}
+        elif [[ "microsecond" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=6" >> ${GITHUB_OUTPUT}
+        elif [[ "ns" == "${decimalPlace}" || "nanosecond" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=9" >> ${GITHUB_OUTPUT}
+        elif [[ "ps" == "${decimalPlace}" || "picosecond" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=12" >> ${GITHUB_OUTPUT}
+        elif [[ "fs" == "${decimalPlace}" || "femtosecond" == "${decimalPlace}" ]];
+        then
+          echo "decimalPlace=15" >> ${GITHUB_OUTPUT}
+        else
+          echo "decimalPlace=${decimalPlace}" >> ${GITHUB_OUTPUT}
+        fi
       env:
         TZ: 'Asia/Hong_Kong'
     
-    - name: Run the specific cryptography scheme
+    - name: Run the cryptography scheme
       run: |
         cd "${{ github.workspace }}"
         echo "The current working directory is \"$(pwd)\". "
         if [[ -f "${{ matrix.cryptographyScheme }}" ]];
         then
-          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 -y"
-          python "${{ matrix.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 y
+          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
+          python "${{ matrix.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 y
         else
-          echo "Could not execute the cryptography scheme file \"${{ matrix.cryptographyScheme }}\" via Python ${{ github.event.inputs.pythonVersion }}. "
+          echo "Could not execute the cryptography scheme file \"${{ matrix.cryptographyScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
           tree
         fi
     

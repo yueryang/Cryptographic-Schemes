@@ -34,9 +34,9 @@ class Parser:
 	__DefaultExtension = ".xlsx"
 	__DefaultOutputFileName = __SchemeName + __DefaultExtension
 	__ProtectedExtensionNames = ("C", "CPP", "IPYNB", "JAR", "JAVA", "M", "PY")
-	__OptionPrecision = ("p", "/p", "-p", "precision", "/precision", "--precision")
-	__DefaultPrecision = 9
-	__PrecisionTranslations = {"s":0, "second":0, "ms":3, "millisecond":3, "microsecond":6, "ns":9, "nanosecond":9, "ps":12, "picosecond":12, "fs":15, "femtosecond":15}
+	__OptionPlace = ("p", "/p", "-p", "place", "/place", "--place")
+	__DefaultPlace = 9
+	__PlaceTranslations = {"s":0, "second":0, "ms":3, "millisecond":3, "microsecond":6, "ns":9, "nanosecond":9, "ps":12, "picosecond":12, "fs":15, "femtosecond":15}
 	__OptionRun = ("r", "/r", "-r", "run", "/run", "--run")
 	__DefaultRun = 10
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
@@ -60,8 +60,8 @@ class Parser:
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, Parser.__DefaultOutputFileName														\
 		))
-		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal precision, which should be a non-negative integer. The default value is {1}. ".format(	\
-			self.__formatOption(Parser.__OptionPrecision), Parser.__DefaultPrecision)																						\
+		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(	\
+			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																						\
 		)
 		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
 		print(																																							\
@@ -82,8 +82,8 @@ class Parser:
 		else:
 			return Parser.__DefaultOutputFileName
 	def parse(self:object) -> tuple:
-		flag, encoding, outputFilePath, decimalPrecision, runCount, waitingTime, overwritingConfirmed = (																		\
-			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPrecision, Parser.__DefaultRun, Parser.__DefaultTime, False	\
+		flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = (																		\
+			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, Parser.__DefaultRun, Parser.__DefaultTime, False	\
 		)
 		index, argumentCount, buffers = 1, len(self.__arguments), []
 		while index < argumentCount:
@@ -111,24 +111,24 @@ class Parser:
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
-			elif argument in Parser.__OptionPrecision:
+			elif argument in Parser.__OptionPlace:
 				index += 1
 				if index < argumentCount:
-					decimalPrecisionLower = self.__arguments[index].lower()
-					if decimalPrecisionLower in Parser.__PrecisionTranslations:
-						decimalPrecision = Parser.__PrecisionTranslations[decimalPrecisionLower]
+					decimalPlaceLower = self.__arguments[index].lower()
+					if decimalPlaceLower in Parser.__PlaceTranslations:
+						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
 					else:
 						try:
 							p = int(self.__arguments[index], 0)
 							if p >= 0:
-								decimalPrecision = p
+								decimalPlace = p
 							else:
 								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the decimal precision option should be a non-negative integer. ".format(index, p))
+								buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
 							del p
 						except:
 							flag = EOF
-							buffers.append("Parser: The value [{0}] = {1} for the decimal precision option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
@@ -179,7 +179,7 @@ class Parser:
 		if EOF == flag:
 			for buffer in buffers:
 				print(buffer)
-		return (flag, encoding, outputFilePath, decimalPrecision, runCount, waitingTime, overwritingConfirmed)
+		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
 			outputFilePath, overwritingConfirmed = outputFP, overwriting
@@ -206,8 +206,8 @@ class Parser:
 	def getDefaultOutputFilePath() -> str:
 		return Parser.__DefaultOutputFileName
 	@staticmethod
-	def getDefaultPrecision() -> int:
-		return Parser.__DefaultPrecision
+	def getDefaultPlace() -> int:
+		return Parser.__DefaultPlace
 	@staticmethod
 	def getDefaultEncoding() -> str:
 		return Parser.__DefaultEncoding
@@ -219,10 +219,10 @@ class Parser:
 		return Parser.__ProtectedExtensionNames
 
 class Saver:
-	def __init__(self:object, outputFilePath:str = Parser.getDefaultOutputFilePath(), columns:tuple|list|None = None, decimalPrecision:int = Parser.getDefaultPrecision(), encoding:str = Parser.getDefaultEncoding()) -> object:
+	def __init__(self:object, outputFilePath:str = Parser.getDefaultOutputFilePath(), columns:tuple|list|None = None, decimalPlace:int = Parser.getDefaultPlace(), encoding:str = Parser.getDefaultEncoding()) -> object:
 		self.__outputFilePath = outputFilePath if isinstance(outputFilePath, str) else Parser.getDefaultOutputFilePath()
 		self.__columns = tuple(column for column in columns if isinstance(column, str)) if isinstance(columns, (tuple, list)) else None
-		self.__decimalPrecision = decimalPrecision if isinstance(decimalPrecision, int) and decimalPrecision >= 0 else Parser.getDefaultPrecision()
+		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
 		self.__folderPath = os.path.dirname(self.__outputFilePath)
 		self.__extensionName = os.path.splitext(os.path.split(self.__outputFilePath)[1])[1][1:].upper()
@@ -283,7 +283,7 @@ class Saver:
 										for result in results:
 											f.write("\t\t\t\t<tr>{0}".format(os.linesep))
 											for r in result:
-												f.write("\t\t\t\t\t<td>{0}</td>{1}".format(self.__escape("{{0:.{0}f}}".format(self.__decimalPrecision).format(r) if isinstance(r, float) else str(r), quote = True), os.linesep))
+												f.write("\t\t\t\t\t<td>{0}</td>{1}".format(self.__escape("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else str(r), quote = True), os.linesep))
 											f.write("\t\t\t\t</tr>{0}".format(os.linesep))
 										f.write("\t\t\t</tbody>{0}\t\t</table>{0}\t</body>{0}</html>".format(os.linesep))
 								elif "JSON" == self.__extensionName:
@@ -310,7 +310,7 @@ class Saver:
 											if result:
 												f.write("\t\t\t\t")
 												f.write(" & ".join((																	\
-													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPrecision)	\
+													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)	\
 												).format(r) if isinstance(r, (float, int)) else str(r) for r in result))
 												if len(result) < maxLength:
 													f.write(" & ~" * (maxLength - len(result)))
@@ -342,7 +342,7 @@ class Saver:
 									self.__styleXLS.font.bold = False
 									for i, result in enumerate(results, start = 1):
 										for j, r in enumerate(result):
-											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPrecision).format(r) if isinstance(r, float) else r, self.__styleXLS)
+											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLS)
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if self.__WorkbookXLSX is None:
@@ -359,7 +359,7 @@ class Saver:
 										cell.font = self.__fontXLSX
 									for i, result in enumerate(results, start = 2):
 										for j, r in enumerate(result, start = 1):
-											cell = worksheet.cell(row = i, column = j, value = "{{0:.{0}f}}".format(self.__decimalPrecision).format(r) if isinstance(r, float) else r)
+											cell = worksheet.cell(row = i, column = j, value = "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r)
 											cell.alignment = self.__alignmentXLSX
 									worksheet.freeze_panes = "A2"
 									workbook.save(self.__outputFilePath)
@@ -391,7 +391,7 @@ class Saver:
 											for rIndex, r in enumerate(result):
 												tag = self.__columnsXML.get(rIndex, "_")
 												if isinstance(r, float):
-													rString = "{{0:.{0}f}}".format(self.__decimalPrecision).format(r)
+													rString = "{{0:.{0}f}}".format(self.__decimalPlace).format(r)
 												else:
 													rString = str(r).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 												f.write(("\t\t<{0}>{1}</{0}>{2}" if rString else "\t\t<{0}/>{2}").format(tag, rString, os.linesep))
@@ -865,7 +865,7 @@ def conductScheme(curveType:tuple|list|str, n:int = 30, d:int = 10, run:int|None
 
 def main() -> int:
 	parser = Parser(argv)
-	flag, encoding, outputFilePath, decimalPrecision, runCount, waitingTime, overwritingConfirmed = parser.parse()
+	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 		del parser
@@ -883,7 +883,7 @@ def main() -> int:
 		# Scheme #
 		columns, qLength, results = queries + validators + metrics, len(queries), []
 		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
-		saver = Saver(outputFilePath, columns, decimalPrecision = decimalPrecision, encoding = encoding)
+		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 		try:
 			for curveType in curveTypes:
 				for n in range(10, 31, 5):
