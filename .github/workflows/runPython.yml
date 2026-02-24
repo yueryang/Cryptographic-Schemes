@@ -1,33 +1,8 @@
 name: Run Python
 
-# Thanks to [https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml](https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml). 
-
 on:
   workflow_dispatch:
     inputs:
-      cryptographyScheme:
-        description: 'Cryptography scheme'
-        required: true
-        default: 'SchemeIBMETR/SchemeIBMETR.py'
-        type: string
-        options:
-          - 'SchemeAAIBME/SchemeAAIBME.py'
-          - 'SchemeAAIBME/SchemeFuzzyME.py'
-          - 'SchemeCANIFPPCT/SchemeCANIFPPCT.py'
-          - 'SchemeHIBME/SchemeAnonymousME.py'
-          - 'SchemeHIBME/SchemeHIBME.py'
-          - 'SchemeIBMEMR/SchemeIBBME.py'
-          - 'SchemeIBMEMR/SchemeIBMEMR.py'
-          - 'SchemeIBMETR/SchemeAIBE.py'
-          - 'SchemeIBMETR/SchemeARES.py'
-          - 'SchemeIBMETR/SchemeIBME.py'
-          - 'SchemeIBMETR/SchemeIBMECH.py'
-          - 'SchemeIBMETR/SchemeIBMETR.py'
-          - 'SchemeIBPRME/SchemeIBPME.py'
-          - 'SchemeIBPRME/SchemeIBPRME.py'
-          - 'SchemeIBPRME/SchemePBAC.py'
-          - 'SchemeVLPSICA/SchemeVLPSICA.py'
-        multiple: true
       outputFormat:
         description: 'Output format'
         required: true
@@ -88,6 +63,25 @@ on:
 jobs:
   runPython:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cryptographyScheme:
+          - 'SchemeAAIBME/SchemeAAIBME.py'
+          - 'SchemeAAIBME/SchemeFuzzyME.py'
+          - 'SchemeCANIFPPCT/SchemeCANIFPPCT.py'
+          - 'SchemeHIBME/SchemeAnonymousME.py'
+          - 'SchemeHIBME/SchemeHIBME.py'
+          - 'SchemeIBMEMR/SchemeIBBME.py'
+          - 'SchemeIBMEMR/SchemeIBMEMR.py'
+          - 'SchemeIBMETR/SchemeAIBE.py'
+          - 'SchemeIBMETR/SchemeARES.py'
+          - 'SchemeIBMETR/SchemeIBME.py'
+          - 'SchemeIBMETR/SchemeIBMECH.py'
+          - 'SchemeIBMETR/SchemeIBMETR.py'
+          - 'SchemeIBPRME/SchemeIBPME.py'
+          - 'SchemeIBPRME/SchemeIBPRME.py'
+          - 'SchemeIBPRME/SchemePBAC.py'
+          - 'SchemeVLPSICA/SchemeVLPSICA.py'
     
     steps:
     - name: Checkout code
@@ -131,16 +125,15 @@ jobs:
       id: ready
       run: |
         cd "${{ github.workspace }}"
-        echo "Cryptography scheme: ${{ github.event.inputs.cryptographyScheme }}"
+        echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
         echo "Output format: ${{ github.event.inputs.outputFormat }}"
         echo "Python version: ${{ github.event.inputs.pythonVersion }}"
         echo "Run count: ${{ github.event.inputs.runCount }}"
         echo "Decimal precision: ${{ github.event.inputs.decimalPrecision }}"
-        inputFilePath="${{ github.event.inputs.cryptographyScheme }}"
+        inputFilePath="${{ matrix.cryptographyScheme }}"
         outputFilePath="$(echo "${inputFilePath}" | sed "s/\.[^.]*\$/-Python${{ github.event.inputs.pythonVersion }}-r${{github.event.inputs.runCount}}-HKT$(date '+%Y%m%d%H%M%S')${{ github.event.inputs.outputFormat }}/g")"
-        outputFileName="$(basename "${outputFilePath}")"
         echo "outputFilePath=${outputFilePath}" >> ${GITHUB_OUTPUT}
-        echo "outputFileName=${outputFileName}" >> ${GITHUB_OUTPUT}
+        echo "outputFileName=$(basename "${outputFilePath}")" >> ${GITHUB_OUTPUT}
       env:
         TZ: 'Asia/Hong_Kong'
     
@@ -148,12 +141,12 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         echo "The current working directory is \"$(pwd)\". "
-        if [[ -f "${{ github.event.inputs.cryptographyScheme }}" ]];
+        if [[ -f "${{ matrix.cryptographyScheme }}" ]];
         then
-          echo "\$ python \"${{ github.event.inputs.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFilePath }}\" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 -y"
-          python "${{ github.event.inputs.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 y
+          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 -y"
+          python "${{ matrix.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ github.event.inputs.runCount }} -p ${{ github.event.inputs.decimalPrecision }} -t 0 y
         else
-          echo "Could not execute the cryptography scheme file \"${{ github.event.inputs.cryptographyScheme }}\" via Python. "
+          echo "Could not execute the cryptography scheme file \"${{ matrix.cryptographyScheme }}\" via Python ${{ github.event.inputs.pythonVersion }}. "
           tree
         fi
     
