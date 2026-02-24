@@ -100,7 +100,28 @@ jobs:
       id: ready
       run: |
         cd "${{ github.workspace }}"
-        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
+        if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=0
+        elif [[ "ms" == "${decimalPlaceString}" || "millisecond" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=3
+        elif [[ "microsecond" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=6
+        elif [[ "ns" == "${decimalPlaceString}" || "nanosecond" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=9
+        elif [[ "ps" == "${decimalPlaceString}" || "picosecond" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=12
+        elif [[ "fs" == "${decimalPlaceString}" || "femtosecond" == "${decimalPlaceString}" ]];
+        then
+          decimalPlace=15
+        else
+          echo "decimalPlace=${decimalPlace}" >> ${GITHUB_OUTPUT}
+        fi
+        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
         outputFileName="$(basename "${outputFilePath}")"
         echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
         echo "Output format: ${outputFormat}"
@@ -108,37 +129,17 @@ jobs:
         echo "Output file name: ${outputFileName}"
         echo "Python version: ${pythonVersion}"
         echo "Run count: ${runCount}"
-        echo "Decimal place: ${decimalPlace}"
+        echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
         echo "outputFilePath=${outputFilePath}" >> ${GITHUB_OUTPUT}
         echo "outputFileName=${outputFileName}" >> ${GITHUB_OUTPUT}
         echo "pythonVersion=${pythonVersion}" >> ${GITHUB_OUTPUT}
         echo "runCount=${runCount}" >> ${GITHUB_OUTPUT}
-        if [[ "s" == "${decimalPlace}" || "second" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=0" >> ${GITHUB_OUTPUT}
-        elif [[ "ms" == "${decimalPlace}" || "millisecond" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=3" >> ${GITHUB_OUTPUT}
-        elif [[ "microsecond" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=6" >> ${GITHUB_OUTPUT}
-        elif [[ "ns" == "${decimalPlace}" || "nanosecond" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=9" >> ${GITHUB_OUTPUT}
-        elif [[ "ps" == "${decimalPlace}" || "picosecond" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=12" >> ${GITHUB_OUTPUT}
-        elif [[ "fs" == "${decimalPlace}" || "femtosecond" == "${decimalPlace}" ]];
-        then
-          echo "decimalPlace=15" >> ${GITHUB_OUTPUT}
-        else
-          echo "decimalPlace=${decimalPlace}" >> ${GITHUB_OUTPUT}
-        fi
+        echo "decimalPlace=${decimalPlaceString}" >> ${GITHUB_OUTPUT}
       env:
         outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
         pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
         runCount: ${{ github.event.inputs.runCount || 10 }}
-        decimalPlace: ${{ github.event.inputs.decimalPlace || '9' }}
+        decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
         TZ: 'Asia/Hong_Kong'
     
     - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
@@ -150,7 +151,7 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
-        sudo apt-get install -y build-essential libgmp-dev libssl-dev wget
+        sudo apt-get install -y build-essential flex libgmp-dev libssl-dev wget
     
     - name: Build and install the PBC library
       run: |
