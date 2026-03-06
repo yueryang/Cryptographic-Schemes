@@ -3,6 +3,41 @@ name: Run Python
 on:
   workflow_dispatch:
     inputs:
+      runSchemeAAIBME:
+        description: 'SchemeAAIBME'
+        required: false
+        default: false
+        type: boolean
+      runSchemeCANIFPPCT:
+        description: 'SchemeCANIFPPCT'
+        required: false
+        default: false
+        type: boolean
+      runSchemeHIBME:
+        description: 'SchemeHIBME'
+        required: false
+        default: true
+        type: boolean
+      runSchemeIBMEMR:
+        description: 'SchemeIBMEMR'
+        required: false
+        default: true
+        type: boolean
+      runSchemeIBMETR:
+        description: 'SchemeIBMETR'
+        required: false
+        default: true
+        type: boolean
+      runSchemeIBPRME:
+        description: 'SchemeIBPRME'
+        required: false
+        default: true
+        type: boolean
+      runSchemeVLPSICA:
+        description: 'SchemeVLPSICA'
+        required: false
+        default: false
+        type: boolean
       outputFormat:
         description: 'Output format'
         required: true
@@ -69,26 +104,77 @@ on:
       - main
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    
+    steps:
+      - name: Prepare the matrix
+        id: matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]];
+          then
+            runSchemeAAIBME="${{ github.event.inputs.runSchemeAAIBME }}"
+            runSchemeCANIFPPCT="${{ github.event.inputs.runSchemeCANIFPPCT }}"
+            runSchemeHIBME="${{ github.event.inputs.runSchemeHIBME }}"
+            runSchemeIBMEMR="${{ github.event.inputs.runSchemeIBMEMR }}"
+            runSchemeIBMETR="${{ github.event.inputs.runSchemeIBMETR }}"
+            runSchemeIBPRME="${{ github.event.inputs.runSchemeIBPRME }}"
+            runSchemeVLPSICA="${{ github.event.inputs.runSchemeVLPSICA }}"
+          else
+            runSchemeAAIBME="false"
+            runSchemeCANIFPPCT="false"
+            runSchemeHIBME="true"
+            runSchemeIBMEMR="true"
+            runSchemeIBMETR="true"
+            runSchemeIBPRME="true"
+            runSchemeVLPSICA="false"
+          fi
+          matrix=()
+          if [[ "true" == "${runSchemeAAIBME}" ]];
+          then
+            matrix+=("SchemeAAIBME/SchemeAAIBME.py" "SchemeAAIBME/SchemeFuzzyME.py")
+          fi
+          if [[ "true" == "${runSchemeCANIFPPCT}" ]];
+          then
+            matrix+=("SchemeCANIFPPCT/SchemeCANIFPPCT.py")
+          fi
+          if [[ "true" == "${runSchemeHIBME}" ]];
+          then
+            matrix+=("SchemeHIBME/SchemeAnonymousME.py" "SchemeHIBME/SchemeHIBME.py")
+          fi
+          if [[ "true" == "${runSchemeIBMEMR}" ]];
+          then
+            matrix+=("SchemeIBMEMR/SchemeIBBME.py" "SchemeIBMETR/SchemeIBME.py" "SchemeIBMEMR/SchemeIBMEMR.py")
+          fi
+          if [[ "true" == "${runSchemeIBMETR}" ]];
+          then
+            matrix+=("SchemeIBMETR/SchemeAIBE.py" "SchemeIBMETR/SchemeARES.py" "SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBMETR/SchemeIBMETR.py")
+          fi
+          if [[ "true" == "${runSchemeIBPRME}" ]];
+          then
+            matrix+=("SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBPRME/SchemeIBPME.py" "SchemeIBPRME/SchemeIBPRME.py" "SchemeIBPRME/SchemePBAC.py")
+          fi
+          if [[ "true" == "${runSchemeVLPSICA}" ]];
+          then
+            matrix+=("SchemeVLPSICA/SchemeVLPSICA.py")
+          fi
+          if [[ ${#matrix[@]} -ge 1 ]];
+          then
+            echo "matrix=$(printf '%s\n' "${matrix[@]}" | jq -R . | jq -s -c 'unique')" >> "${GITHUB_OUTPUT}"
+          else
+            echo "matrix=[]" >> "${GITHUB_OUTPUT}"
+          fi
+  
   runPython:
+    if: needs.prepare.outputs.matrix != '[]'
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        cryptographyScheme:
-          - 'SchemeAAIBME/SchemeFuzzyME.py'
-          - 'SchemeHIBME/SchemeAnonymousME.py'
-          - 'SchemeHIBME/SchemeHIBME.py'
-          - 'SchemeIBMEMR/SchemeIBBME.py'
-          - 'SchemeIBMEMR/SchemeIBMEMR.py'
-          - 'SchemeIBMETR/SchemeAIBE.py'
-          - 'SchemeIBMETR/SchemeARES.py'
-          - 'SchemeIBMETR/SchemeIBME.py'
-          - 'SchemeIBMETR/SchemeIBMECH.py'
-          - 'SchemeIBMETR/SchemeIBMETR.py'
-          - 'SchemeIBPRME/SchemeIBPME.py'
-          - 'SchemeIBPRME/SchemeIBPRME.py'
-          - 'SchemeIBPRME/SchemePBAC.py'
-          - 'SchemeVLPSICA/SchemeVLPSICA.py'
+        cryptographyScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     
     steps:
     - name: Checkout code
@@ -128,11 +214,11 @@ jobs:
         echo "Python version: ${pythonVersion}"
         echo "Run count: ${runCount}"
         echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
-        echo "outputFilePath=${outputFilePath}" >> ${GITHUB_OUTPUT}
-        echo "outputFileName=${outputFileName}" >> ${GITHUB_OUTPUT}
-        echo "pythonVersion=${pythonVersion}" >> ${GITHUB_OUTPUT}
-        echo "runCount=${runCount}" >> ${GITHUB_OUTPUT}
-        echo "decimalPlace=${decimalPlaceString}" >> ${GITHUB_OUTPUT}
+        echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
+        echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
+        echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
+        echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
+        echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
       env:
         outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
         pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}

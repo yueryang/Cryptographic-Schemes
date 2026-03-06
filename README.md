@@ -1,6 +1,6 @@
 # Cryptography Schemes
 
-This repository stores multiple pairing-based cryptography schemes with their baselines, which are implemented based on the PBC library and its branches. 
+This repository stores multiple pairing-based cryptography schemes with their baselines, which are implemented based on the PBC library and its variants. 
 
 All the programming and experiments are conducted under the Ubuntu (24.04.1 LTS) operating system (WSL). 
 
@@ -16,7 +16,7 @@ This section will first introduce the implementation and computation details. Su
 
 ### 1.1 Implementation details
 
-Most cryptography schemes are implemented via the Python programming language. Please deploy the Python (3.x) and the Python charm library environments correctly. Please try to keep the Python charm library up to date. 
+Most cryptography schemes are implemented via the Python programming language. Please deploy the Python 3.10 or above and the Python charm library environments correctly. Please try to keep the Python charm library up to date. 
 
 A possible Python charm environment configuration tutorial in Chinese can be viewed at [https://blog.csdn.net/weixin_45726033/article/details/144254189](https://blog.csdn.net/weixin_45726033/article/details/144254189) if necessary. If you are a Chinese beginner, [https://blog.csdn.net/weixin_45726033/article/details/144822018](https://blog.csdn.net/weixin_45726033/article/details/144822018) may be helpful. 
 
