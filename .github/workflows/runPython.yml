@@ -277,8 +277,8 @@ jobs:
         fi
     
     - name: Upload results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
-        name: ${{ steps.ready.outputs.outputFileName }}
+        name: ${{ steps.ready.outputs.outputFileName }}.zip
         path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
         if-no-files-found: error
