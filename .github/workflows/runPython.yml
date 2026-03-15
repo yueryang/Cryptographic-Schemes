@@ -1,5 +1,7 @@
 name: Run Python
 
+# Thanks to [https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml](https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml). 
+
 on:
   workflow_dispatch:
     inputs:
@@ -134,7 +136,7 @@ jobs:
           matrix=()
           if [[ "true" == "${runSchemeAAIBME}" ]];
           then
-            matrix+=("SchemeAAIBME/SchemeAAIBME.py" "SchemeAAIBME/SchemeFuzzyME.py")
+            matrix+=("SchemeAAIBME/SchemeAAIBME.py" "SchemeAAIBME/SchemeFuzzyME.py" "SchemeIBMETR/SchemeIBMECH.py")
           fi
           if [[ "true" == "${runSchemeCANIFPPCT}" ]];
           then
@@ -174,11 +176,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cryptographyScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
+        cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Get ready
       id: ready
@@ -205,9 +207,9 @@ jobs:
         else
           decimalPlace=${decimalPlaceString}
         fi
-        outputFilePath="$(echo "${{ matrix.cryptographyScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
+        outputFilePath="$(echo "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
         outputFileName="$(basename "${outputFilePath}")"
-        echo "Cryptography scheme: ${{ matrix.cryptographyScheme }}"
+        echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
         echo "Output format: ${outputFormat}"
         echo "Output file path: ${outputFilePath}"
         echo "Output file name: ${outputFileName}"
@@ -260,25 +262,25 @@ jobs:
         make -j$(nproc)
         sudo make install
     
-    - name: Run the cryptography scheme
+    - name: Run the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
         echo "The current working directory is \"$(pwd)\". "
-        if [[ -f "${{ matrix.cryptographyScheme }}" ]];
+        if [[ -f "${{ matrix.cryptographicScheme }}" ]];
         then
-          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -h"
-          python "${{ matrix.cryptographyScheme }}" -h
+          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -h"
+          python "${{ matrix.cryptographicScheme }}" -h
           echo ""
-          echo "\$ python \"${{ matrix.cryptographyScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
-          python "${{ matrix.cryptographyScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 y
+          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
+          python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 y
         else
-          echo "Could not execute the cryptography scheme file \"${{ matrix.cryptographyScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
+          echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
           tree
         fi
     
-    - name: Upload results
-      uses: actions/upload-artifact@v6
+    - name: Upload the result
+      uses: actions/upload-artifact@v7
       with:
-        name: ${{ steps.ready.outputs.outputFileName }}.zip
         path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
+        archived: false
         if-no-files-found: error

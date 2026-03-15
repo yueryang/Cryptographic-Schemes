@@ -51,7 +51,7 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the CA-NI-FPPCT cryptography scheme in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the CA-NI-FPPCT cryptographic scheme in Python programming language based on the Python charm library. \n")
 		print("Options (not case-sensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))

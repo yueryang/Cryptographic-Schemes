@@ -1,10 +1,10 @@
 ## SchemeHIBME
 
-This is the category of the proposed HIB-ME cryptography scheme, which outperforms the baseline, the AnonymousME cryptography scheme. 
+This is the category of the proposed HIB-ME cryptographic scheme, which outperforms the baseline, the AnonymousME cryptographic scheme. 
 
 ### ``SchemeHIBME.py``
 
-This is the official implementation of the HIB-ME cryptography scheme in Python programming language based on the Python charm library. 
+This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python charm library. 
 
 #### Discussion
 
@@ -18,8 +18,8 @@ Consequently, when $n$ grows with the variables $l$ and $m$ fixed, the curve in 
 
 ### ``SchemeAnonymousME.py``
 
-This is the official implementation of the AnonymousME cryptography scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python charm library. 
+This is the official implementation of the AnonymousME cryptographic scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python charm library. 
 
 #### Discussion
 
-It is interesting to note that the AnonymousME cryptography scheme can remain correct while the HIB-ME cryptography scheme cannot when $g$ is set to a random element of $\mathbb{G}_1$ instead of a generator of it. 
+It is interesting to note that the AnonymousME cryptographic scheme can remain correct while the HIB-ME cryptographic scheme cannot when $g$ is set to a random element of $\mathbb{G}_1$ instead of a generator of it. 

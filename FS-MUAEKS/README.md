@@ -1,6 +1,6 @@
 ## FS-MUAEKS
 
-This is the official implementation of the FS-MUAEKS cryptography scheme (``Lattice-based Forward Secure Multi-user Authenticated Searchable Encryption for Cloud Storage Systems``) in Python programming language. 
+This is the official implementation of the FS-MUAEKS cryptographic scheme (``Lattice-based Forward Secure Multi-user Authenticated Searchable Encryption for Cloud Storage Systems``) in Python programming language. 
 
 ### Option
 

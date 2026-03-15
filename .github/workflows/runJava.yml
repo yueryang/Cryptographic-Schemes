@@ -5,8 +5,8 @@ name: Run Java
 on:
   workflow_dispatch:
     inputs:
-      cryptographyScheme:
-        description: 'Cryptography scheme'
+      cryptographicScheme:
+        description: 'Cryptographic scheme'
         required: true
         default: './SchemeAAIBME/SchemeAAIBME.java'
         type: choice
@@ -19,7 +19,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Deploy Java
       run: |
@@ -30,12 +30,12 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         echo "The current working directory is \"$(pwd)\". "
-        if [[ -f "${{ github.event.inputs.cryptographyScheme }}" ]];
+        if [[ -f "${{ github.event.inputs.cryptographicScheme }}" ]];
         then
-          echo "\$ java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar \"${{ github.event.inputs.cryptographyScheme }}\""
-          java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar "${{ github.event.inputs.cryptographyScheme }}"
+          echo "\$ java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar \"${{ github.event.inputs.cryptographicScheme }}\""
+          java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar "${{ github.event.inputs.cryptographicScheme }}"
         else
-          echo "Could not execute the cryptography scheme file \"${{ github.event.inputs.cryptographyScheme }}\" via Java. "
+          echo "Could not execute the cryptographic scheme file \"${{ github.event.inputs.cryptographicScheme }}\" via Java. "
           tree
           exit 1
         fi

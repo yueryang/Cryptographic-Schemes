@@ -1,6 +1,6 @@
 ## LB-PEAKS
 
-This is the official implementation of the LB-PEAKS cryptography scheme (``Post-Quantum Searchable Encryption Supporting User-Authorization for Outsourced Data Management``) in Python programming language. 
+This is the official implementation of the LB-PEAKS cryptographic scheme (``Post-Quantum Searchable Encryption Supporting User-Authorization for Outsourced Data Management``) in Python programming language. 
 
 ### Option
 
