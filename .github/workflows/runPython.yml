@@ -282,5 +282,5 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
-        archived: false
+        archive: false
         if-no-files-found: error
