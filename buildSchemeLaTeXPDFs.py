@@ -18,12 +18,13 @@ class Builder:
 		self.__schemeFilePath = schemeFilePath
 		if isinstance(schemeFilePath, str):
 			self.__targetFolderPath = os.path.splitext(self.__schemeFilePath)[0] + "LaTeX"
-			mainFileName = os.path.splitext(os.path.split(self.__schemeFilePath)[1])[0]
-			self.__schemeLaTeXFilePath = os.path.join(self.__targetFolderPath, mainFileName + ".tex")
-			self.__schemePDFFilePath = os.path.join(self.__targetFolderPath, mainFileName + ".pdf")
+			self.__mainFileName = os.path.splitext(os.path.split(self.__schemeFilePath)[1])[0]
+			self.__schemeLaTeXFilePath = os.path.join(self.__targetFolderPath, self.__mainFileName + ".tex")
+			self.__schemePDFFilePath = os.path.join(self.__targetFolderPath, self.__mainFileName + ".pdf")
 			self.__flag = 1
 		else:
 			self.__targetFolderPath = None
+			self.__mainFileName = None
 			self.__schemeLaTeXFilePath = None
 			self.__schemePDFFilePath = None
 			self.__flag = 0
@@ -97,7 +98,7 @@ class Builder:
 			try:
 				startTime = perf_counter()
 				print(self.__schemeLaTeXFilePath)
-				result = run(("pdflatex", self.__schemeLaTeXFilePath), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout)
+				result = run(("pdflatex", self.__mainFileName + ".tex"), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout, cwd = self.__targetFolderPath)
 				endTime = perf_counter()
 				if EXIT_SUCCESS == result.returncode:
 					self.__compilationResult = endTime - startTime
