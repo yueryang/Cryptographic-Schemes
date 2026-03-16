@@ -169,7 +169,6 @@ class Builders:
 		if isinstance(isSilent, bool) and isSilent:
 			for builder in self.__builders:
 				builder.generate()
-				os.system("tree")
 				builder.compile()
 				if builder.getFlag() >= 3:
 					successCount += 1
