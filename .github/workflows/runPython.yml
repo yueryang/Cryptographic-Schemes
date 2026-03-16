@@ -250,8 +250,8 @@ jobs:
     - name: Generate LaTeX for the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
-        echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
-        python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}" -t 0
+        echo "\$ echo \"\" | python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
+        echo "" | python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
     
     - name: Upload the scheme LaTeX
       uses: actions/upload-artifact@v7

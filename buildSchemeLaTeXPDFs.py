@@ -97,7 +97,6 @@ class Builder:
 		if self.__flag >= 2:
 			try:
 				startTime = perf_counter()
-				print(self.__schemeLaTeXFilePath)
 				result = run(("pdflatex", self.__mainFileName + ".tex"), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout, cwd = self.__targetFolderPath)
 				endTime = perf_counter()
 				if EXIT_SUCCESS == result.returncode:
