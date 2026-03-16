@@ -207,8 +207,12 @@ jobs:
         else
           decimalPlace=${decimalPlaceString}
         fi
-        outputFilePath="$(echo "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$/-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}/g")"
+	folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
+	mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
+	outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}"
         outputFileName="$(basename "${outputFilePath}")"
+        schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}.tex"
+	schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}.pdf"
         echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
         echo "Output format: ${outputFormat}"
         echo "Output file path: ${outputFilePath}"
@@ -216,11 +220,15 @@ jobs:
         echo "Python version: ${pythonVersion}"
         echo "Run count: ${runCount}"
         echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
+        echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
+        echo "Scheme PDF file path: ${schemePDFFilePath}"
         echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
         echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
         echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
         echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
         echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
+        echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
+        echo "schemePDFFilePath=${schemePDFFilePath}" >> "${GITHUB_OUTPUT}"
       env:
         outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
         pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
@@ -237,7 +245,27 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
-        sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev wget
+        sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev texlive-base wget
+    
+    - name: Generate LaTeX for the cryptographic scheme
+      run: |
+        cd "${{ github.workspace }}"
+        echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
+        python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}" -t 0
+    
+    - name: Upload the scheme LaTeX
+      uses: actions/upload-artifact@v7
+      with:
+        path: ${{ github.workspace }}/${{ steps.ready.outputs.schemeLaTeXFilePath }}
+        archive: false
+        if-no-files-found: warn
+    
+    - name: Upload the scheme PDF
+      uses: actions/upload-artifact@v7
+      with:
+        path: ${{ github.workspace }}/${{ steps.ready.outputs.schemePDFFilePath }}
+        archive: false
+        if-no-files-found: warn
     
     - name: Build and install the PBC library
       run: |

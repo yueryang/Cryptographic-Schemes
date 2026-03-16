@@ -840,9 +840,9 @@ def main() -> int:
 						results.append(averages)
 						saver.save(results)
 		except KeyboardInterrupt:
-			print("\nThe experiments were interrupted by users. Saved results are retained. ")
+			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:
-			print("The experiments were interrupted by the following exceptions. Saved results are retained. \n\t{0}".format(e))
+			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 		errorLevel = EXIT_SUCCESS if results and all(all(																								\
 			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
 		) for result in results) else EXIT_FAILURE

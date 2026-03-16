@@ -794,7 +794,7 @@ class SchemeAAIBME:
 		) # $K'_s \gets \prod\limits_{i \in I} \left(\right)^{\Delta(i, j, 0)}$
 		SPrimePrimeSet = set(SPrimePrime)
 		if SPrimePrimeSet.intersection(S) >= self.__d and SPrimePrimeSet.intersection(SPrime) >= self.__d: # \textbf{if} $|S \cap S'| \leqslant d \land |S' \cap S''| \leqslant d$ \textbf{then}
-			M = C * KsPrime * KlPrime # quad$M \gets C \cdot K'_s \cdot K'_l$
+			M = C * KsPrime * KlPrime # \quad$M \gets C \cdot K'_s \cdot K'_l$
 		else: # \textbf{else}
 			M = False # \quad$M \gets \perp$
 		# \textbf{end if}
@@ -962,9 +962,9 @@ def main() -> int:
 						results.append(averages)
 						saver.save(results)
 		except KeyboardInterrupt:
-			print("\nThe experiments were interrupted by users. Saved results are retained. ")
-		except BaseException as e:
-			print("The experiments were interrupted by the following exceptions. Saved results are retained. \n\t{0}".format(e))
+			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
+		#except BaseException as e:
+		#	print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 		errorLevel = EXIT_SUCCESS if results and all(all(																								\
 			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
 		) for result in results) else EXIT_FAILURE
