@@ -229,7 +229,7 @@ jobs:
         TZ: 'Asia/Hong_Kong'
     
     - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ steps.ready.outputs.pythonVersion }}
     

@@ -23,9 +23,11 @@ class GitPusher:
 				self.__gitFlag = True
 				print("Successfully initialized ``git``. ")
 			else:
-				print("Failed to initialize ``git``. \n\t{0}".format(result))
+				print("Failed to initialize ``git`` due to {0}. ".format(result))
+		except KeyboardInterrupt:
+			print(os.linesep + "Failed to initialize ``git`` due to KeyboardInterrupt. ")
 		except BaseException as e:
-			print("Failed to initialize ``git``. \n\t{0}".format("KeyboardInterrupt" if isinstance(e, KeyboardInterrupt) else e))
+			print("Failed to initialize ``git`` due to {0}. ".format(repr(e)))
 		return self.__gitFlag
 	def push(self:object) -> bool:
 		if self.__gitFlag:
@@ -34,30 +36,30 @@ class GitPusher:
 			result = run(("git", "add", "."), capture_output = True, text = True, cwd = self.__localRepositoryPath)
 			if EXIT_SUCCESS == result.returncode and not result.stdout and not result.stderr:
 				result = run(("git", "commit", "-m", commitMessage), capture_output = True, text = True, cwd = self.__localRepositoryPath)
-				print(result.stdout.replace("nothing to commit, working tree clean", "").rstrip())
 				if EXIT_SUCCESS == result.returncode or EXIT_FAILURE == result.returncode and "(use \"git push\" to publish your local commits)" in result.stdout:
+					print(result.stdout.replace("nothing to commit, working tree clean", "").rstrip())
 					try:
 						result = run(("git", "push"), cwd = self.__localRepositoryPath)
 					except KeyboardInterrupt:
-						print("\nFailed to execute \"git push\" due to KeyboardInterrupt. ")
+						print(os.linesep + "Failed to execute ``git push`` due to KeyboardInterrupt. ")
 						return False
 					except BaseException as e:
-						print("Failed to execute \"git push\". \n\t{0}".format(e))
+						print("Failed to execute ``git push`` due to {0}. ".format(repr(e)))
 						return False
 					if EXIT_SUCCESS == result.returncode:
 						print("Successfully pushed to GitHub. ")
 						return True
 					else:
-						print("Failed to execute \"git push\". \n\t{0}".format(result))
+						print("Failed to execute ``git push`` due to {0}. ".format(result))
 						return False
-				elif "nothing to commit, working tree clean" in result.stdout:
+				elif EXIT_FAILURE == result.returncode and "nothing to commit, working tree clean" in result.stdout:
 					print("Nothing to commit or push, the working tree is clean. ")
 					return True
 				else:
-					print("Failed to execute \"git commit -m \"{0}\". \n\t{1}".format(commitMessage, result))
+					print("Failed to execute ``git commit -m \"{0}\"`` due to {1}. ".format(commitMessage, result))
 					return False
 			else:
-				print("Failed to execute \"git add .\". \n\t{0}".format(result))
+				print("Failed to execute ``git add .`` due to {0}. ".format(result))
 				return False
 		else:
 			print("Please correctly deploy ``git`` on the device and run the ``.initialize`` method function before running the ``.push`` method function. ")
