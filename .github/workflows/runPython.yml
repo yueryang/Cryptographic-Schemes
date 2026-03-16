@@ -247,20 +247,20 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
     
-    - name: Generate LaTeX for the cryptographic scheme
+    - name: Build LaTeX and the PDF for the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
         echo "\$ echo \"\" | python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
         echo "" | python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
     
-    - name: Upload the scheme LaTeX
+    - name: Upload the LaTeX source code for the cryptographic scheme
       uses: actions/upload-artifact@v7
       with:
         path: ${{ github.workspace }}/${{ steps.ready.outputs.schemeLaTeXFilePath }}
         archive: false
         if-no-files-found: warn
     
-    - name: Upload the scheme PDF
+    - name: Upload the PDF for the cryptographic scheme
       uses: actions/upload-artifact@v7
       with:
         path: ${{ github.workspace }}/${{ steps.ready.outputs.schemePDFFilePath }}
