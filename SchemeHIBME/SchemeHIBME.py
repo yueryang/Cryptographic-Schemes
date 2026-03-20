@@ -902,40 +902,43 @@ class SchemeHIBME:
 		
 		# Return #
 		return M # \textbf{return} $M$
-	def getLengthOf(self:object, obj:Element|tuple|list|set|bytes|int) -> int:
+	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
-		elif isinstance(obj, (tuple, list, set)):
-			sizes = tuple(self.getLengthOf(o) for o in obj)
-			return -1 if -1 in sizes else sum(sizes)
-		elif isinstance(obj, bytes):
-			return len(obj)
 		elif isinstance(obj, int) or callable(obj):
 			return (self.__group.secparam + 7) >> 3
+		elif isinstance(obj, bytes):
+			return len(obj)
+		elif isinstance(obj, (tuple, list, set)):
+			sizes = tuple(self.getLengthOf(o) for o in obj)
+			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
+		elif isinstance(obj, dict):
+			sizes = tuple(self.getLengthOf(value) for value in obj.values())
+			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
-			return -1
+			return "N/A"
 
 
-def conductScheme(curveType:tuple|list|str, l:int = 30, m:int = 20, n:int = 10, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|str, l:int = 30, m:int = 20, n:int = 10, run:int|None = None) -> list:
 	# Begin #
 	if isinstance(l, int) and isinstance(m, int) and isinstance(n, int) and 2 <= m < l and 2 <= n < l: # no need to check the parameters for curve types here
 		try:
-			if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-				if curveType[1] >= 1:
-					group = PairingGroup(curveType[0], secparam = curveType[1])
+			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+				if curveParameter[1] >= 1:
+					group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
 				else:
-					group = PairingGroup(curveType[0])
+					group = PairingGroup(curveParameter[0])
 			else:
-				group = PairingGroup(curveType)
+				group = PairingGroup(curveParameter)
 		except BaseException as e:
-			if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-				print("curveType =", curveType[0])
-				if curveType[1] >= 1:
-					print("secparam =", curveType[1])
-			elif isinstance(curveType, str):
-				print("curveType =", curveType)
+			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+				print("curveParameter =", curveParameter[0])
+				if curveParameter[1] >= 1:
+					print("secparam =", curveParameter[1])
+			elif isinstance(curveParameter, str):
+				print("curveParameter =", curveParameter)
 			else:
-				print("curveType = Unknown")
+				print("curveParameter = Unknown")
 			print("l =", l)
 			print("m =", m)
 			print("n =", n)
@@ -943,16 +946,16 @@ def conductScheme(curveType:tuple|list|str, l:int = 30, m:int = 20, n:int = 10, 
 				print("run =", run)
 			print("Is the system valid? No. \n\t{0}".format(e))
 			return (																																														\
-				([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [curveType if isinstance(curveType, str) else None, None])		\
+				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
 				+ [l, m, n, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 18																												\
 			)
 	else:
 		print("Is the system valid? No. The parameters $l$, $m$, and $n$ should be three positive integers satisfying $2 \\leqslant m < l \\land 2 \\leqslant n < l$. ")
 		return (																																														\
-			([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [curveType if isinstance(curveType, str) else None, None])		\
+			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
 			+ [l if isinstance(l, int) else None, m if isinstance(m, int) else None, n if isinstance(n, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 18											\
 		)
-	print("curveType =", group.groupType())
+	print("curveParameter =", group.groupType())
 	print("secparam =", group.secparam)
 	print("l =", l)
 	print("m =", m)
@@ -1041,8 +1044,8 @@ def main() -> int:
 		del parser
 		
 		# Parameters #
-		curveTypes = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveType", "secparam", "l", "m", "n", "runCount")
+		curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+		queries = ("curveParameter", "secparam", "l", "m", "n", "runCount")
 		validators = ("isSystemValid", "isDeriverPassed", "isSchemeCorrect")
 		metrics = (																									\
 			"Setup (s)", "EKGen (s)", "DerivedEKGen (s)", "DKGen (s)", "DerivedDKGen (s)", "Enc (s)", "Dec (s)", 	\
@@ -1055,13 +1058,13 @@ def main() -> int:
 		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
 		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 		try:
-			for curveType in curveTypes:
+			for curveParameter in curveParameters:
 				for l in range(10, 31, 5):
 					for m in range(5, l, 5):
 						for n in range(5, l, 5):
-							averages = conductScheme(curveType, l = l, m = m, n = n, run = 1)
+							averages = conductScheme(curveParameter, l = l, m = m, n = n, run = 1)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveType, l = l, m = m, n = n, run = run)
+								result = conductScheme(curveParameter, l = l, m = m, n = n, run = run)
 								for idx in range(qLength, qvLength):
 									averages[idx] += result[idx]
 								for idx in range(qvLength, length):

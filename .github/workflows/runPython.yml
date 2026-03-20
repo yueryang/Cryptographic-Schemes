@@ -8,7 +8,7 @@ on:
       runSchemeAAIBME:
         description: 'SchemeAAIBME'
         required: false
-        default: false
+        default: true
         type: boolean
       runSchemeCANIFPPCT:
         description: 'SchemeCANIFPPCT'
@@ -125,7 +125,7 @@ jobs:
             runSchemeIBPRME="${{ github.event.inputs.runSchemeIBPRME }}"
             runSchemeVLPSICA="${{ github.event.inputs.runSchemeVLPSICA }}"
           else
-            runSchemeAAIBME="false"
+            runSchemeAAIBME="true"
             runSchemeCANIFPPCT="false"
             runSchemeHIBME="true"
             runSchemeIBMEMR="true"
@@ -209,10 +209,11 @@ jobs:
         fi
         folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
         mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
-        outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-HKT$(date '+%Y%m%d%H%M%S')${outputFormat}"
+        timeString="HKT$(date '+%Y%m%d%H%M%S')"
+        outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-${timeString}${outputFormat}"
         outputFileName="$(basename "${outputFilePath}")"
-        schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}.tex"
-        schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}.pdf"
+        schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
+        schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
         echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
         echo "Output format: ${outputFormat}"
         echo "Output file path: ${outputFilePath}"

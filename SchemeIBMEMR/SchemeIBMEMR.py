@@ -828,56 +828,59 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return y # \textbf{return} $y$
-	def getLengthOf(self:object, obj:Element|tuple|list|set|bytes|int) -> int:
+	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
-		elif isinstance(obj, (tuple, list, set)):
-			sizes = tuple(self.getLengthOf(o) for o in obj)
-			return -1 if -1 in sizes else sum(sizes)
-		elif isinstance(obj, bytes):
-			return len(obj)
 		elif isinstance(obj, int) or callable(obj):
 			return (self.__group.secparam + 7) >> 3
+		elif isinstance(obj, bytes):
+			return len(obj)
+		elif isinstance(obj, (tuple, list, set)):
+			sizes = tuple(self.getLengthOf(o) for o in obj)
+			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
+		elif isinstance(obj, dict):
+			sizes = tuple(self.getLengthOf(value) for value in obj.values())
+			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
-			return -1
+			return "N/A"
 
 
-def conductScheme(curveType:tuple|list|str, d:int = 30, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|str, d:int = 30, run:int|None = None) -> list:
 	# Begin #
 	if isinstance(d, int) and d >= 1: # no need to check the parameters for curve types here
 		try:
-			if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-				if curveType[1] >= 1:
-					group = PairingGroup(curveType[0], secparam = curveType[1])
+			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+				if curveParameter[1] >= 1:
+					group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
 				else:
-					group = PairingGroup(curveType[0])
+					group = PairingGroup(curveParameter[0])
 			else:
-				group = PairingGroup(curveType)
+				group = PairingGroup(curveParameter)
 			pair(group.random(G1), group.random(G1))
 		except BaseException as e:
-			if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-				print("curveType =", curveType[0])
-				if curveType[1] >= 1:
-					print("secparam =", curveType[1])
-			elif isinstance(curveType, str):
-				print("curveType =", curveType)
+			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+				print("curveParameter =", curveParameter[0])
+				if curveParameter[1] >= 1:
+					print("secparam =", curveParameter[1])
+			elif isinstance(curveParameter, str):
+				print("curveParameter =", curveParameter)
 			else:
-				print("curveType = Unknown")
+				print("curveParameter = Unknown")
 			print("d =", d)
 			if isinstance(run, int) and run >= 1:
 				print("run =", run)
 			print("Is the system valid? No. \n\t{0}".format(e))
 			return (																																													\
-				([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [curveType if isinstance(curveType, str) else None, None])	\
+				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
 				+ [d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 16																										\
 			)
 	else:
 		print("Is the system valid? No. The parameter $d$ should be a positive integer. ")
 		return (																																														\
-			([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [curveType if isinstance(curveType, str) else None, None])		\
+			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
 			+ [d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 16																							\
 		)
-	print("curveType =", group.groupType())
+	print("curveParameter =", group.groupType())
 	print("secparam =", group.secparam)
 	print("d =", d)
 	if isinstance(run, int) and run >= 1:
@@ -959,8 +962,8 @@ def main() -> int:
 		del parser
 		
 		# Parameters #
-		curveTypes = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveType", "secparam", "d", "runCount")
+		curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+		queries = ("curveParameter", "secparam", "d", "runCount")
 		validators = ("isSystemValid", "isSchemeCorrect", "isTracingVerified")
 		metrics = (																								\
 			"Setup (s)", "EKGen (s)", "DKGen (s)", "TDKGen (s)", "Enc (s)", "Dec (s)", "ReceiverVerify (s)", 	\
@@ -973,11 +976,11 @@ def main() -> int:
 		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
 		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 		try:
-			for curveType in curveTypes:
+			for curveParameter in curveParameters:
 				for d in range(5, 31, 5):
-					averages = conductScheme(curveType, d = d, run = 1)
+					averages = conductScheme(curveParameter, d = d, run = 1)
 					for run in range(2, runCount + 1):
-						result = conductScheme(curveType, d = d, run = run)
+						result = conductScheme(curveParameter, d = d, run = run)
 						for idx in range(qLength, qvLength):
 							averages[idx] += result[idx]
 						for idx in range(qvLength, length):

@@ -823,33 +823,33 @@ class SchemeIBPME:
 			return -1
 
 
-def conductScheme(curveType:tuple|list|str, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|str, run:int|None = None) -> list:
 	# Begin #
 	try:
-		if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-			if curveType[1] >= 1:
-				group = PairingGroup(curveType[0], secparam = curveType[1])
+		if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+			if curveParameter[1] >= 1:
+				group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
 			else:
-				group = PairingGroup(curveType[0])
+				group = PairingGroup(curveParameter[0])
 		else:
-			group = PairingGroup(curveType)
+			group = PairingGroup(curveParameter)
 	except BaseException as e:
-		if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int):
-			print("curveType =", curveType[0])
-			if curveType[1] >= 1:
-				print("secparam =", curveType[1])
-		elif isinstance(curveType, str):
-			print("curveType =", curveType)
+		if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
+			print("curveParameter =", curveParameter[0])
+			if curveParameter[1] >= 1:
+				print("secparam =", curveParameter[1])
+		elif isinstance(curveParameter, str):
+			print("curveParameter =", curveParameter)
 		else:
-			print("curveType = Unknown")
+			print("curveParameter = Unknown")
 		if isinstance(run, int) and run >= 1:
 			print("run =", run)
 		print("Is the system valid? No. \n\t{0}".format(e))
 		return (																																														\
-			([curveType[0], curveType[1]] if isinstance(curveType, (tuple, list)) and len(curveType) == 2 and isinstance(curveType[0], str) and isinstance(curveType[1], int) else [curveType if isinstance(curveType, str) else None, None])		\
+			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
 			+ [run if isinstance(run, int) and run >= 1 else None] + [False] * 4 + ["N/A"] * 19																																	\
 		)
-	print("curveType =", group.groupType())
+	print("curveParameter =", group.groupType())
 	print("secparam =", group.secparam)
 	if isinstance(run, int) and run >= 1:
 		print("run =", run)
@@ -937,8 +937,8 @@ def main() -> int:
 		del parser
 		
 		# Parameters #
-		curveTypes = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveType", "secparam", "runCount")
+		curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+		queries = ("curveParameter", "secparam", "runCount")
 		validators = ("isSystemValid", "isProxyDecPassed", "isDec1Passed", "isDec2Passed")
 		metrics = (																									\
 			"Setup (s)", "SKGen (s)", "RKGen (s)", "PKGen (s)", "Enc (s)", "ProxyDec (s)", "Dec1 (s)", "Dec2 (s)", 	\
@@ -951,10 +951,10 @@ def main() -> int:
 		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
 		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 		try:
-			for curveType in curveTypes:
-				averages = conductScheme(curveType, run = 1)
+			for curveParameter in curveParameters:
+				averages = conductScheme(curveParameter, run = 1)
 				for run in range(2, runCount + 1):
-					result = conductScheme(curveType, run = run)
+					result = conductScheme(curveParameter, run = run)
 					for idx in range(qLength, qvLength):
 						averages[idx] += result[idx]
 					for idx in range(qvLength, length):

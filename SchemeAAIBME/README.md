@@ -2,8 +2,6 @@
 
 This is the category of the proposed AA-IB-ME cryptographic scheme, which outperforms the baselines, the Fuzzy-IB-ME, Fuzzy-ME, and IBMECH cryptographic schemes. 
 
-This category is still under development. 
-
 ### ``SchemeAAIBME.py``
 
 This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python charm library. 
