@@ -216,6 +216,7 @@ jobs:
         schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
         echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
         echo "Output format: ${outputFormat}"
+        echo "Time string: ${timeString}"
         echo "Output file path: ${outputFilePath}"
         echo "Output file name: ${outputFileName}"
         echo "Python version: ${pythonVersion}"
@@ -223,6 +224,7 @@ jobs:
         echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
         echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
         echo "Scheme PDF file path: ${schemePDFFilePath}"
+        echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
         echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
         echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
         echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
@@ -237,22 +239,24 @@ jobs:
         decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
         TZ: 'Asia/Hong_Kong'
     
-    - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ steps.ready.outputs.pythonVersion }}
-    
     - name: Install system dependencies
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
         sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
     
+    - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ steps.ready.outputs.pythonVersion }}
+    
     - name: Build LaTeX and the PDF for the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
         echo "\$ echo \"\" | python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
         echo "" | python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
+      env:
+        FORMATTER: '%p%s%mLaTeX%s%m-${{ steps.ready.outputs.timeString }}'
     
     - name: Upload the LaTeX source code for the cryptographic scheme
       uses: actions/upload-artifact@v7
@@ -282,14 +286,18 @@ jobs:
     - name: Build and install the Python charm library
       run: |
         cd "${{ github.workspace }}"
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
         git clone https://github.com/JHUISI/charm
         cd charm
         chmod +x ./configure.sh
         ./configure.sh
         make -j$(nproc)
         sudo make install
+    
+    - name: Install Python libraries for various output formats
+      run: |
+        cd "${{ github.workspace }}"
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
     
     - name: Run the cryptographic scheme
       run: |
@@ -301,7 +309,7 @@ jobs:
           python "${{ matrix.cryptographicScheme }}" -h
           echo ""
           echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
-          python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 y
+          python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y
         else
           echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
           tree

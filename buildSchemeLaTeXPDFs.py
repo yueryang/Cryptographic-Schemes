@@ -14,18 +14,17 @@ EOF = (-1)
 
 class Builder:
 	__DefaultCompilationTimeout = 10
-	def __init__(self:object, schemeFilePath:str) -> object:
+	def __init__(self:object, schemeFilePath:str, pathWithoutExtensions:str) -> object:
 		self.__schemeFilePath = schemeFilePath
-		if isinstance(schemeFilePath, str):
-			self.__targetFolderPath = os.path.splitext(self.__schemeFilePath)[0] + "LaTeX"
-			self.__mainFileName = os.path.splitext(os.path.split(self.__schemeFilePath)[1])[0]
-			self.__schemeLaTeXFilePath = os.path.join(self.__targetFolderPath, self.__mainFileName + ".tex")
-			self.__schemePDFFilePath = os.path.join(self.__targetFolderPath, self.__mainFileName + ".pdf")
+		if isinstance(self.__schemeFilePath, str) and isinstance(pathWithoutExtensions, str):
+			self.__schemeLaTeXFilePath = pathWithoutExtensions + ".tex"
+			self.__targetFolderPath, self.__schemeLaTeXFileName = os.path.split(self.__schemeLaTeXFilePath)
+			self.__schemePDFFilePath = pathWithoutExtensions + ".pdf"
 			self.__flag = 1
 		else:
-			self.__targetFolderPath = None
-			self.__mainFileName = None
 			self.__schemeLaTeXFilePath = None
+			self.__targetFolderPath = None
+			self.__schemeLaTeXFileName = None
 			self.__schemePDFFilePath = None
 			self.__flag = 0
 		self.__generationResult = None
@@ -97,7 +96,7 @@ class Builder:
 		if self.__flag >= 2:
 			try:
 				startTime = perf_counter()
-				result = run(("pdflatex", self.__mainFileName + ".tex"), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout, cwd = self.__targetFolderPath)
+				result = run(("pdflatex", self.__schemeLaTeXFileName), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout, cwd = self.__targetFolderPath)
 				endTime = perf_counter()
 				if EXIT_SUCCESS == result.returncode:
 					self.__compilationResult = endTime - startTime
@@ -108,60 +107,105 @@ class Builder:
 				self.__compilationResult = e
 	def getFlag(self:object) -> int:
 		return self.__flag
-	def getSchemeFilePath(self:object) -> str:
-		return self.__schemeFilePath
 	def getGenerationStatement(self:object) -> str:
 		if self.__flag >= 2:
-			return "Successfully generated the LaTeX source code for \"{0}\". The time consumption is {1:.9f} second(s). ".format(self.__schemeFilePath, self.__generationResult)
+			return "Successfully generated the LaTeX source code {0} for {1}. The time consumption is {2:.9f} second(s). ".format(
+				repr(self.__schemeLaTeXFilePath), repr(self.__schemeFilePath), self.__generationResult
+			)
 		elif self.__flag >= 1:
 			if self.__generationResult is None:
-				return "Please call the ``generate`` method function to generate the LaTeX source code for \"{0}\". ".format(self.__schemeFilePath)
+				return "Please call the ``generate`` method function to generate the LaTeX source code {0} for {1}. ".format(repr(self.__schemeLaTeXFilePath), repr(self.__schemeFilePath))
 			else:
-				return "Failed to generate the LaTeX source code for \"{0}\" due to {1}. ".format(self.__schemeFilePath, repr(self.__generationResult))
+				return "Failed to generate the LaTeX source code {0} for {1} due to {2}. ".format(repr(self.__schemeLaTeXFilePath), repr(self.__schemeFilePath), repr(self.__generationResult))
 		else:
-			return "The scheme file path passed is not a string. "
+			return "The file paths passed should be strings. "
 	def getCompilationStatement(self:object) -> str:
 		if self.__flag >= 3:
-			return "Successfully compiled the LaTeX source code to the PDF for \"{0}\". The time consumption is {1:.9f} second(s). ".format(self.__schemeFilePath, self.__compilationResult)
+			return "Successfully compiled the LaTeX source code {0} to {1} for {2}. The time consumption is {3:.9f} second(s). ".format(
+				repr(self.__schemeLaTeXFilePath), repr(self.__schemePDFFilePath), repr(self.__schemeFilePath), self.__compilationResult
+			)
 		elif self.__flag >= 2:
 			if self.__compilationResult is None:
-				return "Please call the ``compile`` method function to compile the LaTeX source code to the PDF for \"{0}\". ".format(self.__schemeFilePath)
+				return "Please call the ``compile`` method function to compile the LaTeX source code {0} to {1} for {2}. ".format(
+					repr(self.__schemeLaTeXFilePath), repr(self.__schemePDFFilePath), repr(self.__schemeFilePath)
+				)
 			else:
-				return "Failed to compile the LaTeX source code to the PDF for \"{0}\" due to {1}. ".format(self.__schemeFilePath, repr(self.__compilationResult))
+				return "Failed to compile the LaTeX source code {0} to {1} for {2} due to {3}. ".format(
+					repr(self.__schemeLaTeXFilePath), repr(self.__schemePDFFilePath), repr(self.__schemeFilePath), repr(self.__compilationResult)
+				)
 		elif self.__flag >= 1:
-			return "Please call the ``generate`` method function before the ``compile`` method function for \"{0}\". ".format(self.__schemeFilePath)
+			return "Please call the ``generate`` method function before the ``compile`` method function for {0}. ".format(repr(self.__schemeFilePath))
 		else:
-			return "The scheme file path passed is not a string. "
+			return "The file paths passed should be strings. "
 
 class Builders:
-	DefaultSchemeFilePathPrompt, DefaultGenerationPrompt, DefaultCompilationPrompt = "[F] ", "[G] ", "[C] "
-	def __init__(self:object, *paths:tuple) -> object:
+	__DefaultFormatter, __DefaultSchemeFilePathPrompt, __DefaultGenerationPrompt, __DefaultCompilationPrompt = "%p%s%mLaTeX%s%m", "[F] ", "[G] ", "[C] "
+	def __init__(self:object, formatter:str = __DefaultFormatter, *paths:tuple) -> object:
+		self.__formatter = formatter if isinstance(formatter, str) else Builders.__DefaultFormatter
+		self.__filePaths = []
 		self.__builders = []
 		if paths:
 			self.updateFilePaths(paths)
 		else:
 			self.updateFilePaths(".")
+	def __format(self:object, _m:str = "", _n:str = "", _p:str = "", _s:str = os.sep, _x:str = ".py") -> str:
+		m, n, p = _m if isinstance(_m, str) else "", _n if isinstance(_n, str) else "", _p if isinstance(_p, str) else ""
+		s, x = _s if isinstance(_s, str) else os.sep, _x if isinstance(_x, str) else ".py"
+		buffer, index, length = [], 0, len(self.__formatter)
+		while index < length:
+			if '%' == self.__formatter[index]:
+				index += 1
+				if index < length:
+					if '%' == self.__formatter[index]:
+						buffer.append("%")
+					elif 'm' == self.__formatter[index]:
+						buffer.append(m)
+					elif 'n' == self.__formatter[index]:
+						buffer.append(n)
+					elif 'p' == self.__formatter[index]:
+						buffer.append(p)
+					elif 's' == self.__formatter[index]:
+						buffer.append(s)
+					elif 'x' == self.__formatter[index]:
+						buffer.append(x)
+					else:
+						buffer.append("%" + self.__formatter[index])
+					index += 1
+				else:
+					buffer.append("%")
+					break
+			else:
+				buffer.append(self.__formatter[index])
+				index += 1
+		return "".join(buffer)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
-		originalLength = len(self.__builders)
-		queue, filePaths = list(paths), []
+		originalLength, queue = len(self.__builders), list(paths)
 		while queue:
 			if isinstance(queue[0], (tuple, list, set)):
 				for path in queue[0]:
 					queue.append(path)
 			elif isinstance(queue[0], str):
 				if os.path.isdir(queue[0]) and not os.path.islink(queue[0]):
+					filePaths = []
 					for root, folderNames, fileNames in os.walk(queue[0]):
 						for fileName in fileNames:
 							filePath = os.path.join(root, fileName)
 							if os.path.isfile(filePath) and not os.path.islink(filePath) and os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-								queue.append(filePath)
+								filePaths.append(filePath)
+					filePaths.sort()
+					queue[1:1] = filePaths
+					del filePaths
 				elif os.path.isfile(queue[0]) and not os.path.islink(queue[0]):
 					fileName = os.path.split(queue[0])[1]
 					if os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-						filePaths.append(os.path.relpath(queue[0]))
+						relativePath = os.path.relpath(queue[0])
+						if relativePath not in self.__filePaths:
+							self.__filePaths.append(relativePath)
 			del queue[0]
-		for filePath in sorted(set(filePaths)):
-			self.__builders.append(Builder(filePath))
+		for filePath in self.__filePaths[originalLength:]:
+			p, n = os.path.split(filePath)
+			m, x = os.path.splitext(n)
+			self.__builders.append(Builder(filePath, self.__format(m, n, p, os.sep, x)))
 		currentLength = len(self.__builders)
 		return currentLength - originalLength
 	def build(self:object, isSilent:bool = False) -> None:
@@ -173,12 +217,12 @@ class Builders:
 				if builder.getFlag() >= 3:
 					successCount += 1
 		else:
-			for builder in self.__builders:
-				print(Builders.DefaultSchemeFilePathPrompt + builder.getSchemeFilePath())
+			for filePath, builder in zip(self.__filePaths, self.__builders):
+				print(Builders.__DefaultSchemeFilePathPrompt + filePath)
 				builder.generate()
-				print(Builders.DefaultGenerationPrompt + builder.getGenerationStatement())
+				print(Builders.__DefaultGenerationPrompt + builder.getGenerationStatement())
 				builder.compile()
-				print(Builders.DefaultCompilationPrompt + builder.getCompilationStatement())
+				print(Builders.__DefaultCompilationPrompt + builder.getCompilationStatement())
 				if builder.getFlag() >= 3:
 					successCount += 1
 				print()
@@ -188,7 +232,7 @@ class Builders:
 
 
 def main() -> int:
-	builders = Builders(*argv[1:])
+	builders = Builders(os.getenv("FORMATTER"), *argv[1:])
 	totalCount = len(builders)
 	print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
 	if totalCount >= 1:
