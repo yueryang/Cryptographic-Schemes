@@ -286,18 +286,14 @@ jobs:
     - name: Build and install the Python charm library
       run: |
         cd "${{ github.workspace }}"
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
         git clone https://github.com/JHUISI/charm
         cd charm
         chmod +x ./configure.sh
         ./configure.sh
         make -j$(nproc)
         sudo make install
-    
-    - name: Install Python libraries for various output formats
-      run: |
-        cd "${{ github.workspace }}"
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
     
     - name: Run the cryptographic scheme
       run: |
