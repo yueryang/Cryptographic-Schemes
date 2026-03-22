@@ -52,9 +52,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -67,7 +68,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -495,15 +497,21 @@ class SchemeHIBME:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec:
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
-	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}(l) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}(l) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(l, int) and l >= 3: # boundary check
@@ -518,8 +526,8 @@ class SchemeHIBME:
 		s, a = tuple(self.__group.random(ZR) for _ in range(self.__l)), tuple(self.__group.random(ZR) for _ in range(self.__l)) # generate $s_1, s_2, \cdots, s_l, a_1, a_2, \cdots, a_l \in \mathbb{Z}_r$ randomly
 		g2, g3 = self.__group.random(G2), self.__group.random(G2) # generate $g_2, g_3 \in \mathbb{G}_2$ randomly
 		h = tuple(self.__group.random(G2) for _ in range(self.__l)) # generate $h_1, h_2, \cdots, h_l \in \mathbb{G}_2$ randomly (Note that the indexes in implementations are 1 smaller than those in theory)
-		H1 = lambda x:self.__group.hash(x, G1) # $H_1:\mathbb{Z}_r \rightarrow \mathbb{G}_1$
-		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G2) # $H_2:\mathbb{Z}_r \rightarrow \mathbb{G}_2$
+		H1 = lambda x:self.__group.hash(x, G1) # $H_1:\mathbb{Z}_r \to \mathbb{G}_1$
+		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G2) # $H_2:\mathbb{Z}_r \to \mathbb{G}_2$
 		if 512 == self.__group.secparam:
 			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest(), byteorder = "big")
 		elif 384 == self.__group.secparam:
@@ -533,7 +541,7 @@ class SchemeHIBME:
 		elif 128 == self.__group.secparam:
 			HHat = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 		else:
-			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \rightarrow \{0, 1\}^\lambda$
+			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \to \{0, 1\}^\lambda$
 			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 128, 160, 224, 256, 384, or 512 as the security parameter. ".format(self.__group.secparam))
 		g1 = g ** alpha # $g_1 \gets g^\alpha$
 		A = pair(g1, g2) # $A \gets e(g_1, g_2)$
@@ -547,7 +555,7 @@ class SchemeHIBME:
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def EKGen(self:object, IDk:tuple) -> tuple: # $\textbf{EKGen}(\textit{ID}_k) \rightarrow \textit{ek}_{\textit{ID}_k}$
+	def EKGen(self:object, IDk:tuple) -> tuple: # $\textbf{EKGen}(\textit{ID}_k) \to \textit{ek}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
@@ -575,7 +583,7 @@ class SchemeHIBME:
 		
 		# Return #
 		return ek_ID_k # \textbf{return} $\textit{ek}_{\textit{ID}_k}$
-	def DerivedEKGen(self:object, ekIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedEKGen}(\textit{ek}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \rightarrow \textit{ek}_{\textit{ID}_k}$
+	def DerivedEKGen(self:object, ekIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedEKGen}(\textit{ek}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \to \textit{ek}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("DerivedEKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedEKGen`` subsequently. ")
@@ -623,7 +631,7 @@ class SchemeHIBME:
 		
 		# Return #
 		return ek_ID_k # \textbf{return} $\textit{ek}_{\textit{ID}_k}$
-	def DKGen(self:object, IDk:tuple) -> tuple: # $\textbf{DKGen}(\textit{ID}_k) \rightarrow \textit{dk}_{\textit{ID}_k}$
+	def DKGen(self:object, IDk:tuple) -> tuple: # $\textbf{DKGen}(\textit{ID}_k) \to \textit{dk}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
@@ -665,7 +673,7 @@ class SchemeHIBME:
 		
 		# Return #
 		return dk_ID_k # \textbf{return} $\textit{dk}_{\textit{ID}_k}$
-	def DerivedDKGen(self:object, dkIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedDKGen}(\textit{dk}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \rightarrow \textit{dk}_{\textit{ID}_k}$
+	def DerivedDKGen(self:object, dkIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedDKGen}(\textit{dk}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \to \textit{dk}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("DerivedDKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedDKGen`` subsequently. ")
@@ -730,7 +738,7 @@ class SchemeHIBME:
 				
 		# Return #
 		return dk_ID_k # \textbf{return} $\textit{dk}_{\textit{ID}_k}$
-	def Enc(self:object, ekIDS:tuple, IDSnd:tuple, IDRev:tuple, message:int|bytes) -> Element: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_S}, \textit{ID}_\textit{Rev}, M) \rightarrow \textit{CT}$
+	def Enc(self:object, ekIDS:tuple, IDSnd:tuple, IDRev:tuple, message:int|bytes) -> Element: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_S}, \textit{ID}_\textit{Rev}, M) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -818,7 +826,7 @@ class SchemeHIBME:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Dec(self:object, dkIDR:tuple, IDRev:tuple, IDSnd:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_R}, \textit{ID}_\textit{Rev}, \textit{ID}_\textit{Snd}, \textit{CT}) \rightarrow M$
+	def Dec(self:object, dkIDR:tuple, IDRev:tuple, IDSnd:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_R}, \textit{ID}_\textit{Rev}, \textit{ID}_\textit{Snd}, \textit{CT}) \to M$
 		# Check #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")

@@ -52,9 +52,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is a possible implementation of the ARES cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is a possible implementation of the ARES cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -67,7 +68,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -491,14 +493,14 @@ class SchemeARES:
 			pair(self.__group.random(G1), self.__group.random(G1))
 		except:
 			self.__group = PairingGroup("SS512", secparam = self.__group.secparam)
-			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve type has been defaulted to \"SS512\". ")
+			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". ")
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def Setup(self:object) -> tuple: # $\textbf{Setup}() \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		
@@ -517,7 +519,7 @@ class SchemeARES:
 		# Return #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def Extract(self:object, identity:Element) -> tuple: # $\textbf{Extract}(\textit{Id}) \rightarrow \textit{Pvk}_\textit{Id}$
+	def Extract(self:object, identity:Element) -> tuple: # $\textbf{Extract}(\textit{Id}) \to \textit{Pvk}_\textit{Id}$
 		# Check #
 		if not self.__flag:
 			self.Setup()
@@ -543,7 +545,7 @@ class SchemeARES:
 		
 		# Return #
 		return Pvk_Id # \textbf{return} $\textit{Pvk}_\textit{Id}$
-	def TSK(self:object, identity:Element) -> tuple: # $\textbf{TSK}(\textit{Id}) \rightarrow \textit{Pvk}_\textit{Id}$
+	def TSK(self:object, identity:Element) -> tuple: # $\textbf{TSK}(\textit{Id}) \to \textit{Pvk}_\textit{Id}$
 		# Check #
 		if not self.__flag:
 			print("TSK: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TSK`` subsequently. ")
@@ -569,7 +571,7 @@ class SchemeARES:
 		
 		# Return #
 		return Pvk_Id # \textbf{return} $\textit{Pvk}_\textit{Id}$
-	def Encrypt(self:object, identity:Element, message:Element) -> tuple: # $\textbf{Encrypt}(\textit{Id}, m) \rightarrow \textit{CT}$
+	def Encrypt(self:object, identity:Element, message:Element) -> tuple: # $\textbf{Encrypt}(\textit{Id}, m) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("Encrypt: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encrypt`` subsequently. ")
@@ -600,7 +602,7 @@ class SchemeARES:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Decrypt(self:object, PvkId:tuple, cipherText:tuple) -> Element: # $\textbf{Decrypt}(\textit{Pvk}_\textit{id}, \textit{CT}) \rightarrow M$
+	def Decrypt(self:object, PvkId:tuple, cipherText:tuple) -> Element: # $\textbf{Decrypt}(\textit{Pvk}_\textit{id}, \textit{CT}) \to M$
 		# Check #
 		if not self.__flag:
 			print("Decrypt: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Decrypt`` subsequently. ")
@@ -625,7 +627,7 @@ class SchemeARES:
 		
 		# Return #
 		return M # \textbf{return} $M$
-	def TVerify(self:object, PvkId:tuple, cipherText:tuple) -> bool: # $\textbf{TVerify}(\textit{Pvk}_\textit{id}, \textit{CT}) \rightarrow y, y \in \{0, 1\}$
+	def TVerify(self:object, PvkId:tuple, cipherText:tuple) -> bool: # $\textbf{TVerify}(\textit{Pvk}_\textit{id}, \textit{CT}) \to y, y \in \{0, 1\}$
 		# Check #
 		if not self.__flag:
 			print("TVerify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TVerify`` subsequently. ")

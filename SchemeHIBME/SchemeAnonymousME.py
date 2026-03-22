@@ -51,9 +51,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the AnonymousME cryptographic scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the AnonymousME cryptographic scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -66,7 +67,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -493,15 +495,21 @@ class SchemeAnonymousME:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec:
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
-	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}(l) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}(l) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(l, int) and l >= 3: # $l$ must be not smaller than $3$ to complete all the tasks
@@ -526,7 +534,7 @@ class SchemeAnonymousME:
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def KGen(self:object, IDk:tuple) -> tuple: # $\textbf{KGen}(\textit{ID}_k) \rightarrow \textit{sk}_{\textit{ID}_k}$
+	def KGen(self:object, IDk:tuple) -> tuple: # $\textbf{KGen}(\textit{ID}_k) \to \textit{sk}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("KGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``KGen`` subsequently. ")
@@ -565,7 +573,7 @@ class SchemeAnonymousME:
 		
 		# Return #
 		return sk_ID_k # \textbf{return} $\textit{sk}_{\textit{ID}_k}$
-	def DerivedKGen(self:object, skIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedKGen}(\textit{sk}_{\textit{ID}_\textit{k - 1}}, \textit{ID}_k) \rightarrow \textit{sk}_{\textit{ID}_k}$
+	def DerivedKGen(self:object, skIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedKGen}(\textit{sk}_{\textit{ID}_\textit{k - 1}}, \textit{ID}_k) \to \textit{sk}_{\textit{ID}_k}$
 		# Check #
 		if not self.__flag:
 			print("DerivedKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedKGen`` subsequently. ")
@@ -617,7 +625,7 @@ class SchemeAnonymousME:
 		
 		# Return #
 		return sk_ID_k # \textbf{return} $\textit{sk}_{\textit{ID}_k}$
-	def Enc(self:object, IDk:tuple, message:Element) -> object: # $\textbf{Enc}(\textit{ID}_k, M) \rightarrow \textit{CT}$
+	def Enc(self:object, IDk:tuple, message:Element) -> object: # $\textbf{Enc}(\textit{ID}_k, M) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -653,7 +661,7 @@ class SchemeAnonymousME:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Dec(self:object, skIDk:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{sk}_{\textit{ID}_k}, \textit{CT}) \rightarrow M$
+	def Dec(self:object, skIDk:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{sk}_{\textit{ID}_k}, \textit{CT}) \to M$
 		# Check #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")

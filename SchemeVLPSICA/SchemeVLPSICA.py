@@ -53,9 +53,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the VL-PSI-CA cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the VL-PSI-CA cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -68,7 +69,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -494,13 +496,19 @@ class SchemeVLPSICA:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec:
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
 	def __computeLagrangeCoefficients(self:object, xPoints:tuple|list, yPoints:tuple|list, x:Element) -> Element:
 		if (																																				\
@@ -517,7 +525,7 @@ class SchemeVLPSICA:
 			return result
 		else:
 			return self.__init(ZR, 0)
-	def Setup(self:object, m:int = 10, n:int = 10, d:int = 10) -> tuple: # $\textbf{Setup}(m, n, d) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, m:int = 10, n:int = 10, d:int = 10) -> tuple: # $\textbf{Setup}(m, n, d) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(m, int) and m >= 1:
@@ -555,7 +563,7 @@ class SchemeVLPSICA:
 		elif 128 == self.__group.secparam:
 			H = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 		else:
-			H = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $H: \mathbb{G}_T \rightarrow \{0, 1\}^\lambda$
+			H = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $H: \mathbb{G}_T \to \{0, 1\}^\lambda$
 			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 128, 160, 224, 256, 384, or 512 as the security parameter. ".format(self.__group.secparam))
 		self.__mpk = (g1, SPrime, H) # $\textit{mpk} \gets (g_1, S', H)$
 		self.__msk = (g2, SVec) # $\textit{msk} \gets (g_2, \vec{S})$
@@ -563,7 +571,7 @@ class SchemeVLPSICA:
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def Sender(self:object, _vVec:tuple, _YVec:tuple) -> tuple: # $\textbf{Sender}(\vec{v}, \vec{Y}) \rightarrow (\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
+	def Sender(self:object, _vVec:tuple, _YVec:tuple) -> tuple: # $\textbf{Sender}(\vec{v}, \vec{Y}) \to (\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
 		# Check #
 		if not self.__flag:
 			print("Sender: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Sender`` subsequently. ")
@@ -584,7 +592,7 @@ class SchemeVLPSICA:
 		
 		# Scheme #
 		k = randbelow(self.__n) # generate $k \in \mathbb{N}* \cap [0, n)$ randomly
-		pi = lambda x:(x + k) % self.__n # $\pi: x \rightarrow (x + k) \% n$
+		pi = lambda x:(x + k) % self.__n # $\pi: x \to (x + k) \% n$
 		tVec = tuple(self.__group.random(ZR) for j in range(self.__n)) # generate $\vec{t} \gets (t_1, t_2, \cdots, t_n) \in \mathbb{Z}_r^n$ randomly
 		TVec = tuple(g1 ** tVec[j] for j in range(self.__n)) # $\vec{T} \gets (T_1, T_2, \cdots, T_n) = (g_1^{t_1}, g_1^{t_2}, \cdots, g_1^{t_n})$
 		UVec = tuple(SPrime * g1 ** (-YVec[pi(j)]) for j in range(self.__n)) # $\vec{U} \gets (U_1, U_2, \cdots, U_n) = (S' \cdot (g_1^{-y_{\pi(1)}}), S' \cdot (g_1^{-y_{\pi(2)}}), \cdots, S' \cdot (g_1^{-y_{\pi(n)}}))$
@@ -594,7 +602,7 @@ class SchemeVLPSICA:
 		
 		# Return #
 		return (TVec + TPrimeVec, UVec + UPrimeVec) # \textbf{return} $(\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
-	def Receiver(self:object, _vVec:tuple, _XVec:tuple) -> tuple: # $\textbf{Receiver}(\vec{v}, \vec{X}) \rightarrow (R, \vec{R}')$
+	def Receiver(self:object, _vVec:tuple, _XVec:tuple) -> tuple: # $\textbf{Receiver}(\vec{v}, \vec{X}) \to (R, \vec{R}')$
 		# Check #
 		if not self.__flag:
 			print("Receiver: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Receiver`` subsequently. ")
@@ -625,7 +633,7 @@ class SchemeVLPSICA:
 		
 		# Return #
 		return (R, RPrimeVec) # \textbf{return} $(R, \vec{R}')$
-	def Cloud1(self:object, _TTPrime:tuple, _R:Element) -> tuple: # $\textbf{Cloud1}((\vec{T}, \vec{T}'), R) \rightarrow \vec{W}$
+	def Cloud1(self:object, _TTPrime:tuple, _R:Element) -> tuple: # $\textbf{Cloud1}((\vec{T}, \vec{T}'), R) \to \vec{W}$
 		# Check #
 		if not self.__flag:
 			print("Cloud1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud1`` subsequently. ")
@@ -647,12 +655,12 @@ class SchemeVLPSICA:
 		# Scheme #
 		WVec = tuple(H(pair(TTPrime[j], R)) for j in range(self.__n + self.__d)) # $W_j \gets H(e((\vec{T} || \vec{T}')_j, R)), \forall j \in {1, 2, \cdots, n + d}$
 		k1 = randbelow(self.__n + self.__d) # generate $k_1 \in \mathbb{N}* \cap [0, n + d)$ randomly
-		pi1 = lambda x:(x + k1) % (self.__n + self.__d) # $\pi_1: x \rightarrow (x + k_1) \% (n + d)$
+		pi1 = lambda x:(x + k1) % (self.__n + self.__d) # $\pi_1: x \to (x + k_1) \% (n + d)$
 		WVec = tuple(WVec[pi1(j)] for j in range(self.__n + self.__d)) # $\vec{W} \gets \{\vec{W}_{\pi_1(j)}\}_j$
 		
 		# Return #
 		return WVec # \textbf{return} $\vec{W}$
-	def Cloud2(self:object, _UUPrime:tuple, _RPrimeVec:tuple) -> tuple: # $\textbf{Cloud2}(\vec{U}, R') \rightarrow \vec{K}$
+	def Cloud2(self:object, _UUPrime:tuple, _RPrimeVec:tuple) -> tuple: # $\textbf{Cloud2}(\vec{U}, R') \to \vec{K}$
 		# Check #
 		if not self.__flag:
 			print("Cloud2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud2`` subsequently. ")
@@ -674,12 +682,12 @@ class SchemeVLPSICA:
 		# Scheme #
 		KVec = tuple(H(pair(UUPrime[j], RPrimeVec[i])) for i in range(self.__m + self.__d) for j in range(self.__n + self.__d)) # $\vec{K}_{i(n + d) + j} \gets H(e((\vec{U} || \vec{U}')_j, R'_i)), \forall i \in {1, 2, \cdots, m + d}, \forall j \in {1, 2, \cdots, n + d}$
 		k2 = randbelow((self.__m + self.__d) * (self.__n + self.__d)) # generate $k_2 \in \mathbb{N}* \cap [0, (m + d)(n + d))$ randomly
-		pi2 = lambda i, j:(i * (self.__n + self.__d) + j + k2) % ((self.__m + self.__d) * (self.__n + self.__d)) # $\pi_2: i, j \rightarrow (i(n + d) + j + k_2) \% (m + d)(n + d)$
+		pi2 = lambda i, j:(i * (self.__n + self.__d) + j + k2) % ((self.__m + self.__d) * (self.__n + self.__d)) # $\pi_2: i, j \to (i(n + d) + j + k_2) \% (m + d)(n + d)$
 		KVec = tuple(KVec[pi2(i, j)] for i in range(self.__m + self.__d) for j in range(self.__n + self.__d)) # $\vec{K} \gets \{\vec{K}_{\pi_2(i, j)}\}_{i, j}$
 		
 		# Return #
 		return KVec # \textbf{return} $\vec{K}$
-	def Verify(self:object, _KVec:tuple, _WVec:tuple) -> int|bool: # $\textbf{Verify}(\vec{K}, \vec{W}) \rightarrow \textit{result}$
+	def Verify(self:object, _KVec:tuple, _WVec:tuple) -> int|bool: # $\textbf{Verify}(\vec{K}, \vec{W}) \to \textit{result}$
 		# Check #
 		if not self.__flag:
 			print("Verify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Verify`` subsequently. ")

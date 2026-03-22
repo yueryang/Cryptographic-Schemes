@@ -132,7 +132,7 @@ elif 160 == self.__group.secparam:
 elif 128 == self.__group.secparam:
 	HHat = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 else:
-	HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \rightarrow \{0, 1\}^\lambda$
+	HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \to \{0, 1\}^\lambda$
 	print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 128, 160, 224, 256, 384, or 512 as the security parameter. ".format(self.__group.secparam))
 ```
 
@@ -141,15 +141,23 @@ else:
 Since Python does not have a built-in product function, the product function will be executed as follows. 
 
 ```
-def __product(self:object, vec:tuple|list|set) -> Element:
-	if isinstance(vec, (tuple, list, set)) and vec:
-		element = vec[0]
-		for ele in vec[1:]:
-			element *= ele
-		return element
-	else:
+def __product(self:object, elements:object) -> Element:
+	try:
+		if isinstance(elements, (tuple, list)):
+			result = elements[0]
+			for element in elements[1:]:
+				result *= element
+		else:
+			it = iter(elements)
+			result = next(it)
+			for element in it:
+				result *= element
+		return result if isinstance(result, Element) else self.__group.init(ZR, result)
+	except Exception:
 		return self.__group.init(ZR, 1)
 ```
+
+Without considering the space complexity, index-based access is typically faster than iterator-based iteration. Thus, we have separated ``tuple`` and ``list`` from other iterable objects. 
 
 #### 1.2.5 Coefficient computation
 

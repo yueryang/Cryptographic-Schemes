@@ -53,9 +53,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is a possible implementation of the Fuzzy-ME cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is a possible implementation of the Fuzzy-ME cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -68,7 +69,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -492,7 +494,7 @@ class SchemeFuzzyME:
 			pair(self.__group.random(G1), self.__group.random(G1))
 		except:
 			self.__group = PairingGroup("SS512", secparam = self.__group.secparam)
-			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve type has been defaulted to \"SS512\". ")
+			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". ")
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
@@ -501,13 +503,19 @@ class SchemeFuzzyME:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec:
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
 	def __computePolynomial(self:object, x:Element|int|float, coefficients:tuple|list) -> Element|int|float|None:
 		if isinstance(coefficients, (tuple, list)) and coefficients and (															\
@@ -527,7 +535,7 @@ class SchemeFuzzyME:
 			return eleResult
 		else:
 			return None
-	def Setup(self:object, n:int = 30, d:int = 10) -> tuple: # $\textbf{Setup}(n, d) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, n:int = 30, d:int = 10) -> tuple: # $\textbf{Setup}(n, d) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(n, int) and n >= 1: # boundary check
@@ -554,14 +562,14 @@ class SchemeFuzzyME:
 		eta4 = g ** theta4 # $\eta_4 \gets g^{\theta_4}$
 		Y1 = pair(g1, g2) ** (theta1 * theta2) # $Y_1 \gets \hat{e}(g_1, g_2)^{\theta_1 \theta_2}$
 		Y2 = pair(g3, g ** beta) ** (theta1 * theta2) # $Y_2 \gets \hat{e}(g_3, g^\beta)^{\theta_1 \theta_2}$
-		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \rightarrow \mathbb{G}_1$
+		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
 		self.__mpk = (g1, g2, g3, Y1, Y2, tVec, lVec, eta1, eta2, eta3, eta4, H1) # $ \textit{mpk} \gets (g_1, g_2, g_3, Y_1, Y_2, \vec{t}, \vec{l}, \eta_1, \eta_2, \eta_3, \eta_4, H_1)$
 		self.__msk = (alpha, beta, theta1, theta2, theta3, theta4) # $\textit{msk} \gets (\alpha, \beta, \theta_1, \theta_2, \theta_3, \theta_4)$
 		
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def EKGen(self:object, SA:tuple) -> tuple: # $\textbf{EKGen}(S_A) \rightarrow \textit{ek}_{S_A}$
+	def EKGen(self:object, SA:tuple) -> tuple: # $\textbf{EKGen}(S_A) \to \textit{ek}_{S_A}$
 		# Check #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
@@ -578,9 +586,9 @@ class SchemeFuzzyME:
 		
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta: i, S, x \rightarrow \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
+		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 		N = tuple(range(1, self.__n + 2)) # $N \gets (1, 2, \cdots, n + 1)$
-		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \rightarrow g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta(i, N, x)}$
+		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \to g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta_{i, N}(x)}$
 		coefficients = (beta, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
 		q = lambda x:self.__computePolynomial(x, coefficients) # generate a $(d - 1)$ degree polynominal $q(x)$ s.t. $q(0) = \beta$ randomly
 		rVec = tuple(self.__group.random(ZR) for _ in S_A) # generate $\vec{r} = (r_1, r_2, \cdots, r_n) \in \mathbb{Z}_r^n$ randomly
@@ -590,7 +598,7 @@ class SchemeFuzzyME:
 		
 		# Return #
 		return ek_S_A # \textbf{return} $\textit{ek}_{S_A}$
-	def DKGen(self:object, SB:tuple, PA:tuple) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \rightarrow \textit{dk}_{\textit{id}_R}$
+	def DKGen(self:object, SB:tuple, PA:tuple) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
 		# Check #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
@@ -612,10 +620,10 @@ class SchemeFuzzyME:
 		
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta: i, S, x \rightarrow \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
+		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 		N = tuple(range(1, self.__n + 2)) # $N \gets (1, 2, \cdots, n + 1)$
-		T = lambda x:g2 ** (x ** self.__n) * self.__product(tuple(tVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $T: x \rightarrow g_2^{x^n} \prod\limits_{i = 1}^{n + 1} t_i^{\Delta(i, N, x)}$
-		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \rightarrow g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta(i, N, x)}$
+		T = lambda x:g2 ** (x ** self.__n) * self.__product(tuple(tVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $T: x \to g_2^{x^n} \prod\limits_{i = 1}^{n + 1} t_i^{\Delta_{i, N}(x)}$
+		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \to g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta_{i, N}(x)}$
 		gamma = self.__group.random(ZR) # generate $\gamma \in \mathbb{Z}_r$ randomly
 		G_ID = self.__group.random(G1) # generate $G_{\textit{ID}} \in \mathbb{G}_1$ randomly
 		coefficientsForF = (alpha, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
@@ -652,7 +660,7 @@ class SchemeFuzzyME:
 		
 		# Return #
 		return dk_SBPA # \textbf{return} $\textit{dk}_{S_B, P_A}$
-	def Encryption(self:object, ekSA:tuple, SA:tuple, PB:tuple, message:Element) -> tuple: # $\textbf{Encryption}(\textit{ek}_{S_A}, S_A, P_B, M) \rightarrow \textit{CT}$
+	def Encryption(self:object, ekSA:tuple, SA:tuple, PB:tuple, message:Element) -> tuple: # $\textbf{Encryption}(\textit{ek}_{S_A}, S_A, P_B, M) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("Encryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encryption`` subsequently. ")
@@ -686,10 +694,10 @@ class SchemeFuzzyME:
 		
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta: i, S, x \rightarrow \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
+		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 		N = tuple(range(1, self.__n + 2)) # $N \gets (1, 2, \cdots, n + 1)$
-		T = lambda x:g2 ** (x ** self.__n) * self.__product(tuple(tVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $T: x \rightarrow g_2^{x^n} \prod\limits_{i = 1}^{n + 1} t_i^{\Delta(i, N, x)}$
-		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \rightarrow g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta(i, N, x)}$
+		T = lambda x:g2 ** (x ** self.__n) * self.__product(tuple(tVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $T: x \to g_2^{x^n} \prod\limits_{i = 1}^{n + 1} t_i^{\Delta_{i, N}(x)}$
+		H = lambda x:g3 ** (x ** self.__n) * self.__product(tuple(lVec[i] ** Delta(i, N, x) for i in range(self.__n + 1))) # $H: x \to g_3^{x^n} \prod\limits_{i = 1}^{n + 1} l_i^{\Delta_{i, N}(x)}$
 		s, s1, s2, tau = self.__group.random(ZR, 4) # generate $s, s_1, s_2, \tau \in \mathbb{Z}_r$ randomly
 		K_s = Y1 ** s # $K_s \gets Y_1^s$
 		K_l = Y2 ** s * pair(g3, g ** (-tau)) # $K_l \gets Y_2^s \cdot \hat{e}(g_3, g^{-\tau})$
@@ -714,7 +722,7 @@ class SchemeFuzzyME:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Decryption(self:object, dkSBPA:tuple, SA:tuple, PA:tuple, SB:tuple, PB:tuple, cipherText:tuple) -> Element|bool: # $\textbf{Decryption}(\textit{dk}_{S_B, P_A}, S_A, P_A, S_B, P_B, \textit{CT}) \rightarrow M$
+	def Decryption(self:object, dkSBPA:tuple, SA:tuple, PA:tuple, SB:tuple, PB:tuple, cipherText:tuple) -> Element|bool: # $\textbf{Decryption}(\textit{dk}_{S_B, P_A}, S_A, P_A, S_B, P_B, \textit{CT}) \to M$
 		# Check #
 		if not self.__flag:
 			print("Decryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Decryption`` subsequently. ")
@@ -759,11 +767,11 @@ class SchemeFuzzyME:
 			WA = tuple(WAPrime)[:self.__d] # \quad generate $W_A \subset W'_A$ s.t. $|W_A| = d$ randomly
 			WB = tuple(WBPrime)[:self.__d] # \quad generate $W_B \subset W'_B$ s.t. $|W_B| = d$ randomly
 			g = self.__group.init(G1, 1) # \quad$g \gets 1_{\mathbb{G}_1}$
-			Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # \quad$\Delta: i, S, x \rightarrow \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
+			Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # \quad$\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 			KsPrime = self.__product(tuple(( # \quad$K'_s \gets \prod\limits_{b_i \in W_B} (
 				pair(C1Vec[i], dk_S_B_0[i]) * pair(C1, dk_S_B_1[i]) * pair(C2, dk_S_B_2[i]) # \hat{e}(C_{1, i}, \textit{dk}_{S_{B_{0, i}}}) \hat{e}(C_1, \textit{dk}_{S_{B_{1, i}}}) \hat{e}(C_2, \textit{dk}_{S_{B_{2, i}}})
 				* pair(C3, dk_S_B_3[i]) * pair(C4, dk_S_B_4[i]) # \hat{e}(C_3, \textit{dk}_{S_{B_{3, i}}}) \hat{e}(C_4, \textit{dk}_{S_{B_{4, i}}})
-			) ** Delta(S_B[i], WB, 0) for i in range(self.__n))) # )^{\Delta(b_i, W_B, 0)}$
+			) ** Delta(S_B[i], WB, 0) for i in range(self.__n))) # )^{\Delta_{b_i, W_B}(0)}$
 			CTVec = tuple(																												\
 				(																														\
 					self.__group.serialize(C0) + self.__group.serialize(C1) + self.__group.serialize(C2) + self.__group.serialize(C3) + self.__group.serialize(C4)		\
@@ -775,7 +783,7 @@ class SchemeFuzzyME:
 					(pair(C1Vec[i], dk_P_A_0[i]) * pair(C1, dk_P_A_1[i]) * pair(C2, dk_P_A_2[i])) # \frac{\hat{e}(C_{1, i}, \textit{dk}_{P_{A_{0, i}}}) \hat{e}(C_1, \textit{dk}_{P_{A_{1, i}}}) \hat{e}(C_2, \textit{dk}_{P_{A_{i, 2}}})}
 					/ (pair(H1(CTVec[i]), C4Vec[i]) # {\hat{e}(H_1(\textit{CT}_i), C_{4, i}) \cdot \hat{e}(C_{3, i}, C_{2, i})}
 					* pair(C3Vec[i], C2Vec[i])) * pair(C3, dk_P_A_3[i]) * pair(C4, dk_P_A_4[i]) * pair(C5Vec[i], g) # \cdot \hat{e}(C_3, \textit{dk}_{P_{A_{i, 3}}}) \hat{e}(C_4, \textit{dk}_{P_{A_{i, 4}}}) \hat{e}(C_{5, i}, g)
-				) ** Delta(S_A[i], WA, 0) for i in range(self.__n) # \right)^{\Delta(a_i, W_A, 0)}
+				) ** Delta(S_A[i], WA, 0) for i in range(self.__n) # \right)^{\Delta_{a_i, W_A}(0)}
 			)) # $
 			M = C0 * KsPrime * KlPrime # \quad$M \gets C_0 \cdot K'_s \cdot K'_l$
 		else: # \textbf{else}

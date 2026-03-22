@@ -52,9 +52,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is a possible implementation of the IBMECH cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is a possible implementation of the IBMECH cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -67,7 +68,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -494,15 +496,21 @@ class SchemeIBMECH:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec and all(isinstance(ele, Element) for ele in vec):
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
-	def Setup(self:object): # $\textbf{Setup}() \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object): # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		
@@ -523,7 +531,7 @@ class SchemeIBMECH:
 		# Return #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def SKGen(self:object, sender:Element) -> tuple: # $\textbf{SKGen}(\sigma) \rightarrow \textit{ek}_\sigma$
+	def SKGen(self:object, sender:Element) -> tuple: # $\textbf{SKGen}(\sigma) \to \textit{ek}_\sigma$
 		# Check #
 		if not self.__flag:
 			print("SKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``SKGen`` subsequently. ")
@@ -543,7 +551,7 @@ class SchemeIBMECH:
 		
 		# Return #
 		return ek_sigma # \textbf{return} $\textit{ek}_\sigma$
-	def RKGen(self:object, receiver:Element) -> tuple: # $\textbf{RKGen}(\rho) \rightarrow \textit{dk}_\rho$
+	def RKGen(self:object, receiver:Element) -> tuple: # $\textbf{RKGen}(\rho) \to \textit{dk}_\rho$
 		# Check #
 		if not self.__flag:
 			print("RKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``RKGen`` subsequently. ")
@@ -567,7 +575,7 @@ class SchemeIBMECH:
 		
 		# Return #
 		return dk_rho # \textbf{return} $\textit{dk}_\rho$
-	def Enc(self:object, eksigma:tuple, receiver:Element, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{rcv}, m) \rightarrow \textit{ct}$
+	def Enc(self:object, eksigma:tuple, receiver:Element, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{rcv}, m) \to \textit{ct}$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -599,7 +607,7 @@ class SchemeIBMECH:
 		
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
-	def Dec(self:object, dkrho:tuple, sender:Element, cipherText:tuple) -> Element: # $\textbf{Dec}(\textit{dk}_\rho, \textit{snd}, \textit{ct}) \rightarrow m$
+	def Dec(self:object, dkrho:tuple, sender:Element, cipherText:tuple) -> Element: # $\textbf{Dec}(\textit{dk}_\rho, \textit{snd}, \textit{ct}) \to m$
 		# Check #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")

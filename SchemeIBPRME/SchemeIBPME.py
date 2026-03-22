@@ -54,9 +54,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is a possible implementation of the IBPME cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is a possible implementation of the IBPME cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -69,7 +70,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -520,7 +522,7 @@ class SchemeIBPME:
 			return md5(bytesToBeHashed).digest()
 		else:
 			return (int.from_bytes(sha512(bytesToBeHashed).digest() * ceil(length / 512), byteorder = "big") & ((1 << length) - 1)).to_bytes(ceil(length / 8))
-	def Setup(self:object) -> tuple: # $\textbf{Setup}() \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		
@@ -534,23 +536,23 @@ class SchemeIBPME:
 		fHat = gHat ** beta_0 # $\hat{f} \gets \hat{g}^{\beta_0}$
 		h = g ** beta_1 # $h \gets g^{\beta_1}$
 		hHat = gHat ** beta_1 # $\hat{h} \gets \hat{g}^{\beta_1}$
-		H = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H: \mathbb{G}_T \rightarrow \mathbb{Z}_r$
-		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \rightarrow \mathbb{G}_1$
-		H2 = lambda x:self.__group.hash(x, G2) # $H_2: \{0, 1\}^* \rightarrow \mathbb{G}_2$
-		H3 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_3: \mathbb{G}_T \rightarrow \mathbb{Z}_r$
-		H4 = lambda x1, x2 = b"", x3 = b"":self.__hash(x1, x2, x3, self.__group.secparam) # $H_4: \{0, 1\}^\lambda \times \mathbb{G}_T^2 \times \mathbb{G}_1^2 \rightarrow \{0, 1\}^\lambda$
+		H = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H: \mathbb{G}_T \to \mathbb{Z}_r$
+		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
+		H2 = lambda x:self.__group.hash(x, G2) # $H_2: \{0, 1\}^* \to \mathbb{G}_2$
+		H3 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_3: \mathbb{G}_T \to \mathbb{Z}_r$
+		H4 = lambda x1, x2 = b"", x3 = b"":self.__hash(x1, x2, x3, self.__group.secparam) # $H_4: \{0, 1\}^\lambda \times \mathbb{G}_T^2 \times \mathbb{G}_1^2 \to \{0, 1\}^\lambda$
 		if self.__group.secparam not in (128, 160, 224, 256, 384, 512):
 			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 128, 160, 224, 256, 384, or 512 as the security parameter. ".format(self.__group.secparam))
-		H5 = lambda x1, x2 = b"", x3 = b"", x4 = b"", x5 = b"":self.__hash(x1, x2, x3, x4, x5, self.__group.secparam) # $H_5: \{0, 1\}^\lambda \times \mathbb{G}_T^2 \times \mathbb{G}_1^2 \rightarrow \{0, 1\}^\lambda$
-		H6 = lambda x:self.__hash(x, self.__group.secparam * 3) # $H_6: \mathbb{G}_T \rightarrow \{0, 1\}^{3\lambda}$
-		H7 = lambda x:self.__hash(x, self.__group.secparam << 1) # $H_7: \mathbb{G}_T \rightarrow \{0, 1\}^{2\lambda}$
+		H5 = lambda x1, x2 = b"", x3 = b"", x4 = b"", x5 = b"":self.__hash(x1, x2, x3, x4, x5, self.__group.secparam) # $H_5: \{0, 1\}^\lambda \times \mathbb{G}_T^2 \times \mathbb{G}_1^2 \to \{0, 1\}^\lambda$
+		H6 = lambda x:self.__hash(x, self.__group.secparam * 3) # $H_6: \mathbb{G}_T \to \{0, 1\}^{3\lambda}$
+		H7 = lambda x:self.__hash(x, self.__group.secparam << 1) # $H_7: \mathbb{G}_T \to \{0, 1\}^{2\lambda}$
 		self.__mpk = (g, gHat, g1, f, h, fHat, hHat, H, H1, H2, H3, H4, H5, H6, H7) # $ \textit{mpk} \gets (g, \hat{g}, g_1, f, h, \hat{f}, \hat{h}, H, H_1, H_2, H_3, H_4, H_5, H_6, H_7)$
 		self.__msk = (s, alpha) # $\textit{msk} \gets (s, \alpha)$
 		
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def SKGen(self:object, snd:bytes) -> Element: # $\textbf{SKGen}(\sigma) \rightarrow \textit{ek}_\sigma$
+	def SKGen(self:object, snd:bytes) -> Element: # $\textbf{SKGen}(\sigma) \to \textit{ek}_\sigma$
 		# Check #
 		if not self.__flag:
 			print("SKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``SKGen`` subsequently. ")
@@ -570,7 +572,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return ek_sigma # \textbf{return} $\textit{ek}_\sigma$
-	def RKGen(self:object, rcv:bytes) -> tuple: # $\textbf{RKGen}(\rho) \rightarrow \textit{dk}_\rho$
+	def RKGen(self:object, rcv:bytes) -> tuple: # $\textbf{RKGen}(\rho) \to \textit{dk}_\rho$
 		# Check #
 		if not self.__flag:
 			print("RKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``RKGen`` subsequently. ")
@@ -592,7 +594,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return dk_rho # \textbf{return} $\textit{dk}_\rho$
-	def PKGen(self:object, dkrho:Element, snd:bytes) -> tuple: # $\textbf{PKGen}(\textit{dk}_\rho, \sigma) \rightarrow \textit{pdk}_{\rho, \sigma}$
+	def PKGen(self:object, dkrho:Element, snd:bytes) -> tuple: # $\textbf{PKGen}(\textit{dk}_\rho, \sigma) \to \textit{pdk}_{\rho, \sigma}$
 		# Check #
 		if not self.__flag:
 			print("PKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``PKGen`` subsequently. ")
@@ -621,7 +623,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return pdk # \textbf{return} $\textit{pdk}_{(\rho, \sigma)}$
-	def Enc(self:object, eksigma:Element, rcv:bytes, message:int|bytes) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{id}_2, m) \rightarrow C$
+	def Enc(self:object, eksigma:Element, rcv:bytes, message:int|bytes) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{id}_2, m) \to C$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -664,7 +666,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return C # \textbf{return} $C$
-	def ProxyDec(self:object, _pdk:tuple, cipher:tuple) -> tuple|bool: # $\textbf{ProxyDec}(\textit{pdk}, C) \rightarrow \textit{CT}$
+	def ProxyDec(self:object, _pdk:tuple, cipher:tuple) -> tuple|bool: # $\textbf{ProxyDec}(\textit{pdk}, C) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("ProxyDec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``ProxyDec`` subsequently. ")
@@ -707,7 +709,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Dec1(self:object, dkrho:tuple, snd:bytes, cipher:tuple) -> int|bool: # $\textbf{Dec}_1(\textit{dk}_\rho, \sigma, C) \rightarrow m$
+	def Dec1(self:object, dkrho:tuple, snd:bytes, cipher:tuple) -> int|bool: # $\textbf{Dec}_1(\textit{dk}_\rho, \sigma, C) \to m$
 		# Check #
 		if not self.__flag:
 			print("Dec1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec1`` subsequently. ")
@@ -751,7 +753,7 @@ class SchemeIBPME:
 		
 		# Return #
 		return m # \textbf{return} $m$
-	def Dec2(self:object, dkrho:tuple, snd:bytes, cipherText:tuple) -> int|bool: # $\textbf{Dec}_2(\textit{dk}_\rho, \sigma, \textit{CT}) \rightarrow m'$
+	def Dec2(self:object, dkrho:tuple, snd:bytes, cipherText:tuple) -> int|bool: # $\textbf{Dec}_2(\textit{dk}_\rho, \sigma, \textit{CT}) \to m'$
 		# Check #
 		if not self.__flag:
 			print("Dec2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec2`` subsequently. ")

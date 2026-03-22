@@ -53,7 +53,8 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
@@ -68,7 +69,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -487,8 +489,13 @@ class Saver:
 
 class SchemeAAIBME:
 	__DefaultN, __DefaultK, __DefaultD = 30, 20, 10
-	def __init__(self, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
+	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
+		try:
+			pair(self.__group.random(G1), self.__group.random(G1))
+		except:
+			self.__group = PairingGroup("SS512", secparam = self.__group.secparam)
+			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". ")
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
@@ -498,13 +505,19 @@ class SchemeAAIBME:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, vec:tuple|list|set) -> Element:
-		if isinstance(vec, (tuple, list, set)) and vec:
-			element = vec[0]
-			for ele in vec[1:]:
-				element *= ele
-			return element
-		else:
+	def __product(self:object, elements:object) -> Element:
+		try:
+			if isinstance(elements, (tuple, list)):
+				result = elements[0]
+				for element in elements[1:]:
+					result *= element
+			else:
+				it = iter(elements)
+				result = next(it)
+				for element in it:
+					result *= element
+			return result if isinstance(result, Element) else self.__group.init(ZR, result)
+		except Exception:
 			return self.__group.init(ZR, 1)
 	def __computePolynomial(self:object, x:Element|int|float, coefficients:tuple|list) -> Element|int|float|None:
 		if isinstance(coefficients, (tuple, list)) and coefficients and (																		\
@@ -524,7 +537,7 @@ class SchemeAAIBME:
 			return eleResult
 		else:
 			return None
-	def Setup(self:object, n:int = __DefaultN, k:int = __DefaultK, d:int = __DefaultD) -> tuple: # $\textbf{Setup}(n, k, d) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, n:int = __DefaultN, k:int = __DefaultK, d:int = __DefaultD) -> tuple: # $\textbf{Setup}(n, k, d) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(n, int) and isinstance(k, int) and isinstance(d, int) and 1 <= d <= k <= n: # boundary check
@@ -540,11 +553,11 @@ class SchemeAAIBME:
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		alpha, beta, t1, t2, t3, t4 = self.__group.random(ZR, 6) # generate $\alpha, \beta, t_1, t_2, t_3, t_4 \in \mathbb{Z}_r$ randomly
 		g2, g3 = self.__group.random(G1), self.__group.random(G1) # generate $g_2, g_3 \in \mathbb{G}_1$ randomly
-		TVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{T} \gets (\bm{T}_0, \bm{T}_1, \cdots, \bm{T}_n) \in \mathbb{G}_1^{n + 1}$ randomly
-		TPrimeVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{T}' \gets (\bm{T}'_0, \bm{T}'_1, \cdots, \bm{T}'_n) \in \mathbb{G}_1^{n + 1}$ randomly
-		uVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n) \in \mathbb{G_1}^{n + 1}$ randomly
-		uPrimeVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{u}' \gets (\bm{u}'_0, \bm{u}'_1, \cdots, \bm{u}'_n) \in \mathbb{G}_1^{n + 1}$ randomly
-		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \rightarrow \mathbb{G}_1$
+		TVec = tuple(self.__group.random(G1) for i in range(self.__n)) # generate $\bm{T} \gets (\bm{T}_1, \bm{T}_2, \cdots, \bm{T}_n) \in \mathbb{G}_1^n$ randomly
+		TPrimeVec = tuple(self.__group.random(G1) for i in range(self.__n)) # generate $\bm{T}' \gets (\bm{T}'_1, \bm{T}'_2, \cdots, \bm{T}'_n) \in \mathbb{G}_1^n$ randomly
+		uVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n) \in \mathbb{G_1}^n$ randomly
+		uPrimeVec = tuple(self.__group.random(G1) for i in range(self.__n + 1)) # generate $\bm{u}' \gets (\bm{u}'_0, \bm{u}'_1, \cdots, \bm{u}'_n) \in \mathbb{G}_1^n$ randomly
+		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
 		g1 = g ** alpha # $g_1 \gets g^\alpha$
 		g1Prime = g ** beta # $g'_1 \gets g^\beta$
 		Y1 = pair(g1, g2) ** (t1 * t2) # $Y_1 \gets e(g_1, g_2)^{t_1 t_2}$
@@ -554,15 +567,15 @@ class SchemeAAIBME:
 		v3 = g ** t3 # $v_3 \gets g^{t_3}$
 		v4 = g ** t4 # $v_4 \gets g^{t_4}$
 		H = lambda vec, ID:vec[0] * self.__product(			\
-			vec[j + 1] ** ID[j] for j in range(self.__n)	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \rightarrow \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		self.__mpk = (g1, g1Prime, g2, g3, Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H) # $ \textit{mpk} \gets (g_1, g'_1, g_2, g_3, Y_1, Y_2, v_1, v_2, v_3, v_4, \bm{u}, \bm{T}, \bm{u}', \bm{T}', H_1, H)$
 		self.__msk = (g2 ** alpha, beta, t1, t2, t3, t4) # $\textit{msk} \gets (g_2^\alpha, \beta, t_1, t_2, t_3, t_4)$
 		
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def EKGen(self:object, IDA:tuple, _S:set) -> tuple: # $\textbf{EKGen}(\textit{ID}_A, S) \rightarrow \textit{ek}_{\textit{ID}_A}(S)$
+	def EKGen(self:object, IDA:tuple, _S:set) -> tuple: # $\textbf{EKGen}(\textit{ID}_A, S) \to \textit{ek}_{\textit{ID}_A}(S)$
 		# Check #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
@@ -596,7 +609,7 @@ class SchemeAAIBME:
 		
 		# Return #
 		return ek_ID_A_S # \textbf{return} $\textit{ek}_{\textit{ID}_A}(S)$
-	def DKGen(self:object, IDB:tuple, _SPrime:set) -> tuple: # $\textbf{DKGen}(\textit{id}_B, S') \rightarrow \textit{dk}_{\textit{ID}_B}$
+	def DKGen(self:object, IDB:tuple, _SPrime:set) -> tuple: # $\textbf{DKGen}(\textit{id}_B, S') \to \textit{dk}_{\textit{ID}_B}$
 		# Check #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
@@ -636,7 +649,7 @@ class SchemeAAIBME:
 		
 		# Return #
 		return dk_ID_B_SPrime # \textbf{return} $\textit{dk}_{\textit{ID}_B}(S')$
-	def Enc(self:object, ekIDAS:dict, IDA:tuple, IDB:tuple, _SPrimePrime:set, _S:set, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, \textit{ID}_B, S'', S, M) \rightarrow \textit{CT}$
+	def Enc(self:object, ekIDAS:dict, IDA:tuple, IDB:tuple, _SPrimePrime:set, _S:set, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, \textit{ID}_B, S'', S, M) \to \textit{CT}$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -683,13 +696,12 @@ class SchemeAAIBME:
 			print("Enc: The variable $M$ should be an element of $\\mathbb{G}_T$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1 = self.__mpk[4], self.__mpk[5], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14]
+		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H = (																	\
+			self.__mpk[4], self.__mpk[5], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14], self.__mpk[15]	\
+		)
 		
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			vec[j + 1] ** ID[j] for j in range(self.__n)	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \rightarrow \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		s = self.__group.random(ZR) # generate $s \in \mathbb{Z}_r$ randomly
 		s1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_1 = (s_{1, 1}, s_{1, 2}, \cdots, s_{1, n})$ randomly
 		s2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_2 = (s_{2, 1}, s_{2, 2}, \cdots, s_{2, n})$ randomly
@@ -727,7 +739,7 @@ class SchemeAAIBME:
 		
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
-	def Dec(self:object, dkIDBSPrime:dict, IDB:tuple, IDA:tuple, _SPrimePrime:set, _SPrime:set, cipherText:tuple) -> Element|bool: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, \textit{ID}_A, S'', S', \textit{CT}) \rightarrow M$
+	def Dec(self:object, dkIDBSPrime:dict, IDB:tuple, IDA:tuple, _SPrimePrime:set, _SPrime:set, cipherText:tuple) -> Element|bool: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, \textit{ID}_A, S'', S', \textit{CT}) \to M$
 		# Check #
 		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime):
 			SPrimePrime = _SPrimePrime
@@ -792,23 +804,17 @@ class SchemeAAIBME:
 			+ self.__group.serialize(C5Vec[i]) + self.__group.serialize(C6Vec[i]) + self.__group.serialize(C7Vec[i]) for i in IStar										\
 		} # $\textit{CT}_i \gets C || C_{1, i} || C_{2, i} || C_{3, i} || C_{4, i} || C_{5, i} || C_{6, i} || C{7, i}, \forall i \in I^*$
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		Delta0 = lambda i, I: self.__group.init(ZR, 1) if len(I) == 1 else \
-			self.__product(
-				(self.__group.init(ZR, 0) - self.__group.init(ZR, j)) / 
-				(self.__group.init(ZR, i) - self.__group.init(ZR, j))
-			for j in I if j != i
-		)
+		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 		I = set(SPrime).intersection(SPrimePrime) # $I \gets S' \cap S''$
-		
 		KlPrime = self.__product(
-			tuple((pair(C8Vec[i], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], C7Vec[i]) *pair(H1(CTVec[i]), C6Vec[i]))) ** Delta0(i, I) for i in IStar)
-		) # $K'_l \gets \prod\limits_{i \in I^*} \left(\frac{e(C_{8, i}, g)}{e([H(\bm{u}', \textit{ID}_A) T'_i] e(H_1(\textit{CT}_i), C_{6, i})}\right)^{\Delta_{i, I}(0)}$
+			tuple((pair(C8Vec[i], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], C7Vec[i]) *pair(H1(CTVec[i]), C6Vec[i]))) ** Delta(i, IStar, 0) for i in IStar)
+		) # $K'_l \gets \prod\limits_{i \in I^*} \left(\frac{e(C_{8, i}, g)}{e([H(\bm{u}', \textit{ID}_A) T'_i] e(H_1(\textit{CT}_i), C_{6, i})}\right)^{\Delta_{i, I^*}(0)}$
 		KsPrime = self.__product(																										\
 			tuple((																														\
 				(pair(C1Vec[i], dk_ID_B_SPrime[i][0]) * pair(C2Vec[i], dk_ID_B_SPrime[i][1]) * pair(C3Vec[i], dk_ID_B_SPrime[i][2]))	\
 				/ (pair(C4Vec[i], dk_ID_B_SPrime[i][3]) * pair(C5Vec[i], dk_ID_B_SPrime[i][4]))											\
-			) ** Delta0(i, I) for i in I)																								\
-		) # $K'_s \gets \prod\limits_{i \in I} \left(\right)^{\Delta(i, j, 0)}$
+			) ** Delta(i, I, 0) for i in I)																								\
+		) # $K'_s \gets \prod\limits_{i \in I} \left(\right)^{\Delta_{i, j}(0)}$
 		if len(S.intersection(SPrimePrime)) >= self.__d and len(SPrime.intersection(SPrimePrime)) >= self.__d: # \textbf{if} $|S \cap S''| \leqslant d \land |S' \cap S''| \leqslant d$ \textbf{then}
 			M = C * KsPrime * KlPrime # \quad$M \gets C \cdot K'_s \cdot K'_l$
 		else: # \textbf{else}

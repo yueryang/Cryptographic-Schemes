@@ -53,9 +53,10 @@ class Parser:
 		else:
 			return ""
 	def __printHelp(self:object) -> None:
-		print("This is the official implementation of the IBMEMR cryptographic scheme in Python programming language based on the Python charm library. \n")
+		print("This is the official implementation of the IBMEMR cryptographic scheme in Python programming language based on the Python charm library. ")
+		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
@@ -68,7 +69,8 @@ class Parser:
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
 			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. \n".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
 			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
@@ -492,7 +494,7 @@ class SchemeIBMEMR:
 			pair(self.__group.random(G1), self.__group.random(G1))
 		except:
 			self.__group = PairingGroup("SS512", secparam = self.__group.secparam)
-			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve type has been defaulted to \"SS512\". ")
+			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". ")
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
@@ -560,7 +562,7 @@ class SchemeIBMEMR:
 			return eleResult
 		else:
 			return None
-	def Setup(self:object, d:int = 30, seed:int|None = None) -> tuple: # $\textbf{Setup}(d) \rightarrow (\textit{mpk}, \textit{msk})$
+	def Setup(self:object, d:int = 30, seed:int|None = None) -> tuple: # $\textbf{Setup}(d) \to (\textit{mpk}, \textit{msk})$
 		# Check #
 		self.__flag = False
 		if isinstance(d, int) and d >= 1: # boundary check
@@ -573,8 +575,8 @@ class SchemeIBMEMR:
 		# Scheme #
 		p = self.__group.order() # $p \gets \|\mathbb{G}\|$
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
-		H1 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_1: \mathbb{Z}_r \rightarrow \mathbb{G}_1$
-		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_2: \mathbb{Z}_r \rightarrow \mathbb{G}_1$
+		H1 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_1: \mathbb{Z}_r \to \mathbb{G}_1$
+		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_2: \mathbb{Z}_r \to \mathbb{G}_1$
 		if 512 == self.__group.secparam:
 			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest(), byteorder = "big")
 		elif 384 == self.__group.secparam:
@@ -588,11 +590,11 @@ class SchemeIBMEMR:
 		elif 128 == self.__group.secparam:
 			HHat = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 		else:
-			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \rightarrow \{0, 1\}^\lambda$
+			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \mathbb{G}_T \to \{0, 1\}^\lambda$
 			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 128, 160, 224, 256, 384, or 512 as the security parameter. ".format(self.__group.secparam))
-		H3 = lambda x:self.__group.hash(x, ZR) # $H_3: \{0, 1\}^* \rightarrow \mathbb{Z}_r$
-		H4 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_4: \mathbb{G}_T \rightarrow \mathbb{Z}_r$
-		H5 = lambda x:self.__group.hash(x, G1) # $H_5: \{0, 1\}^* \rightarrow \mathbb{G}_1$
+		H3 = lambda x:self.__group.hash(x, ZR) # $H_3: \{0, 1\}^* \to \mathbb{Z}_r$
+		H4 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_4: \mathbb{G}_T \to \mathbb{Z}_r$
+		H5 = lambda x:self.__group.hash(x, G1) # $H_5: \{0, 1\}^* \to \mathbb{G}_1$
 		g0, g1 = self.__group.random(G1), self.__group.random(G1) # generate $g_0, g_1 \in \mathbb{G}_1$ randomly
 		w, alpha, gamma, k, t1, t2 = self.__group.random(ZR, 6) # generate $w, \alpha, \gamma, k, t_1, t_2 \in \mathbb{Z}_r$ randomly
 		Omega = pair(g, g) ** w # $\Omega \gets e(g, g)^w$
@@ -606,7 +608,7 @@ class SchemeIBMEMR:
 		# Flag #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def EKGen(self:object, idS:Element) -> Element: # $\textbf{EKGen}(\textit{id}_S) \rightarrow \textit{ek}_{\textit{id}_S}$
+	def EKGen(self:object, idS:Element) -> Element: # $\textbf{EKGen}(\textit{id}_S) \to \textit{ek}_{\textit{id}_S}$
 		# Check #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
@@ -626,7 +628,7 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return ek_id_S # \textbf{return} $\textit{ek}_{\textit{id}_S}$
-	def DKGen(self:object, idR:Element) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \rightarrow \textit{dk}_{\textit{id}_R}$
+	def DKGen(self:object, idR:Element) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
 		# Check #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
@@ -649,7 +651,7 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return dk_id_R # \textbf{return} $\textit{dk}_{\textit{id}_R}$
-	def TDKGen(self:object, idR:Element) -> tuple: # $\textbf{TDKGen}(\textit{id}_R) \rightarrow \textit{td}_{\textit{id}_R}$
+	def TDKGen(self:object, idR:Element) -> tuple: # $\textbf{TDKGen}(\textit{id}_R) \to \textit{td}_{\textit{id}_R}$
 		# Check #
 		if not self.__flag:
 			print("TDKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TDKGen`` subsequently. ")
@@ -671,7 +673,7 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return td_id_R # \textbf{return} $\textit{td}_{\textit{id}_R}$
-	def Enc(self:object, ekidS:Element, idR:Element, message:int|bytes) -> object: # $\textbf{Enc}(\textit{ek}_{\textit{id}_S}, \textit{id}_R, m) \rightarrow \textit{ct}$
+	def Enc(self:object, ekidS:Element, idR:Element, message:int|bytes) -> object: # $\textbf{Enc}(\textit{ek}_{\textit{id}_S}, \textit{id}_R, m) \to \textit{ct}$
 		# Check #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -733,7 +735,7 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
-	def Dec(self:object, dkidR:tuple, idR:Element, idS:Element, cipherText:tuple) -> int|bool: # $\textbf{Dec}(\textit{dk}_{\textit{id}_R}, \textit{id}_R, \textit{id}_S, \textit{ct}) \rightarrow m$
+	def Dec(self:object, dkidR:tuple, idR:Element, idS:Element, cipherText:tuple) -> int|bool: # $\textbf{Dec}(\textit{dk}_{\textit{id}_R}, \textit{id}_R, \textit{id}_S, \textit{ct}) \to m$
 		# Check #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
@@ -793,7 +795,7 @@ class SchemeIBMEMR:
 		
 		# Return #
 		return m # \textbf{return} $m$
-	def ReceiverVerify(self:object, cipherText:tuple, tdidR:tuple) -> bool: # $\textbf{ReceiverVerify}(\textit{ct}, \textit{td}_{\textit{id}_R}) \rightarrow y, y \in \{0, 1\}$
+	def ReceiverVerify(self:object, cipherText:tuple, tdidR:tuple) -> bool: # $\textbf{ReceiverVerify}(\textit{ct}, \textit{td}_{\textit{id}_R}) \to y, y \in \{0, 1\}$
 		# Check #
 		if (																																															\
 			isinstance(cipherText, tuple) and len(cipherText) == 9 and all(isinstance(ele, Element) for ele in cipherText[:3]) and isinstance(cipherText[3], int) and isinstance(cipherText[4], Element) and isinstance(cipherText[5], Element)		\
