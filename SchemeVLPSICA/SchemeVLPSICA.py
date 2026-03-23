@@ -878,6 +878,7 @@ def main() -> int:
 									averages[idx] = "N/A"
 							results.append(averages)
 							saver.save(results)
+							print()
 		except KeyboardInterrupt:
 			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:

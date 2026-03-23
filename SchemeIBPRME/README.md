@@ -1,6 +1,6 @@
 ## SchemeIBPME
 
-This is the category of the proposed IBPRME cryptographic scheme, which outperforms the baselines, the IBPME, the IBMECH, and the PBAC cryptographic schemes. 
+This is the category of the proposed IBPRME cryptographic scheme, whose baselines are the IBPME, the IBMECH, and the PBAC cryptographic schemes. 
 
 ### ``SchemeIBPRME.py``
 

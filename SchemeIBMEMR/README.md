@@ -1,6 +1,6 @@
 ## SchemeIBMEMR
 
-This is the category of the proposed IBMEMR cryptographic scheme, which outperforms the baselines, the IBME and the IBBME cryptographic schemes. 
+This is the category of the proposed IBMEMR cryptographic scheme, whose baselines are the IBME and the IBBME cryptographic schemes. 
 
 ### ``SchemeIBMEMR.py``
 

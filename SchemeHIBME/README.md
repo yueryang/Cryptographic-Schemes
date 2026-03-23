@@ -1,6 +1,6 @@
 ## SchemeHIBME
 
-This is the category of the proposed HIB-ME cryptographic scheme, which outperforms the baseline, the AnonymousME cryptographic scheme. 
+This is the category of the proposed HIB-ME cryptographic scheme, whose baseline is the AnonymousME cryptographic scheme. 
 
 ### ``SchemeHIBME.py``
 

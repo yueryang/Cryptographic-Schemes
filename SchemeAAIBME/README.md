@@ -1,6 +1,6 @@
 ## SchemeAAIBME
 
-This is the category of the proposed AA-IB-ME cryptographic scheme, which outperforms the baselines, the Fuzzy-IB-ME, Fuzzy-ME, and IBMECH cryptographic schemes. 
+This is the category of the proposed AA-IB-ME cryptographic scheme, whose baselines are the Fuzzy-IB-ME, Fuzzy-ME, and IBMECH cryptographic schemes. 
 
 ### ``SchemeAAIBME.py``
 

@@ -1,6 +1,6 @@
 ## SchemeIBMETR
 
-This is the category of the proposed IBMETR cryptographic scheme, which outperforms the baselines, the AIBE, ARES, IBME, and IBMECH cryptographic schemes. 
+This is the category of the proposed IBMETR cryptographic scheme, whose baselines are the AIBE, ARES, IBME, and IBMECH cryptographic schemes. 
 
 ---
 
