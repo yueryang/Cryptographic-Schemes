@@ -248,7 +248,7 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
-        sudo apt-get install -y flex libgmp-dev libssl-dev texlive-latex-base wget
+        sudo apt-get install -y flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
     
     - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
       uses: actions/setup-python@v6
@@ -258,10 +258,11 @@ jobs:
     - name: Build LaTeX and the PDF for the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
-        echo "\$ echo \"\" | python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
-        echo "" | python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
+        echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
+        python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
       env:
         FORMATTER: '%p%s%mLaTeX%s%m-${{ steps.ready.outputs.timeString }}'
+        WAITING_TIME: 0
     
     - name: Upload the LaTeX source code for the cryptographic scheme
       uses: actions/upload-artifact@v7

@@ -71,7 +71,7 @@ class Parser:
 		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
 		print(																																							\
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
-			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
+			+ "Passing inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
 		)
 		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
 		print()
@@ -87,6 +87,64 @@ class Parser:
 				return filePath
 		else:
 			return Parser.__DefaultOutputFileName
+	def __parseRealNumber(self:object, string:str) -> int|float|None:
+		try:
+			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			if "e" in realNumberString and not realNumberString.endswith("e"):
+				return float(realNumberString)
+			else:
+				minusSign = False
+				while realNumberString:
+					if '+' == realNumberString[0]:
+						realNumberString = realNumberString[1:]
+					elif '-' == realNumberString[0]:
+						minusSign, realNumberString = not minusSign, realNumberString[1:]
+					else:
+						break
+				while realNumberString.startswith("00"):
+					realNumberString = realNumberString[1:]
+				if realNumberString.startswith("0b"):
+					base, digits, realNumberString = 2, "01", realNumberString[2:]
+				elif realNumberString.startswith("0q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[2:]
+				elif realNumberString.startswith("0o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
+				elif realNumberString.startswith(("0d", "0l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
+				elif realNumberString.startswith(("0h", "0x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				elif realNumberString.endswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[:-1]
+				elif realNumberString.endswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[:-1]
+				elif realNumberString.endswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[:-1]
+				elif realNumberString.endswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[:-1]
+				elif realNumberString.endswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[:-1]
+				else:
+					base, digits = 10, "0123456789"
+				if "inf" == realNumberString:
+					realNumber = float("inf")
+				elif "nan" == realNumberString:
+					realNumber = float("nan")
+				else:
+					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					realNumber = 0
+					for ch in decimalPartString.rstrip("0")[::-1]:
+						realNumber += digits.index(ch)
+						realNumber /= base
+					integerPartString = integerPartString.lstrip("0")
+					if integerPartString:
+						realNumber += int(integerPartString, base = base)
+					if realNumber.is_integer():
+						realNumber = int(realNumber)
+				if minusSign:
+					realNumber = -realNumber
+				return realNumber
+		except:
+			return None
 	def parse(self:object) -> tuple:
 		flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = (																		\
 			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, Parser.__DefaultRun, Parser.__DefaultTime, False	\
@@ -124,55 +182,48 @@ class Parser:
 					if decimalPlaceLower in Parser.__PlaceTranslations:
 						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
 					else:
-						try:
-							p = int(self.__arguments[index], 0)
-							if p >= 0:
-								decimalPlace = p
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
-							del p
-						except:
+						p = self.__parseRealNumber(self.__arguments[index])
+						if p is None:
 							flag = EOF
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+						elif isinstance(p, int) and p >= 0:
+							decimalPlace = p
+						else:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
+						del p
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionRun:
 				index += 1
 				if index < argumentCount:
-					try:
-						r = int(self.__arguments[index].replace("_", ""), 0)
-						if r >= 1:
-							runCount = r
-						else:
-							flag = EOF
-							buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
-						del r
-					except:
+					r = self.__parseRealNumber(self.__arguments[index])
+					if r is None:
 						flag = EOF
 						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif isinstance(r, int) and r >= 1:
+						runCount = r
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
+					del r
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the run count option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
-					if self.__arguments[index].strip().lower() in ("+inf", "inf", "n", "nan", "none"):
-						waitingTime = float("inf")
+					t = self.__parseRealNumber(self.__arguments[index])
+					if t is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif t >= 0:
+						waitingTime = t
 					else:
-						try:
-							t = self.__arguments[index].replace("_", "")
-							t = float(t) if "." in self.__arguments[index] or "e" in self.__arguments[index] else int(t, 0)
-							if t >= 0:
-								waitingTime = int(t) if t.is_integer() else t
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
-							del t
-						except:
-							flag = EOF
-							buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
+					del t
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
@@ -591,10 +642,9 @@ class SchemeAAIBME:
 		v2 = g ** t2 # $v_2 \gets g^{t_2}$
 		v3 = g ** t3 # $v_3 \gets g^{t_3}$
 		v4 = g ** t4 # $v_4 \gets g^{t_4}$
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
-		self.__mpk = (g1, g1Prime, g2, g3, Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H) # $ \textit{mpk} \gets (g_1, g'_1, g_2, g_3, Y_1, Y_2, v_1, v_2, v_3, v_4, \bm{u}, \bm{T}, \bm{u}', \bm{T}', H_1, H)$
+		self.__mpk = (												\
+			g1, g1Prime, g2, g3, Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1		\
+		) # $ \textit{mpk} \gets (g_1, g'_1, g_2, g_3, Y_1, Y_2, v_1, v_2, v_3, v_4, \bm{u}, \bm{T}, \bm{u}', \bm{T}', H_1)$
 		self.__msk = (g2 ** alpha, beta, t1, t2, t3, t4) # $\textit{msk} \gets (g_2^\alpha, \beta, t_1, t_2, t_3, t_4)$
 		
 		# Flag #
@@ -619,7 +669,7 @@ class SchemeAAIBME:
 			print("EKGen: The variable $S$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		g3, uVec, TVec, H = self.__mpk[3], self.__mpk[10], self.__mpk[11], self.__mpk[15]
+		g3, uVec, TVec = self.__mpk[3], self.__mpk[10], self.__mpk[11]
 		beta = self.__msk[1]
 		
 		# Scheme #
@@ -627,6 +677,9 @@ class SchemeAAIBME:
 		rVec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{r} = (r_1, r_2, \cdots, r_n) \in \mathbb{Z}_r^n$ randomly
 		coefficients = (beta, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
 		q = lambda x:self.__computePolynomial(x, coefficients) # generate a $(d - 1)$ degree polynominal $q(x)$ s.t. $q(0) = \beta$ randomly
+		H = lambda vec, ID:vec[0] * self.__product(			\
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		ek_ID_A = tuple(																										\
 			(g3 ** q(self.__group.init(ZR, i)) * (H(uVec, ID_A) * TVec[i]) ** rVec[i], g ** rVec[i]) for i in range(self.__n)	\
 		) # $\textit{ek}_{\textit{ID}_{A_i}} \gets (g_3^{q(i)} [H(\bm{u}', \textit{ID}_A)T'_i]^{r_i}, g^{r_i}), \forall i \in \{1, 2, \cdots, n\}$
@@ -653,22 +706,23 @@ class SchemeAAIBME:
 			print("DKGen: The variable $S'$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		g2, uVec, TVec, H = self.__mpk[2], self.__mpk[10], self.__mpk[11], self.__mpk[15]
+		g2, uVec, TVec = self.__mpk[2], self.__mpk[10], self.__mpk[11]
 		g2ToThePowerOfAlpha, t1, t2, t3, t4 = self.__mpk[0], self.__msk[2], self.__msk[3], self.__msk[4], self.__msk[5]
 		
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		k1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{k}_1 = (k_{1, 1}, k_{1, 2}, \cdots, k_{1, n}) \in \mathbb{Z}_r^n$ randomly
 		k2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{k}_2 = (k_{2, 1}, k_{2, 2}, \cdots, k_{2, n}) \in \mathbb{Z}_r^n$ randomly
-		dk_ID_B = list( # $\textit{dk}_{\textit{ID}_{B_i}} \gets (
-			(
-				g ** (k1Vec[i] * t1 * t2 + k2Vec[i] * t3 * t4), # g^{k_{1, i} t_1 t_2 + k_{2, i} t_3 t_4}
-				g2ToThePowerOfAlpha ** (-t2) * (H(uVec, ID_B) * TVec[i]) ** (-k1Vec[i] * t2), # g_2^{-\alpha t_2} [H(\bm{u}, \textit{ID}_B) T_i]^{k_{1, i} t_2}
-				g2ToThePowerOfAlpha ** (-t1) * (H(uVec, ID_B) * TVec[i]) ** (-k1Vec[i] * t1), # g_2^{-\alpha t_1} [H(\bm{u}, \textit{ID}_B) T_i]^{k_{1, i} t_1}
-				(H(uVec, ID_B) * TVec[i]) ** (-k2Vec[i] * t4), # [H(\bm{u}, \textit{ID}_B) T_i]^{k_{2, i} t_4}
-				(H(uVec, ID_B) * TVec[i]) ** (-k2Vec[i] * t3) # [H(\bm{u}, \textit{ID}_B) T_i]^{k_{2, i} t_3}
-			) for i in range(self.__n) # ), \forall i \in \{1, 2, \cdots, n\}
-		) # $
+		H = lambda vec, ID:vec[0] * self.__product(			\
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		dk_ID_B = list(( # $\textit{dk}_{\textit{ID}_{B_i}} \gets (
+			g ** (k1Vec[i] * t1 * t2 + k2Vec[i] * t3 * t4), # g^{k_{1, i} t_1 t_2 + k_{2, i} t_3 t_4}
+			g2ToThePowerOfAlpha ** (-t2) * (H(uVec, ID_B) * TVec[i]) ** (-k1Vec[i] * t2), # g_2^{-\alpha t_2} [H(\bm{u}, \textit{ID}_B) T_i]^{k_{1, i} t_2}
+			g2ToThePowerOfAlpha ** (-t1) * (H(uVec, ID_B) * TVec[i]) ** (-k1Vec[i] * t1), # g_2^{-\alpha t_1} [H(\bm{u}, \textit{ID}_B) T_i]^{k_{1, i} t_1}
+			(H(uVec, ID_B) * TVec[i]) ** (-k2Vec[i] * t4), # [H(\bm{u}, \textit{ID}_B) T_i]^{k_{2, i} t_4}
+			(H(uVec, ID_B) * TVec[i]) ** (-k2Vec[i] * t3) # [H(\bm{u}, \textit{ID}_B) T_i]^{k_{2, i} t_3}
+		) for i in range(self.__n)) # ), \forall i \in \{1, 2, \cdots, n\}$
 		shuffle(dk_ID_B)
 		dk_ID_B_SPrime = {i:dk_ID_B[i] for i in SPrime} # $\textit{dk}_{\textit{ID}_B}(S') \gets \textit{dk}_{\textit{ID}_B}(i), \forall i \in S'$
 		
@@ -721,8 +775,8 @@ class SchemeAAIBME:
 			print("Enc: The variable $M$ should be an element of $\\mathbb{G}_T$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H = (																																\
-			self.__mpk[4], self.__mpk[5], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14], self.__mpk[15]	\
+		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1 = (																																\
+			self.__mpk[4], self.__mpk[5], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14]	\
 		)
 		
 		# Scheme #
@@ -735,6 +789,9 @@ class SchemeAAIBME:
 		K_s = Y1 ** s # $K_s \gets Y_1^s$
 		K_l = Y2 ** s # $K_l \gets Y_2^s$
 		C = M * K_s * K_l # $C \gets M \cdot K_s \cdot K_l$
+		H = lambda vec, ID:vec[0] * self.__product(			\
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		C1Vec = {i:(H(uVec, ID_B) * TVec[i]) ** q(self.__group.init(ZR, i)) for i in SPrimePrime} # $C_{1, i} \gets [H(\bm{u}, \textit{ID}_B) T_i]^{q(i)}, \forall i \in S''$
 		C2Vec = {i:v1 ** (q(self.__group.init(ZR, i)) - s1Vec[i]) for i in SPrimePrime} # $C_{2, i} \gets v_1^{q(i) - s_{1, i}}, \forall i \in S''$
 		C3Vec = {i:v2 ** s1Vec[i] for i in SPrimePrime} # $C_{3, i} \gets v_2^{s_{1, i}}, \forall i \in S''$
@@ -820,7 +877,7 @@ class SchemeAAIBME:
 			print("Dec: The variable $\\textit{CT}$ should be a tuple containing 2 sets, 1 element, 5 $k$-pair dictionaries, and 3 $d$-pair dictionaries but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		uPrimeVec, TPrimeVec, H1, H = self.__mpk[12], self.__mpk[13], self.__mpk[14], self.__mpk[15]
+		uPrimeVec, TPrimeVec, H1 = self.__mpk[12], self.__mpk[13], self.__mpk[14]
 		S, IStar, C, C1Vec, C2Vec, C3Vec, C4Vec, C5Vec, C6Vec, C7Vec, C8Vec = CT[0], CT[1], CT[2], CT[3], CT[4], CT[5], CT[6], CT[7], CT[8], CT[9], CT[10]
 		
 		# Scheme #
@@ -839,6 +896,9 @@ class SchemeAAIBME:
 			while len(I) < self.__d: # \quad generate $I \gets I \cup [0, n]^{d - \|I\|}, I \cap [0, n]^{d - \|I\|} = \emptyset$ randomly
 				I.add(randbelow(self.__n))
 		# \textbf{end if}
+		H = lambda vec, ID:vec[0] * self.__product(			\
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		KlPrime = self.__product(
 			tuple((pair(C8Vec[i], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], C7Vec[i]) *pair(H1(CTVec[i]), C6Vec[i]))) ** Delta(i, IStar, 0) for i in IStar)
 		) # $K'_l \gets \prod\limits_{i \in I^*} \left(\frac{e(C_{8, i}, g)}{e([H(\bm{u}', \textit{ID}_A) T'_i] e(H_1(\textit{CT}_i), C_{6, i})}\right)^{\Delta_{i, I^*}(0)}$
@@ -882,22 +942,28 @@ class SchemeAAIBME:
 			print("EKeySanity: The variable $\\textit{ek}_{\\textit{ID}_A}$ has been generated accordingly. ")
 		
 		# Unpack #
-		g3, g1Prime, uPrimeVec, TPrimeVec, H = self.__mpk[3], self.__mpk[1], self.__mpk[12], self.__mpk[13], self.__mpk[15]
+		g3, g1Prime, uPrimeVec, TPrimeVec = self.__mpk[3], self.__mpk[1], self.__mpk[12], self.__mpk[13]
 		
 		# Scheme #
+		if len(S) >= self.__d: # \textbf{if} $\|S\| \leqslant d$ \textbf{then}
+			SPrimePrimePrime = list(S)
+			shuffle(SPrimePrimePrime)
+			SPrimePrimePrime = set(SPrimePrimePrime[:self.__d]) # \quad generate $S''' \subset S$ s.t. $\|S'''\| = d$ randomly
+		else: # \textbf{else}
+			SPrimePrimePrime = set(S)
+			while len(SPrimePrimePrime) < self.__d: # \quad generate $S''' \gets S''' \cup [0, n)^{d - \|S'''\|}, S''' \cap [0, n)^{d - \|S'''\|} = \emptyset$ randomly
+				SPrimePrimePrime.add(randbelow(self.__n))
+		# \textbf{end if}
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
-		keyIndices = list(ek_ID_A_S.keys())
-		if len(keyIndices) < self.__d:
-			print("EKeySanity: The encryption key contains fewer than $d$ components. ")
-			return False
-		shuffle(keyIndices)
-		S_subset = set(keyIndices[:self.__d])
+		H = lambda vec, ID:vec[0] * self.__product(			\
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
+		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
 		
 		# Return #
 		return self.__product(tuple(																	\
-			(pair(ek_ID_A_S[i][0], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], ek_ID_A_S[i][1]))) ** Delta(i, S_subset, 0) for i in S_subset						\
-		)) == pair(g3, g1Prime) # \textbf{return} $\prod\limites_{i \in S'''} \left(\frac{e(g_3^{j(i)}[H'(\textbf{u}', \textit{ID}_A)T'_i]^{r_i}, g)}{e([H'(\bm{u}', \textit{ID}_A) T'_i, g^{r'_i})}\right)^{\Delta_{i, S}(0)} = \mathbb{S}e(g_3, g'_1)$
+			(pair(ek_ID_A_S[i][0], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], ek_ID_A_S[i][1]))) ** Delta(i, SPrimePrimePrime, 0) for i in SPrimePrimePrime						\
+		)) == pair(g3, g1Prime) # \textbf{return} $\prod\limits_{i \in S'''} \left(\frac{e(g_3^{j(i)}[H'(\textbf{u}', \textit{ID}_A)T'_i]^{r_i}, g)}{e([H'(\bm{u}', \textit{ID}_A) T'_i, g^{r'_i})}\right)^{\Delta_{i, S}(0)} = \mathbb{S}e(g_3, g'_1)$
 	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
@@ -1078,7 +1144,6 @@ def main() -> int:
 							saver.save(results)
 							print()
 		except KeyboardInterrupt:
-			print()
 			print("The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:
 			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))

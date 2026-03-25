@@ -1,8 +1,9 @@
 import os
 from sys import argv, exit
+from getpass import getpass
 from re import findall
 from subprocess import run
-from time import perf_counter
+from time import perf_counter, sleep
 try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__)))
 except:
@@ -11,6 +12,95 @@ EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 EOF = (-1)
 
+
+class Environments:
+	__DefaultWaitingTime = float("inf")
+	def __init__(self:object) -> object:
+		self.__originalConsoleAttributes = None
+		self.__echolessConsoleAttributes = None
+		self.__tcsetattr = None
+	def __parseRealNumber(self:object, string:str) -> int|float|None:
+		try:
+			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			if "e" in realNumberString and not realNumberString.endswith("e"):
+				return float(realNumberString)
+			else:
+				minusSign = False
+				while realNumberString:
+					if '+' == realNumberString[0]:
+						realNumberString = realNumberString[1:]
+					elif '-' == realNumberString[0]:
+						minusSign, realNumberString = not minusSign, realNumberString[1:]
+					else:
+						break
+				while realNumberString.startswith("00"):
+					realNumberString = realNumberString[1:]
+				if realNumberString.startswith("0b"):
+					base, digits, realNumberString = 2, "01", realNumberString[2:]
+				elif realNumberString.startswith("0q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[2:]
+				elif realNumberString.startswith("0o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
+				elif realNumberString.startswith(("0d", "0l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
+				elif realNumberString.startswith(("0h", "0x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				elif realNumberString.endswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[:-1]
+				elif realNumberString.endswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[:-1]
+				elif realNumberString.endswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[:-1]
+				elif realNumberString.endswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[:-1]
+				elif realNumberString.endswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[:-1]
+				else:
+					base, digits = 10, "0123456789"
+				if "inf" == realNumberString:
+					realNumber = float("inf")
+				elif "nan" == realNumberString:
+					realNumber = float("nan")
+				else:
+					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					realNumber = 0
+					for ch in decimalPartString.rstrip("0")[::-1]:
+						realNumber += digits.index(ch)
+						realNumber /= base
+					integerPartString = integerPartString.lstrip("0")
+					if integerPartString:
+						realNumber += int(integerPartString, base = base)
+					if realNumber.is_integer():
+						realNumber = int(realNumber)
+				if minusSign:
+					realNumber = -realNumber
+				return realNumber
+		except:
+			return None
+	def resolve(self:object) -> tuple:
+		waitingTime = self.__parseRealNumber(os.getenv("WAITING_TIME"))
+		return (os.getenv("FORMATTER"), waitingTime if isinstance(waitingTime, (int, float)) and waitingTime >= 0 else Environments.__DefaultWaitingTime)
+	def disableConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				if self.__originalConsoleAttributes is None:
+					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
+				if self.__echolessConsoleAttributes is None:
+					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
+					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
+				if self.__tcsetattr is None:
+					self.__tcsetattr = __import__("termios").tcsetattr
+				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
+			except:
+				return False
+		return True
+	def restoreConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+			except:
+				return False
+		return True
 
 class Builder:
 	__DefaultCompilationTimeout = 10
@@ -232,24 +322,50 @@ class Builders:
 
 
 def main() -> int:
-	builders = Builders(os.getenv("FORMATTER"), *argv[1:])
+	environments = Environments()
+	environments.disableConsoleEchoes()
+	formatter, waitingTime = environments.resolve()
+	builders = Builders(formatter, *argv[1:])
 	totalCount = len(builders)
 	print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
 	if totalCount >= 1:
 		print()
 		successCount = builders.build()
 		errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
-		print()
 		print("Successfully handled {0} / {1} {2} with a success rate of {3:.2f}%. ".format(successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount))
 	else:
 		errorLevel = EOF
 		print("Nothing was built. ")
-	print("Please press the enter key to exit ({0}). ".format(errorLevel))
-	try:
-		input()
-	except:
+	if 0 == waitingTime:
+		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
-	print()
+	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
+		integerTime, timeString = int(waitingTime), str(waitingTime)
+		decimalTime = waitingTime - integerTime
+		if "e" in timeString:
+			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
+		timeStringLength = len(timeString)
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing `Ctrl + C` ({1}). ".format(timeString, errorLevel))
+		try:
+			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			sleep(decimalTime)
+			while integerTime >= 1:
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				sleep(1)
+				integerTime -= 1
+		except:
+			pass
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
+		print("The execution has finished ({0}). ".format(errorLevel))
+		print()
+	else:
+		print("Please press the enter key to exit ({0}). ".format(errorLevel))
+		try:
+			getpass("")
+		except:
+			print()
+	environments.restoreConsoleEchoes()
+	del environments
 	return errorLevel
 
 
