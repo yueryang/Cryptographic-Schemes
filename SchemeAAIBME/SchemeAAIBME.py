@@ -13,6 +13,7 @@ except:
 	print()
 	exit(-2)
 from codecs import lookup
+from getpass import getpass
 from random import shuffle
 from secrets import randbelow
 from time import perf_counter, sleep
@@ -44,6 +45,9 @@ class Parser:
 	__OptionYes = ("y", "/y", "-y", "yes", "/yes", "--yes")
 	def __init__(self:object, arguments:tuple|list) -> object:
 		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
+		self.__originalConsoleAttributes = None
+		self.__echolessConsoleAttributes = None
+		self.__tcsetattr = None
 	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
 		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
 			prefix = pre if isinstance(pre, str) else "["
@@ -204,6 +208,27 @@ class Parser:
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
+	def disableConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				if self.__originalConsoleAttributes is None:
+					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
+				if self.__echolessConsoleAttributes is None:
+					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
+					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
+				if self.__tcsetattr is None:
+					self.__tcsetattr = __import__("termios").tcsetattr
+				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
+			except:
+				return False
+		return True
+	def restoreConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+			except:
+				return False
+		return True
 	@staticmethod
 	def getDefaultOutputFilePath() -> str:
 		return Parser.__DefaultOutputFileName
@@ -544,8 +569,8 @@ class SchemeAAIBME:
 			self.__n, self.__k, self.__d = n, k, d
 		else:
 			self.__n, self.__k, self.__d = SchemeAAIBME.__DefaultN, SchemeAAIBME.__DefaultK, SchemeAAIBME.__DefaultD
-			print(																					\
-				"Setup: The variables $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$ but they are not, "		\
+			print(																																							\
+				"Setup: The variables $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$ but they are not, "			\
 				+ "which has been defaulted to ${0}$, ${1}$, and ${2}$, respectively. ".format(SchemeAAIBME.__DefaultN, SchemeAAIBME.__DefaultK, SchemeAAIBME.__DefaultD)	\
 			)
 		
@@ -602,8 +627,8 @@ class SchemeAAIBME:
 		rVec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{r} = (r_1, r_2, \cdots, r_n) \in \mathbb{Z}_r^n$ randomly
 		coefficients = (beta, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
 		q = lambda x:self.__computePolynomial(x, coefficients) # generate a $(d - 1)$ degree polynominal $q(x)$ s.t. $q(0) = \beta$ randomly
-		ek_ID_A = tuple(																												\
-			(g3 ** q(self.__group.init(ZR, i)) * (H(uVec, ID_A) * TVec[i]) ** rVec[i], g ** rVec[i]) for i in range(self.__n)			\
+		ek_ID_A = tuple(																										\
+			(g3 ** q(self.__group.init(ZR, i)) * (H(uVec, ID_A) * TVec[i]) ** rVec[i], g ** rVec[i]) for i in range(self.__n)	\
 		) # $\textit{ek}_{\textit{ID}_{A_i}} \gets (g_3^{q(i)} [H(\bm{u}', \textit{ID}_A)T'_i]^{r_i}, g^{r_i}), \forall i \in \{1, 2, \cdots, n\}$
 		ek_ID_A_S = {i:ek_ID_A[i] for i in S} # generate $\textit{ek}_{\textit{ID}_A}(S) \subset \textit{ek}_{\textit{ID}_A}$ s.t. $\|\textit{ek}_{\textit{ID}_A}(S)\| = d$ randomly
 		
@@ -696,7 +721,7 @@ class SchemeAAIBME:
 			print("Enc: The variable $M$ should be an element of $\\mathbb{G}_T$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H = (																	\
+		Y1, Y2, v1, v2, v3, v4, uVec, TVec, uPrimeVec, TPrimeVec, H1, H = (																																\
 			self.__mpk[4], self.__mpk[5], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14], self.__mpk[15]	\
 		)
 		
@@ -761,9 +786,9 @@ class SchemeAAIBME:
 			print("Dec: The variable $S'$ has been generated accordingly. ")
 		if isinstance(IDB, tuple) and len(IDB) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in IDB): # hybrid check
 			ID_B = IDB
-			if (																									\
+			if (																															\
 				isinstance(dkIDBSPrime, dict) and len(dkIDBSPrime) == self.__d and all(isinstance(ele, int) for ele in dkIDBSPrime.keys())	\
-				and all(isinstance(ele, tuple) and len(ele) == 5 for ele in dkIDBSPrime.values())			\
+				and all(isinstance(ele, tuple) and len(ele) == 5 for ele in dkIDBSPrime.values())											\
 			): # hybrid check
 				dk_ID_B_SPrime = dkIDBSPrime
 			else:
@@ -779,11 +804,11 @@ class SchemeAAIBME:
 		else:
 			ID_A = tuple(self.__group.random(ZR) for _ in range(self.__n))
 			print("Dec: The variable $\\textit{ID}_A$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
-		if (																													\
-			isinstance(cipherText, tuple) and len(cipherText) == 11 and isinstance(cipherText[0], set)
-			and isinstance(cipherText[1], set) and isinstance(cipherText[2], Element)	\
-			and all(isinstance(ele, dict) and len(ele) == self.__k for ele in cipherText[3:8])									\
-			and all(isinstance(ele, dict) and len(ele) == self.__d for ele in cipherText[8:])									\
+		if (																							\
+			isinstance(cipherText, tuple) and len(cipherText) == 11 and isinstance(cipherText[0], set)	\
+			and isinstance(cipherText[1], set) and isinstance(cipherText[2], Element)					\
+			and all(isinstance(ele, dict) and len(ele) == self.__k for ele in cipherText[3:8])			\
+			and all(isinstance(ele, dict) and len(ele) == self.__d for ele in cipherText[8:])			\
 		): # hybrid check
 			CT = cipherText
 		else:
@@ -799,13 +824,21 @@ class SchemeAAIBME:
 		S, IStar, C, C1Vec, C2Vec, C3Vec, C4Vec, C5Vec, C6Vec, C7Vec, C8Vec = CT[0], CT[1], CT[2], CT[3], CT[4], CT[5], CT[6], CT[7], CT[8], CT[9], CT[10]
 		
 		# Scheme #
-		CTVec = {																																								\
-			i:self.__group.serialize(C) + self.__group.serialize(C1Vec[i]) + self.__group.serialize(C2Vec[i]) + self.__group.serialize(C3Vec[i]) + self.__group.serialize(C4Vec[i])	\
-			+ self.__group.serialize(C5Vec[i]) + self.__group.serialize(C6Vec[i]) + self.__group.serialize(C7Vec[i]) for i in IStar										\
+		CTVec = {																																										\
+			i:self.__group.serialize(C) + self.__group.serialize(C1Vec[i]) + self.__group.serialize(C2Vec[i]) + self.__group.serialize(C3Vec[i]) + self.__group.serialize(C4Vec[i])		\
+			+ self.__group.serialize(C5Vec[i]) + self.__group.serialize(C6Vec[i]) + self.__group.serialize(C7Vec[i]) for i in IStar														\
 		} # $\textit{CT}_i \gets C || C_{1, i} || C_{2, i} || C_{3, i} || C_{4, i} || C_{5, i} || C_{6, i} || C{7, i}, \forall i \in I^*$
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
 		I = set(SPrime).intersection(SPrimePrime) # $I \gets S' \cap S''$
+		if len(I) >= self.__d: # \textbf{if} $\|I\| \leqslant d$ \textbf{then}
+			I = list(I)
+			shuffle(I)
+			I = set(I[:self.__d]) # \quad generate $I \subset S' \cap S''$ s.t. $\|I\| = d$ randomly
+		else: # \textbf{else}
+			while len(I) < self.__d: # \quad generate $I \gets I \cup [0, n]^{d - \|I\|}, I \cap [0, n]^{d - \|I\|} = \emptyset$ randomly
+				I.add(randbelow(self.__n))
+		# \textbf{end if}
 		KlPrime = self.__product(
 			tuple((pair(C8Vec[i], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], C7Vec[i]) *pair(H1(CTVec[i]), C6Vec[i]))) ** Delta(i, IStar, 0) for i in IStar)
 		) # $K'_l \gets \prod\limits_{i \in I^*} \left(\frac{e(C_{8, i}, g)}{e([H(\bm{u}', \textit{ID}_A) T'_i] e(H_1(\textit{CT}_i), C_{6, i})}\right)^{\Delta_{i, I^*}(0)}$
@@ -823,6 +856,48 @@ class SchemeAAIBME:
 		
 		# Return #
 		return M # \textbf{return} $M$
+	def EKeySanity(self:object, ekIDAS:dict, IDA:tuple, _S:set) -> bool: # $\textbf{EKeySanity}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, S) \to y, y \in \{0, 1\}$
+		# Check #
+		if not self.__flag:
+			print("EKeySanity: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
+			self.Setup()
+		if isinstance(_S, set) and len(_S) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _S):
+			S = _S
+		else:
+			S = list(range(self.__n))
+			shuffle(S)
+			S = set(S[:self.__d])
+			print("EKeySanity: The variable $S$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
+		if isinstance(IDA, tuple) and len(IDA) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in IDA): # hybrid check
+			ID_A = IDA
+			if isinstance(ekIDAS, dict) and len(ekIDAS) == self.__d and all(isinstance(ele, int) for ele in ekIDAS.keys()) and all(isinstance(ele, tuple) and len(ele) == 2 for ele in ekIDAS.values()): # hybrid check
+				ek_ID_A_S = ekIDAS
+			else:
+				ek_ID_A_S = self.EKGen(ID_A, S)
+				print("EKeySanity: The variable $\\textit{ek}_{\\textit{ID}_A}(S)$ should be a ``dict`` containing $d$ ``int``--``tuple`` pairs but it is not, which has been generated accordingly. ")
+		else:
+			ID_A = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("EKeySanity: The variable $\\textit{ID}_A$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+			ek_ID_A_S = self.EKGen(ID_A, S)
+			print("EKeySanity: The variable $\\textit{ek}_{\\textit{ID}_A}$ has been generated accordingly. ")
+		
+		# Unpack #
+		g3, g1Prime, uPrimeVec, TPrimeVec, H = self.__mpk[3], self.__mpk[1], self.__mpk[12], self.__mpk[13], self.__mpk[15]
+		
+		# Scheme #
+		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
+		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
+		keyIndices = list(ek_ID_A_S.keys())
+		if len(keyIndices) < self.__d:
+			print("EKeySanity: The encryption key contains fewer than $d$ components. ")
+			return False
+		shuffle(keyIndices)
+		S_subset = set(keyIndices[:self.__d])
+		
+		# Return #
+		return self.__product(tuple(																	\
+			(pair(ek_ID_A_S[i][0], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], ek_ID_A_S[i][1]))) ** Delta(i, S_subset, 0) for i in S_subset						\
+		)) == pair(g3, g1Prime) # \textbf{return} $\prod\limites_{i \in S'''} \left(\frac{e(g_3^{j(i)}[H'(\textbf{u}', \textit{ID}_A)T'_i]^{r_i}, g)}{e([H'(\bm{u}', \textit{ID}_A) T'_i, g^{r'_i})}\right)^{\Delta_{i, S}(0)} = \mathbb{S}e(g_3, g'_1)$
 	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
@@ -883,11 +958,11 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 		except BaseException as e:
 			print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 			print()
-			return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 2 + ["N/A"] * 13
+			return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 3 + ["N/A"] * 14
 	else:
 		print("Is the system valid? No. The parameters $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$. ")
 		print()
-		return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 2 + ["N/A"] * 13
+		return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 3 + ["N/A"] * 14
 	print("Is the system valid? Yes. ")
 	
 	# Initialization #
@@ -936,8 +1011,14 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 	endTime = perf_counter()
 	timeRecords.append(endTime - startTime)
 	
+	# EKeySanity #
+	startTime = perf_counter()
+	isEKeySanity = schemeAAIBME.EKeySanity(ek_ID_A_S, ID_A, S)
+	endTime = perf_counter()
+	timeRecords.append(endTime - startTime)
+	
 	# End #
-	booleans = [True, not isinstance(M, bool) and message == M]
+	booleans = [True, not isinstance(M, bool) and message == M, isEKeySanity]
 	spaceRecords = [																															\
 		schemeAAIBME.getLengthOf(group.random(ZR)), schemeAAIBME.getLengthOf(group.random(G1)), schemeAAIBME.getLengthOf(group.random(GT)), 	\
 		schemeAAIBME.getLengthOf(mpk), schemeAAIBME.getLengthOf(msk), schemeAAIBME.getLengthOf(ek_ID_A_S), 										\
@@ -957,14 +1038,14 @@ def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
-		del parser
+		parser.disableConsoleEchoes()
 		
 		# Parameters #
 		curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
 		queries = ("curveParameter", "secparam", "n", "k", "d", "runCount")
-		validators = ("isSystemValid", "isSchemeCorrect")
+		validators = ("isSystemValid", "isSchemeCorrect", "isEKeySanity")
 		metrics = (																	\
-			"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", 			\
+			"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", "EKeySanity (s)", 			\
 			"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 				\
 			"mpk (B)", "msk (B)", "ek_ID_A_S (B)", "dk_ID_B_SPrime (B)", "CT (B)"	\
 		)
@@ -997,28 +1078,49 @@ def main() -> int:
 							saver.save(results)
 							print()
 		except KeyboardInterrupt:
-			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
+			print()
+			print("The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:
 			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-		errorLevel = EXIT_SUCCESS if results and all(all(																								\
+		errorLevel = EXIT_SUCCESS if results and all(all(																							\
 			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
 		) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
+		parser.disableConsoleEchoes()
 	else:
 		errorLevel = EOF
-	try:
-		if 0 == waitingTime:
-			print("The execution of the Python script has finished ({0}). ".format(errorLevel))
-		elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
-			print("Please wait for the countdown ({0} second(s)) to end, or exit the program manually like pressing the \"Ctrl + C\" ({1}). ".format(waitingTime, errorLevel))
-			sleep(waitingTime)
-		else:
-			print("Please press the enter key to exit ({0}). ".format(errorLevel))
-			input()
-	except:
+		parser.disableConsoleEchoes()
+	if 0 == waitingTime:
+		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
-	print()
+	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
+		integerTime, timeString = int(waitingTime), str(waitingTime)
+		decimalTime = waitingTime - integerTime
+		if "e" in timeString:
+			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
+		timeStringLength = len(timeString)
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing `Ctrl + C` ({1}). ".format(timeString, errorLevel))
+		try:
+			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			sleep(decimalTime)
+			while integerTime >= 1:
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				sleep(1)
+				integerTime -= 1
+		except:
+			pass
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
+		print("The execution has finished ({0}). ".format(errorLevel))
+		print()
+	else:
+		print("Please press the enter key to exit ({0}). ".format(errorLevel))
+		try:
+			getpass("")
+		except:
+			print()
+	parser.restoreConsoleEchoes()
+	del parser
 	return errorLevel
 
 

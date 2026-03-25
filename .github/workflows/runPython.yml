@@ -248,7 +248,7 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         sudo apt-get update
-        sudo apt-get install -y build-essential flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
+        sudo apt-get install -y flex libgmp-dev libssl-dev texlive-latex-base wget
     
     - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
       uses: actions/setup-python@v6
@@ -306,8 +306,8 @@ jobs:
         echo "The current working directory is \"$(pwd)\". "
         if [[ -f "${{ matrix.cryptographicScheme }}" ]];
         then
-          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -h"
-          python "${{ matrix.cryptographicScheme }}" -h
+          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
+          python "${{ matrix.cryptographicScheme }}" -t 0 -h
           echo ""
           echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
           python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y

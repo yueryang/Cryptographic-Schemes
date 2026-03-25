@@ -826,12 +826,12 @@ def conductScheme(curveParameter:tuple|list|str, run:int|None = None) -> list:
 	
 	# TVerify #
 	startTime = perf_counter()
-	bRet = schemeIBMETR.TVerify(tk_id_R, ct)
+	isTracingVerified = schemeIBMETR.TVerify(tk_id_R, ct)
 	endTime = perf_counter()
 	timeRecords.append(endTime - startTime)
 	
 	# End #
-	booleans = [True, message == m, bRet]
+	booleans = [True, message == m, isTracingVerified]
 	spaceRecords = [																																							\
 		schemeIBMETR.getLengthOf(group.random(ZR)), schemeIBMETR.getLengthOf(group.random(G1)), schemeIBMETR.getLengthOf(group.random(GT)), schemeIBMETR.getLengthOf(mpk), 		\
 		schemeIBMETR.getLengthOf(msk), schemeIBMETR.getLengthOf(ek_id_S), schemeIBMETR.getLengthOf(dk_id_R), schemeIBMETR.getLengthOf(tk_id_R), schemeIBMETR.getLengthOf(ct)	\
@@ -886,8 +886,10 @@ def main() -> int:
 						averages[idx] = "N/A"
 				results.append(averages)
 				saver.save(results)
+				print()
 		except KeyboardInterrupt:
-			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
+			print()
+			print("The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:
 			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 		errorLevel = EXIT_SUCCESS if results and all(all(																							\

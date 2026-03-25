@@ -880,7 +880,8 @@ def main() -> int:
 							saver.save(results)
 							print()
 		except KeyboardInterrupt:
-			print(os.linesep + "The experiments were interrupted by users. Saved results are retained. ")
+			print()
+			print("The experiments were interrupted by users. Saved results are retained. ")
 		except BaseException as e:
 			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 		errorLevel = EXIT_SUCCESS if results and all(all(																								\
