@@ -2,7 +2,7 @@ import os
 from sys import argv, exit
 from getpass import getpass
 from re import findall
-from subprocess import run
+from subprocess import TimeoutExpired, run
 from time import perf_counter, sleep
 try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__)))
@@ -127,7 +127,9 @@ class Builder:
 				os.makedirs(self.__targetFolderPath, exist_ok = True)
 				startTime = perf_counter()
 				with open(self.__schemeLaTeXFilePath, "wb") as f:
-					f.write(b"\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n\\usepackage{amsmath,amssymb}\n\\usepackage{bm}\n\n\\begin{document}\n\n")
+					f.write(b"\\documentclass[a4paper]{article}" + os.linesep.encode() + b"\\setlength{\\parindent}{0pt}" + os.linesep.encode())
+					f.write(b"\\usepackage{amsmath,amssymb}" + os.linesep.encode() + b"\\usepackage{bm}" + os.linesep.encode() + os.linesep.encode())
+					f.write(b"\\begin{document}" + os.linesep.encode() + os.linesep.encode())
 					className, functionName, schemeFlag, doubleSeparatorFlag, bucketCount, buffer = None, None, False, True, 0, ""
 					for idx, line in enumerate(binaryStrings.splitlines()):
 						if line.startswith(b"class Scheme"): # class SchemeXXX
@@ -146,7 +148,7 @@ class Builder:
 							if b"__init__" == functionName:
 								f.write(line[line.index(b": # ") + 4:] + os.linesep.encode() * 2)
 								functionName = None
-							elif b"__" in functionName:
+							elif b"__" in functionName or "getLengthOf" == functionName:
 								functionName = None
 							else:
 								f.write(b"\\subsection{" + line[line.index(b": # ") + 4:].strip() + b"}" + os.linesep.encode() * 2)
@@ -156,7 +158,7 @@ class Builder:
 							prompt = line[line.index(b" # ") + 3:].lstrip()
 							if b"$" == prompt.strip():
 								doubleSeparatorFlag = not doubleSeparatorFlag # invert the double separator switch
-							elif (prompt.startswith(b"$") or prompt.startswith(b"\\quad$")) and not prompt.rstrip().endswith(b"$"):
+							elif prompt.startswith((b"$", b"\\quad$", b"\\textbf{return} $")) and not prompt.rstrip().endswith(b"$"):
 								doubleSeparatorFlag = False # disable the double separator switch
 							elif not prompt.startswith(b"$") and prompt.rstrip().endswith(b"$"):
 								doubleSeparatorFlag = True # enable the double separator switch
@@ -167,8 +169,6 @@ class Builder:
 								else:
 									break
 							f.write(b"\t" * tabCount + prompt + os.linesep.encode() * (2 if doubleSeparatorFlag else 1))
-							if line.startswith(b"\t\treturn "):
-								functionName, schemeFlag, doubleSeparatorFlag = None, False, True
 						elif (
 							isinstance(className, bytes) and isinstance(functionName, bytes) and schemeFlag
 							and line.lstrip().startswith(b"# ") and line.rstrip().endswith(b"\\textbf{end if}")
@@ -193,6 +193,8 @@ class Builder:
 					self.__flag = 3
 				else:
 					self.__compilationResult = result
+			except TimeoutExpired as e:
+				self.__compilationResult = {"cmd":e.cmd, "stderr":e.stderr, "stdout":e.stdout, "timeout":e.timeout}
 			except BaseException as e:
 				self.__compilationResult = e
 	def getFlag(self:object) -> int:
