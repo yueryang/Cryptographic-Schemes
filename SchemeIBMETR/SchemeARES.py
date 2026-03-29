@@ -501,7 +501,7 @@ class SchemeARES:
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
 	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -520,7 +520,7 @@ class SchemeARES:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def Extract(self:object, identity:Element) -> tuple: # $\textbf{Extract}(\textit{Id}) \to \textit{Pvk}_\textit{Id}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("Extract: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Extract`` subsequently. ")
@@ -546,7 +546,7 @@ class SchemeARES:
 		# Return #
 		return Pvk_Id # \textbf{return} $\textit{Pvk}_\textit{Id}$
 	def TSK(self:object, identity:Element) -> tuple: # $\textbf{TSK}(\textit{Id}) \to \textit{Pvk}_\textit{Id}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("TSK: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TSK`` subsequently. ")
 			self.Setup()
@@ -572,7 +572,7 @@ class SchemeARES:
 		# Return #
 		return Pvk_Id # \textbf{return} $\textit{Pvk}_\textit{Id}$
 	def Encrypt(self:object, identity:Element, message:Element) -> tuple: # $\textbf{Encrypt}(\textit{Id}, m) \to \textit{CT}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Encrypt: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encrypt`` subsequently. ")
 			self.Setup()
@@ -603,7 +603,7 @@ class SchemeARES:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def Decrypt(self:object, PvkId:tuple, cipherText:tuple) -> Element: # $\textbf{Decrypt}(\textit{Pvk}_\textit{id}, \textit{CT}) \to M$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Decrypt: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Decrypt`` subsequently. ")
 			self.Setup()
@@ -628,7 +628,7 @@ class SchemeARES:
 		# Return #
 		return M # \textbf{return} $M$
 	def TVerify(self:object, PvkId:tuple, cipherText:tuple) -> bool: # $\textbf{TVerify}(\textit{Pvk}_\textit{id}, \textit{CT}) \to y, y \in \{0, 1\}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("TVerify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TVerify`` subsequently. ")
 			self.Setup()

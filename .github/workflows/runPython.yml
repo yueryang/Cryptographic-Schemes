@@ -255,6 +255,12 @@ jobs:
       with:
         python-version: ${{ steps.ready.outputs.pythonVersion }}
     
+    - name: Install Python dependencies
+      run: |
+        cd "${{ github.workspace }}"
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+    
     - name: Build LaTeX and the PDF for the cryptographic scheme
       run: |
         cd "${{ github.workspace }}"
@@ -292,8 +298,6 @@ jobs:
     - name: Build and install the Python charm library
       run: |
         cd "${{ github.workspace }}"
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
         git clone https://github.com/JHUISI/charm
         cd charm
         chmod +x ./configure.sh

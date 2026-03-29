@@ -511,7 +511,7 @@ class SchemeIBMECH:
 		except Exception:
 			return self.__group.init(ZR, 1)
 	def Setup(self:object): # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -532,7 +532,7 @@ class SchemeIBMECH:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def SKGen(self:object, sender:Element) -> tuple: # $\textbf{SKGen}(\sigma) \to \textit{ek}_\sigma$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("SKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``SKGen`` subsequently. ")
 			self.Setup()
@@ -552,7 +552,7 @@ class SchemeIBMECH:
 		# Return #
 		return ek_sigma # \textbf{return} $\textit{ek}_\sigma$
 	def RKGen(self:object, receiver:Element) -> tuple: # $\textbf{RKGen}(\rho) \to \textit{dk}_\rho$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("RKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``RKGen`` subsequently. ")
 			self.Setup()
@@ -576,7 +576,7 @@ class SchemeIBMECH:
 		# Return #
 		return dk_rho # \textbf{return} $\textit{dk}_\rho$
 	def Enc(self:object, eksigma:tuple, receiver:Element, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{rcv}, m) \to \textit{ct}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -608,7 +608,7 @@ class SchemeIBMECH:
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
 	def Dec(self:object, dkrho:tuple, sender:Element, cipherText:tuple) -> Element: # $\textbf{Dec}(\textit{dk}_\rho, \textit{snd}, \textit{ct}) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
 			self.Setup()

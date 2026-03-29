@@ -563,7 +563,7 @@ class SchemeIBMEMR:
 		else:
 			return None
 	def Setup(self:object, d:int = 30, seed:int|None = None) -> tuple: # $\textbf{Setup}(d) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(d, int) and d >= 1: # boundary check
 			self.__d = d
@@ -609,7 +609,7 @@ class SchemeIBMEMR:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, idS:Element) -> Element: # $\textbf{EKGen}(\textit{id}_S) \to \textit{ek}_{\textit{id}_S}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -629,7 +629,7 @@ class SchemeIBMEMR:
 		# Return #
 		return ek_id_S # \textbf{return} $\textit{ek}_{\textit{id}_S}$
 	def DKGen(self:object, idR:Element) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -652,7 +652,7 @@ class SchemeIBMEMR:
 		# Return #
 		return dk_id_R # \textbf{return} $\textit{dk}_{\textit{id}_R}$
 	def TDKGen(self:object, idR:Element) -> tuple: # $\textbf{TDKGen}(\textit{id}_R) \to \textit{td}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("TDKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TDKGen`` subsequently. ")
 			self.Setup()
@@ -674,7 +674,7 @@ class SchemeIBMEMR:
 		# Return #
 		return td_id_R # \textbf{return} $\textit{td}_{\textit{id}_R}$
 	def Enc(self:object, ekidS:Element, idR:Element, message:int|bytes) -> object: # $\textbf{Enc}(\textit{ek}_{\textit{id}_S}, \textit{id}_R, m) \to \textit{ct}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -736,7 +736,7 @@ class SchemeIBMEMR:
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
 	def Dec(self:object, dkidR:tuple, idR:Element, idS:Element, cipherText:tuple) -> int|bool: # $\textbf{Dec}(\textit{dk}_{\textit{id}_R}, \textit{id}_R, \textit{id}_S, \textit{ct}) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
 			self.Setup()
@@ -796,7 +796,7 @@ class SchemeIBMEMR:
 		# Return #
 		return m # \textbf{return} $m$
 	def ReceiverVerify(self:object, cipherText:tuple, tdidR:tuple) -> bool: # $\textbf{ReceiverVerify}(\textit{ct}, \textit{td}_{\textit{id}_R}) \to y, y \in \{0, 1\}$
-		# Check #
+		# Checks #
 		if (																																															\
 			isinstance(cipherText, tuple) and len(cipherText) == 9 and all(isinstance(ele, Element) for ele in cipherText[:3]) and isinstance(cipherText[3], int) and isinstance(cipherText[4], Element) and isinstance(cipherText[5], Element)		\
 			and all(isinstance(ele, tuple) and len(ele) >= 1 and all(isinstance(sEle, Element) and sEle.type == ZR for sEle in ele) for ele in cipherText[6:]) and len(cipherText[6]) == len(cipherText[7]) == len(cipherText[8])					\

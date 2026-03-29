@@ -512,7 +512,7 @@ class SchemeHIBME:
 		except Exception:
 			return self.__group.init(ZR, 1)
 	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}(l) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(l, int) and l >= 3: # boundary check
 			self.__l = l
@@ -556,7 +556,7 @@ class SchemeHIBME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, IDk:tuple) -> tuple: # $\textbf{EKGen}(\textit{ID}_k) \to \textit{ek}_{\textit{ID}_k}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -584,7 +584,7 @@ class SchemeHIBME:
 		# Return #
 		return ek_ID_k # \textbf{return} $\textit{ek}_{\textit{ID}_k}$
 	def DerivedEKGen(self:object, ekIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedEKGen}(\textit{ek}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \to \textit{ek}_{\textit{ID}_k}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DerivedEKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedEKGen`` subsequently. ")
 			self.Setup()
@@ -632,7 +632,7 @@ class SchemeHIBME:
 		# Return #
 		return ek_ID_k # \textbf{return} $\textit{ek}_{\textit{ID}_k}$
 	def DKGen(self:object, IDk:tuple) -> tuple: # $\textbf{DKGen}(\textit{ID}_k) \to \textit{dk}_{\textit{ID}_k}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -674,7 +674,7 @@ class SchemeHIBME:
 		# Return #
 		return dk_ID_k # \textbf{return} $\textit{dk}_{\textit{ID}_k}$
 	def DerivedDKGen(self:object, dkIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedDKGen}(\textit{dk}_{\textit{ID}_{k - 1}}, \textit{ID}_k) \to \textit{dk}_{\textit{ID}_k}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DerivedDKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedDKGen`` subsequently. ")
 			self.Setup()
@@ -739,7 +739,7 @@ class SchemeHIBME:
 		# Return #
 		return dk_ID_k # \textbf{return} $\textit{dk}_{\textit{ID}_k}$
 	def Enc(self:object, ekIDS:tuple, IDSnd:tuple, IDRev:tuple, message:int|bytes) -> Element: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_S}, \textit{ID}_\textit{Rev}, M) \to \textit{CT}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -827,7 +827,7 @@ class SchemeHIBME:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def Dec(self:object, dkIDR:tuple, IDRev:tuple, IDSnd:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_R}, \textit{ID}_\textit{Rev}, \textit{ID}_\textit{Snd}, \textit{CT}) \to M$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
 			self.Setup()

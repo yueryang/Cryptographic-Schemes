@@ -510,7 +510,7 @@ class SchemeCANIFPPCT:
 		except Exception:
 			return self.__group.init(ZR, 1)
 	def Setup(self:object, n:int = 30) -> tuple: # $\textbf{Setup}(n) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(n, int) and n >= 1:
 			self.__n = n
@@ -543,7 +543,7 @@ class SchemeCANIFPPCT:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def KGen(self:object, IDi:tuple) -> tuple: # $\textbf{KGen}(\textit{ID}_i) \to (\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("KGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``KGen`` subsequently. ")
 			self.Setup()
@@ -572,7 +572,7 @@ class SchemeCANIFPPCT:
 		# Return #
 		return (sk_ID_i, ek_ID_i) # \textbf{return} $(\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i}$
 	def Encryption(self:object, TPS:tuple, ekIDi:Element) -> object: # $\textbf{Encryption}(\textit{TP}_S, \textit{ek}_{\textit{ID}_i}) \to \textit{CT}_{\textit{TP}_S})$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Encryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encryption`` subsequently. ")
 			self.Setup()
@@ -617,7 +617,7 @@ class SchemeCANIFPPCT:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def DerivedKGen(self:object, skIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedKGen}(\textit{sk}_{\textit{ID}_\textit{k - 1}}, \textit{ID}_k) \to \textit{sk}_{\textit{ID}_k}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DerivedKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedKGen`` subsequently. ")
 			self.Setup()
@@ -669,7 +669,7 @@ class SchemeCANIFPPCT:
 		# Return #
 		return sk_ID_k # \textbf{return} $\textit{sk}_{\textit{ID}_k}$
 	def Dec(self:object, skIDk:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{sk}_{\textit{ID}_k}, \textit{CT}) \to M$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
 			self.Setup()

@@ -536,7 +536,7 @@ class SchemeFuzzyME:
 		else:
 			return None
 	def Setup(self:object, n:int = 30, d:int = 10) -> tuple: # $\textbf{Setup}(n, d) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(n, int) and n >= 1: # boundary check
 			self.__n = n
@@ -570,7 +570,7 @@ class SchemeFuzzyME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, SA:tuple) -> tuple: # $\textbf{EKGen}(S_A) \to \textit{ek}_{S_A}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -599,7 +599,7 @@ class SchemeFuzzyME:
 		# Return #
 		return ek_S_A # \textbf{return} $\textit{ek}_{S_A}$
 	def DKGen(self:object, SB:tuple, PA:tuple) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -661,7 +661,7 @@ class SchemeFuzzyME:
 		# Return #
 		return dk_SBPA # \textbf{return} $\textit{dk}_{S_B, P_A}$
 	def Encryption(self:object, ekSA:tuple, SA:tuple, PB:tuple, message:Element) -> tuple: # $\textbf{Encryption}(\textit{ek}_{S_A}, S_A, P_B, M) \to \textit{CT}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Encryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encryption`` subsequently. ")
 			self.Setup()
@@ -723,7 +723,7 @@ class SchemeFuzzyME:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def Decryption(self:object, dkSBPA:tuple, SA:tuple, PA:tuple, SB:tuple, PB:tuple, cipherText:tuple) -> Element|bool: # $\textbf{Decryption}(\textit{dk}_{S_B, P_A}, S_A, P_A, S_B, P_B, \textit{CT}) \to M$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Decryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Decryption`` subsequently. ")
 			self.Setup()

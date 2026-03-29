@@ -1,5 +1,6 @@
 import os
 from sys import argv, exit
+from getpass import getpass
 try:
 	from charm.toolbox.pairinggroup import PairingGroup, G1, GT, ZR, pair, pc_element as Element
 except:
@@ -7,13 +8,11 @@ except:
 	print("Please refer to https://github.com/JHUISI/charm if necessary.  ")
 	print("Please press the enter key to exit (-2). ")
 	try:
-		input()
+		getpass("")
 	except:
 		print()
-	print()
 	exit(-2)
 from codecs import lookup
-from getpass import getpass
 from random import shuffle
 from secrets import randbelow
 from time import perf_counter, sleep
@@ -614,7 +613,7 @@ class SchemeAAIBME:
 		else:
 			return None
 	def Setup(self:object, n:int = __DefaultN, k:int = __DefaultK, d:int = __DefaultD) -> tuple: # $\textbf{Setup}(n, k, d) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(n, int) and isinstance(k, int) and isinstance(d, int) and 1 <= d <= k <= n: # boundary check
 			self.__n, self.__k, self.__d = n, k, d
@@ -651,7 +650,7 @@ class SchemeAAIBME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, IDA:tuple, _S:set) -> tuple: # $\textbf{EKGen}(\textit{ID}_A, S) \to \textit{ek}_{\textit{ID}_A}(S)$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -677,9 +676,9 @@ class SchemeAAIBME:
 		rVec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{r} = (r_1, r_2, \cdots, r_n) \in \mathbb{Z}_r^n$ randomly
 		coefficients = (beta, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
 		q = lambda x:self.__computePolynomial(x, coefficients) # generate a $(d - 1)$ degree polynominal $q(x)$ s.t. $q(0) = \beta$ randomly
-		H = lambda vec, ID:vec[0] * self.__product(					\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))		\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		ek_ID_A = tuple(																										\
 			(g3 ** q(self.__group.init(ZR, i)) * (H(uVec, ID_A) * TVec[i]) ** rVec[i], g ** rVec[i]) for i in range(self.__n)	\
 		) # $\textit{ek}_{\textit{ID}_{A_i}} \gets (g_3^{q(i)} [H(\bm{u}', \textit{ID}_A)T'_i]^{r_i}, g^{r_i}), \forall i \in \{1, 2, \cdots, n\}$
@@ -688,7 +687,7 @@ class SchemeAAIBME:
 		# Return #
 		return ek_ID_A_S # \textbf{return} $\textit{ek}_{\textit{ID}_A}(S)$
 	def DKGen(self:object, IDB:tuple, _SPrime:set) -> tuple: # $\textbf{DKGen}(\textit{id}_B, S') \to \textit{dk}_{\textit{ID}_B}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -713,9 +712,9 @@ class SchemeAAIBME:
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		k1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{k}_1 = (k_{1, 1}, k_{1, 2}, \cdots, k_{1, n}) \in \mathbb{Z}_r^n$ randomly
 		k2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{k}_2 = (k_{2, 1}, k_{2, 2}, \cdots, k_{2, n}) \in \mathbb{Z}_r^n$ randomly
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		dk_ID_B = list(( # $\textit{dk}_{\textit{ID}_{B_i}} \gets (
 			g ** (k1Vec[i] * t1 * t2 + k2Vec[i] * t3 * t4), # g^{k_{1, i} t_1 t_2 + k_{2, i} t_3 t_4}
 			g2ToThePowerOfAlpha ** (-t2) * (H(uVec, ID_B) * TVec[i]) ** (-k1Vec[i] * t2), # g_2^{-\alpha t_2} [H(\bm{u}, \textit{ID}_B) T_i]^{k_{1, i} t_2}
@@ -729,7 +728,7 @@ class SchemeAAIBME:
 		# Return #
 		return dk_ID_B_SPrime # \textbf{return} $\textit{dk}_{\textit{ID}_B}(S')$
 	def Enc(self:object, ekIDAS:dict, IDA:tuple, IDB:tuple, _SPrimePrime:set, _S:set, message:Element) -> tuple: # $\textbf{Enc}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, \textit{ID}_B, S'', S, M) \to \textit{CT}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -782,16 +781,16 @@ class SchemeAAIBME:
 		# Scheme #
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		s = self.__group.random(ZR) # generate $s \in \mathbb{Z}_r$ randomly
-		s1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_1 = (s_{1, 1}, s_{1, 2}, \cdots, s_{1, n})$ randomly
-		s2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_2 = (s_{2, 1}, s_{2, 2}, \cdots, s_{2, n})$ randomly
+		s1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_1 = (s_{1, 1}, s_{1, 2}, \cdots, s_{1, n}) \in \mathbb{Z}_r$ randomly
+		s2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_2 = (s_{2, 1}, s_{2, 2}, \cdots, s_{2, n}) \in \mathbb{Z}_r$ randomly
 		coefficients = (s, ) + tuple(self.__group.random(ZR) for _ in range(self.__d - 2)) + (self.__group.init(ZR, 1), )
 		q = lambda x:self.__computePolynomial(x, coefficients) # generate a $(d - 1)$ degree polynominal $q(x)$ s.t. $q(0) = s$ randomly
 		K_s = Y1 ** s # $K_s \gets Y_1^s$
 		K_l = Y2 ** s # $K_l \gets Y_2^s$
 		C = M * K_s * K_l # $C \gets M \cdot K_s \cdot K_l$
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		C1Vec = {i:(H(uVec, ID_B) * TVec[i]) ** q(self.__group.init(ZR, i)) for i in SPrimePrime} # $C_{1, i} \gets [H(\bm{u}, \textit{ID}_B) T_i]^{q(i)}, \forall i \in S''$
 		C2Vec = {i:v1 ** (q(self.__group.init(ZR, i)) - s1Vec[i]) for i in SPrimePrime} # $C_{2, i} \gets v_1^{q(i) - s_{1, i}}, \forall i \in S''$
 		C3Vec = {i:v2 ** s1Vec[i] for i in SPrimePrime} # $C_{3, i} \gets v_2^{s_{1, i}}, \forall i \in S''$
@@ -812,7 +811,7 @@ class SchemeAAIBME:
 			IStar = set(IStar[:self.__d]) # \quad generate $I^* \subset I$ s.t. $\|I^*\| = d$ randomly
 		else: # \textbf{else}
 			IStar = set(I)
-			while len(IStar) < self.__d: # \quad generate $I^* \gets I \cup [0, n]^{d - \|I^*\|}, I \cap [0, n]^{d - \|I^*\|} = \emptyset$ randomly
+			while len(IStar) < self.__d: # \quad generate $I^* \gets I \cup x$ s.t. $x \subset \{0, 1, \cdots, n - 1\} \land \|x\| = d - \|I\| \land I \cap x = \emptyset$ randomly
 				IStar.add(randbelow(self.__n))
 		# \textbf{end if}
 		CT = (																		\
@@ -822,7 +821,7 @@ class SchemeAAIBME:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def Dec(self:object, dkIDBSPrime:dict, IDB:tuple, IDA:tuple, _SPrimePrime:set, _SPrime:set, cipherText:tuple) -> Element|bool: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, \textit{ID}_A, S'', S', \textit{CT}) \to M$
-		# Check #
+		# Checks #
 		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime):
 			SPrimePrime = _SPrimePrime
 			if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime):
@@ -893,12 +892,12 @@ class SchemeAAIBME:
 			shuffle(I)
 			I = set(I[:self.__d]) # \quad generate $I \subset S' \cap S''$ s.t. $\|I\| = d$ randomly
 		else: # \textbf{else}
-			while len(I) < self.__d: # \quad generate $I \gets I \cup [0, n]^{d - \|I\|}, I \cap [0, n]^{d - \|I\|} = \emptyset$ randomly
+			while len(I) < self.__d: # \quad generate $I \gets I \cup x$ s.t. $x \subset \{0, 1, \cdots, n - 1\} \land \|x\| = d - \|I\| \land I \cap x = \emptyset$ randomly
 				I.add(randbelow(self.__n))
 		# \textbf{end if}
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		KlPrime = self.__product(
 			tuple((pair(C8Vec[i], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], C7Vec[i]) *pair(H1(CTVec[i]), C6Vec[i]))) ** Delta(i, IStar, 0) for i in IStar)
 		) # $K'_l \gets \prod\limits_{i \in I^*} \left(\frac{e(C_{8, i}, g)}{e([H(\bm{u}', \textit{ID}_A) T'_i] e(H_1(\textit{CT}_i), C_{6, i})}\right)^{\Delta_{i, I^*}(0)}$
@@ -917,7 +916,7 @@ class SchemeAAIBME:
 		# Return #
 		return M # \textbf{return} $M$
 	def EKeySanity(self:object, ekIDAS:dict, IDA:tuple, _S:set) -> bool: # $\textbf{EKeySanity}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, S) \to y, y \in \{0, 1\}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKeySanity: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -951,21 +950,21 @@ class SchemeAAIBME:
 			SPrimePrimePrime = set(SPrimePrimePrime[:self.__d]) # \quad generate $S''' \subset S$ s.t. $\|S'''\| = d$ randomly
 		else: # \textbf{else}
 			SPrimePrimePrime = set(S)
-			while len(SPrimePrimePrime) < self.__d: # \quad generate $S''' \gets S''' \cup [0, n)^{d - \|S'''\|}, S''' \cap [0, n)^{d - \|S'''\|} = \emptyset$ randomly
+			while len(SPrimePrimePrime) < self.__d: # \quad generate $S''' \gets S''' \cup x$ s.t. $x \subset \{0, 1, \cdots, n - 1\} \land \|x\| = d - \|S'''\| \land S''' \cap x = \emptyset$ randomly
 				SPrimePrimePrime.add(randbelow(self.__n))
 		# \textbf{end if}
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		Delta = lambda i, S, x:self.__product(tuple((x - j) / (i - j) for j in S if j != i)) # $\Delta_{i, S}(x) := \prod\limits_{j \in S, j \neq i} \frac{x - j}{i - j}$
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		
 		# Return #
 		return self.__product(tuple(																															\
 			(pair(ek_ID_A_S[i][0], g) / (pair(H(uPrimeVec, ID_A) * TPrimeVec[i], ek_ID_A_S[i][1]))) ** Delta(i, SPrimePrimePrime, 0) for i in SPrimePrimePrime	\
 		)) == pair(g3, g1Prime) # \textbf{return} $\prod\limits_{i \in S'''} \left(\frac{e(g_3^{j(i)}[H'(\textbf{u}', \textit{ID}_A)T'_i]^{r_i}, g)}{e([H'(\bm{u}', \textit{ID}_A) T'_i, g^{r'_i})}\right)^{\Delta_{i, S}(0)} = \mathbb{S}e(g_3, g'_1)$
 	def DKeySanity(self:object, dkIDBSPrime:dict, IDB:tuple, _SPrime:set) -> bool: # $\textbf{DKeySanity}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, S') \to y, y \in \{0, 1\}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKeySanity: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKeySanity`` subsequently. ")
 			self.Setup()
@@ -978,9 +977,9 @@ class SchemeAAIBME:
 			print("DKeySanity: The variable $S'$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
 		if isinstance(IDB, tuple) and len(IDB) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in IDB): # hybrid check
 			ID_B = IDB
-			if (																	\
+			if (																															\
 				isinstance(dkIDBSPrime, dict) and len(dkIDBSPrime) == self.__d and all(isinstance(ele, int) for ele in dkIDBSPrime.keys())	\
-				and all(isinstance(ele, tuple) and len(ele) == 5 for ele in dkIDBSPrime.values())						\
+				and all(isinstance(ele, tuple) and len(ele) == 5 for ele in dkIDBSPrime.values())											\
 			): # hybrid check
 				dk_ID_B_SPrime = dkIDBSPrime
 			else:
@@ -996,11 +995,11 @@ class SchemeAAIBME:
 		Y1, v1, v2, v3, v4, uVec, TVec = self.__mpk[4], self.__mpk[6], self.__mpk[7], self.__mpk[8], self.__mpk[9], self.__mpk[10], self.__mpk[11]
 		
 		# Scheme #
-		s1Vec = {i:self.__group.random(ZR) for i in SPrime} # generate $\vec{s}_1 = (s_{1, i})_{i \in S'}$ randomly
-		s2Vec = {i:self.__group.random(ZR) for i in SPrime} # generate $\vec{s}_2 = (s_{2, i})_{i \in S'}$ randomly
-		H = lambda vec, ID:vec[0] * self.__product(			\
-			tuple(vec[j + 1] ** ID[j] for j in range(self.__n))	\
-		) # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) \to \bm{u}_0\prod\limits_{j \in [1, n]} \bm{u}_j^{\textit{ID}_j}$
+		s1Vec = {i:self.__group.random(ZR) for i in SPrime} # generate $\vec{s}_1 = (s_{1, 1}, s_{1, 2}, \cdots, s_{1, n}) \in \mathbb{Z}_r$ randomly
+		s2Vec = {i:self.__group.random(ZR) for i in SPrime} # generate $\vec{s}_2 = (s_{2, 1}, s_{2, 2}, \cdots, s_{2, n}) \in \mathbb{Z}_r$ randomly
+		H = lambda vec, ID:vec[0] * self.__product( # $H: (\bm{u} \gets (\bm{u}_0, \bm{u}_1, \cdots, \bm{u}_n), 
+			tuple(vec[j + 1] ** ID[j] for j in range(self.__n)) # \textit{ID} \gets (\textit{ID}_1, \textit{ID}_2, \cdots, \textit{ID}_n)) 
+		) # \to \bm{u}_0\prod\limits_{j \in \{1, 2, \cdots, n\}} \bm{u}_j^{\textit{ID}_j}$
 		D1Vec = {i:H(uVec, ID_B) * TVec[i] for i in SPrime} # $D_{1, i} \gets H(\bm{u}, \textit{ID}_B) T_i, \forall i \in S'$
 		D2Vec = {i:v1 ** (self.__group.init(ZR, 1) - s1Vec[i]) for i in SPrime} # $D_{2, i} \gets v_1^{1 - s_{1, i}}, \forall i \in S'$
 		D3Vec = {i:v2 ** s1Vec[i] for i in SPrime} # $D_{3, i} \gets v_2^{s_{1, i}}, \forall i \in S'$
@@ -1013,6 +1012,102 @@ class SchemeAAIBME:
 			(pair(D1Vec[i], dk_ID_B_SPrime[i][0]) * pair(D2Vec[i], dk_ID_B_SPrime[i][1]) * pair(D3Vec[i], dk_ID_B_SPrime[i][2])) # e(D_{3, i}, \textit{dk}_{\textit{ID}_{B_{i, 3}}})}
 			/ (pair(D4Vec[i], dk_ID_B_SPrime[i][3]) * pair(D5Vec[i], dk_ID_B_SPrime[i][4])) == Y1Reciprocal for i in SPrime # {e(D_{4, i}, \textit{dk}_{\textit{ID}_{B_{i, 4}}})
 		) # e(D_{5, i}, \textit{dk}_{\textit{ID}_{B_{i, 5}}})} = Y_1^{-1}\right)$
+	def Trace1(self:object, EMathcal_ID_A:callable, ekIDAS:dict, IDA:tuple, _S:set) -> bool: # $\textbf{Trace1}(\mathcal{E}_{\textit{ID}_A}, \textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, S) \to y, y \in \{0, 1\}$
+		# Checks #
+		if not self.__flag:
+			print("Trace1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Trace1`` subsequently. ")
+			self.Setup()
+		if isinstance(_S, set) and len(_S) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _S):
+			S = _S
+		else:
+			S = list(range(self.__n))
+			shuffle(S)
+			S = set(S[:self.__d])
+			print("Trace1: The variable $S$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
+		if isinstance(IDA, tuple) and len(IDA) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in IDA): # hybrid check
+			ID_A = IDA
+			if isinstance(ekIDAS, dict) and len(ekIDAS) == self.__d and all(isinstance(ele, int) for ele in ekIDAS.keys()) and all(isinstance(ele, tuple) and len(ele) == 2 for ele in ekIDAS.values()): # hybrid check
+				ek_ID_A_S = ekIDAS
+			else:
+				ek_ID_A_S = self.EKGen(ID_A, S)
+				print("Trace1: The variable $\\textit{ek}_{\\textit{ID}_A}(S)$ should be a ``dict`` containing $d$ ``int``--``tuple`` pairs but it is not, which has been generated accordingly. ")
+		else:
+			ID_A = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("Trace1: The variable $\\textit{ID}_A$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+			ek_ID_A_S = self.EKGen(ID_A, S)
+			print("Trace1: The variable $\\textit{ek}_{\\textit{ID}_A}$ has been generated accordingly. ")
+		
+		# Unpack #
+		pass
+		
+		# Scheme #
+		if self.EKeySanity(ek_ID_A_S, ID_A, S): # \textbf{if} $\textbf{EKeySanity}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, S)$ \textbf{then}
+			M = self.__group.random(GT) # \quad generate $M \in \mathbb{G}_T$ randomly
+			ID_B = tuple(self.__group.random(ZR) for _ in range(self.__n)) # \quad generate $\textit{ID}_B = (\textit{ID}_{B_1}, \textit{ID}_{B_2}, \cdots, \textit{ID}_{B_n}) \in \mathbb{Z}_r$ randomly
+			SPrimePrime = set(S)
+			while len(SPrimePrime) < self.__k: # \quad generate $S''$ s.t. $S \subset S'' \subset \{0, 1, \cdots, n - 1\} \land \|S''\| = k$ randomly
+				SPrimePrime.add(randbelow(self.__n))
+			SPrime = list(SPrimePrime)
+			shuffle(SPrime)
+			SPrime = set(SPrime[:self.__d]) # \quad generate $S' \subset S''$ s.t. $\|S'\| = d$ randomly
+			try: # \textbf{return} $\textbf{Dec}(\textbf{DKGen}(\textit{ID}_B, S'), \textit{ID}_B, \textit{ID}_A, S'', S', \mathcal{E}_{\textit{ID}_A}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, \textit{ID}_B, S'', S, M)) = M$
+				return self.Dec(self.DKGen(ID_B, SPrime), ID_B, ID_A, SPrimePrime, SPrime, EMathcal_ID_A(ek_ID_A_S, ID_A, ID_B, SPrimePrime, S, M)) == M
+			except:
+				return False
+		else: # \textbf{else}
+			return False # \quad\textbf{return} $0$
+		# \textbf{end if}
+		
+		# Return #
+		pass
+	def Trace2(self:object, DMathcal_ID_B:callable, dkIDBSPrime:dict, IDB:tuple, _SPrime:set) -> bool: # $\textbf{Trace2}(\mathcal{D}_{\textit{ID}_B}, \textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, S') \to y, y \in \{0, 1\}$
+		# Checks #
+		if not self.__flag:
+			print("Trace2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Trace2`` subsequently. ")
+			self.Setup()
+		if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime):
+			SPrime = _SPrime
+		else:
+			SPrime = list(range(self.__n))
+			shuffle(SPrime)
+			SPrime = set(SPrime[:self.__d])
+			print("Trace2: The variable $S'$ should be a set containing $d$ integers in $[0, n)$ but it is not, which has been generated randomly. ")
+		if isinstance(IDB, tuple) and len(IDB) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in IDB): # hybrid check
+			ID_B = IDB
+			if isinstance(dkIDBSPrime, dict) and len(dkIDBSPrime) == self.__d and all(isinstance(ele, int) for ele in dkIDBSPrime.keys()) and all(isinstance(ele, tuple) and len(ele) == 5 for ele in dkIDBSPrime.values()): # hybrid check
+				dk_ID_B_SPrime = dkIDBSPrime
+			else:
+				dk_ID_B_SPrime = self.DKGen(ID_B, SPrime)
+				print("Trace2: The variable $\\textit{dk}_{\\textit{ID}_B}(S')$ should be a ``dict`` containing $d$ ``int``--``tuple`` pairs but it is not, which has been generated accordingly. ")
+		else:
+			ID_B = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("Trace2: The variable $\\textit{ID}_B$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+			dk_ID_B_SPrime = self.DKGen(ID_B, SPrime)
+			print("Trace2: The variable $\\textit{dk}_{\\textit{ID}_B}(S')$ has been generated accordingly. ")
+		
+		# Unpack #
+		pass
+		
+		# Scheme #
+		if self.DKeySanity(dk_ID_B_SPrime, ID_B, SPrime): # \textbf{if} $\textbf{DKeySanity}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, S')$ \textbf{then}
+			M = self.__group.random(GT) # \quad generate $M \in \mathbb{G}_T$ randomly
+			ID_A = tuple(self.__group.random(ZR) for _ in range(self.__n)) # \quad generate $\textit{ID}_A = (\textit{ID}_{A_1}, \textit{ID}_{A_2}, \cdots, \textit{ID}_{A_n}) \in \mathbb{Z}_r$ randomly
+			SPrimePrime = set(SPrime)
+			while len(SPrimePrime) < self.__k: # \quad generate $S''$ s.t. $S' \subset S'' \subset \{0, 1, \cdots, n - 1\} \land \|S''\| = k$ randomly
+				SPrimePrime.add(randbelow(self.__n))
+			S = list(SPrimePrime)
+			shuffle(S)
+			S = set(S[:self.__d]) # \quad generate $S \subset S''$ s.t. $\|S\| = d$ randomly
+			try: # \textbf{return} $\mathcal{D}_{\textit{ID}_B}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, \textit{ID}_A, S'', S', \textbf{Enc}(\textbf{EKGen}(\textit{ID}_A, S), \textit{ID}_A, \textit{ID}_B, S'', S, M) = M$
+				return DMathcal_ID_B(dk_ID_B_SPrime, ID_B, ID_A, SPrimePrime, SPrime, self.Enc(self.EKGen(ID_A, S), ID_A, ID_B, SPrimePrime, S, M)) == M
+			except Exception as e:
+				return False
+		else: # \textbf{else}
+			return False # \quad\textbf{return} $0$
+		# \textbf{end if}
+		
+		# Return #
+		pass
 	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
@@ -1073,11 +1168,11 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 		except BaseException as e:
 			print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 			print()
-			return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 4 + ["N/A"] * 14
+			return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 6 + ["N/A"] * 16
 	else:
 		print("Is the system valid? No. The parameters $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$. ")
 		print()
-		return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 4 + ["N/A"] * 14
+		return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 6 + ["N/A"] * 16
 	print("Is the system valid? Yes. ")
 	
 	# Initialization #
@@ -1138,8 +1233,20 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 	endTime = perf_counter()
 	timeRecords.append(endTime - startTime)
 	
+	# Trace1 #
+	startTime = perf_counter()
+	isTracing1Verified = schemeAAIBME.Trace1(schemeAAIBME.Enc, ek_ID_A_S, ID_A, S)
+	endTime = perf_counter()
+	timeRecords.append(endTime - startTime)
+	
+	# Trace2 #
+	startTime = perf_counter()
+	isTracing2Verified = schemeAAIBME.Trace2(schemeAAIBME.Dec, dk_ID_B_SPrime, ID_B, SPrime)
+	endTime = perf_counter()
+	timeRecords.append(endTime - startTime)
+	
 	# End #
-	booleans = [True, not isinstance(M, bool) and message == M, isEKeySanity, isDKeySanity]
+	booleans = [True, not isinstance(M, bool) and message == M, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified]
 	spaceRecords = [																															\
 		schemeAAIBME.getLengthOf(group.random(ZR)), schemeAAIBME.getLengthOf(group.random(G1)), schemeAAIBME.getLengthOf(group.random(GT)), 	\
 		schemeAAIBME.getLengthOf(mpk), schemeAAIBME.getLengthOf(msk), schemeAAIBME.getLengthOf(ek_ID_A_S), 										\
@@ -1151,6 +1258,8 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 	print("Is the scheme correct (message == M)? {0}. ".format("Yes" if booleans[1] else "No"))
 	print("Is EKey Sanity? {0}. ".format("Yes" if booleans[2] else "No"))
 	print("Is DKey Sanity? {0}. ".format("Yes" if booleans[3] else "No"))
+	print("Is tracing 1 verified (message1 == M1)? {0}. ".format("Yes" if booleans[4] else "No"))
+	print("Is tracing 2 verified (message2 == M2)? {0}. ".format("Yes" if booleans[5] else "No"))
 	print("Time:", timeRecords)
 	print("Space:", spaceRecords)
 	print()
@@ -1166,9 +1275,9 @@ def main() -> int:
 		# Parameters #
 		curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
 		queries = ("curveParameter", "secparam", "n", "k", "d", "runCount")
-		validators = ("isSystemValid", "isSchemeCorrect", "isEKeySanity", "isDKeySanity")
+		validators = ("isSystemValid", "isSchemeCorrect", "isEKeySanity", "isDKeySanity", "isTracing1Verified", "isTracing2Verified")
 		metrics = (																	\
-			"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", "EKeySanity (s)", "DKeySanity (s)", 			\
+			"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", "EKeySanity (s)", "DKeySanity (s)", "Trace1 (s)", "Trace2 (s)", 			\
 			"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 				\
 			"mpk (B)", "msk (B)", "ek_ID_A_S (B)", "dk_ID_B_SPrime (B)", "CT (B)"	\
 		)

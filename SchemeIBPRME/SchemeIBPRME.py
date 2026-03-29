@@ -503,7 +503,7 @@ class SchemeIBPRME:
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
 	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -526,7 +526,7 @@ class SchemeIBPRME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def DKGen(self:object, idR:bytes) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -548,7 +548,7 @@ class SchemeIBPRME:
 		# Return #
 		return dk_id_R # \textbf{return} $\textit{dk}_{\textit{id}_R}$
 	def EKGen(self:object, idS:bytes) -> Element: # $\textbf{EKGen}(\textit{id}_S) \to \textit{ek}_{\textit{id}_S}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -568,7 +568,7 @@ class SchemeIBPRME:
 		# Return #
 		return ek_id_S # \textbf{return} $\textit{ek}_{\textit{id}_S}$
 	def ReEKGen(self:object, ekid2:Element, dkid2:tuple, id1:bytes, id2:bytes, id3:bytes) -> tuple: # $\textbf{ReEKGen}(\textit{ek}_{\textit{id}_2}, \textit{dk}_{\textit{id}_2}, \textit{id}_1, \textit{id}_2, \textit{id}_3) \to \textit{rk}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("ReEKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``ReEKGen`` subsequently. ")
 			self.Setup()
@@ -620,7 +620,7 @@ class SchemeIBPRME:
 		# Return #
 		return rk # \textbf{return} $\textit{rk}$
 	def Enc(self:object, ekid1:Element, id2:Element, message:int|bytes) -> object: # $\textbf{Enc}(\textit{ek}_{\textit{id}_1}, \textit{id}_2, m) \to \textit{ct}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -669,7 +669,7 @@ class SchemeIBPRME:
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
 	def ReEnc(self:object, cipherText:tuple, reKey:tuple) -> tuple|bool: # $\textbf{ReEnc}(\textit{ct}, \textit{rk}) \to \textit{ct}'$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("ReEnc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``ReEnc`` subsequently. ")
 			self.Setup()
@@ -711,7 +711,7 @@ class SchemeIBPRME:
 		# Return #
 		return ctPrime # \textbf{return} $\textit{ct}'$
 	def Dec1(self:object, dkid2:tuple, id1:Element, cipherText:tuple) -> int|bool: # $\textbf{Dec}_1(\textit{dk}_{\textit{id}_2}, \textit{id}_1, \textit{ct}) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec1`` subsequently. ")
 			self.Setup()
@@ -765,7 +765,7 @@ class SchemeIBPRME:
 		# Return #
 		return m # \textbf{return} $m$
 	def Dec2(self:object, dkid3:tuple, id1:Element, id2:Element, id3:Element, cipherTextPrime:tuple|bool) -> int|bool: # $\textbf{Dec}_2(\textit{dk}_{\textit{id}_3}, \textit{id}_1, \textit{id}_2, \textit{id}_3, \textit{ct}') \to m'$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec2`` subsequently. ")
 			self.Setup()

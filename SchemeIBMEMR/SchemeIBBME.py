@@ -554,7 +554,7 @@ class SchemeIBBME:
 		else:
 			return None
 	def Setup(self:object, l:int = 30) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(l, int) and l >= 1: # boundary check
 			self.__l = l
@@ -586,7 +586,7 @@ class SchemeIBBME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, _idStar:bytes) -> Element: # $\textbf{EKGen}(\textit{id}^*) \to \textit{ek}_{\textit{id}^*}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
@@ -606,7 +606,7 @@ class SchemeIBBME:
 		# Return #
 		return ek_idStar # \textbf{return} $\textit{ek}_{\textit{id}^*}$
 	def DKGen(self:object, _identity:bytes) -> Element: # $\textbf{DKGen}(\textit{id}) \to \textit{dk}_\textit{id}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
@@ -640,7 +640,7 @@ class SchemeIBBME:
 		# Return #
 		return dk_id # \textbf{return} $\textit{dk}_\textit{id}$
 	def Enc(self:object, _S:tuple, ekidStar:Element, message:Element) -> tuple: # $\textbf{Enc}(S, \textit{ek}_{\textit{id}^*}, m) \to \textit{ct}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -683,7 +683,7 @@ class SchemeIBBME:
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
 	def Dec(self:object, _S:tuple, dkidi:tuple, _idStar:bytes, cipherText:tuple) -> Element|bool: # $\textbf{Dec}(S, \textit{dk}_{\textit{id}_i}, \textit{id}^*, \textit{ct}) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")

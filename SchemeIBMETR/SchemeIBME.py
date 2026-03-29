@@ -502,7 +502,7 @@ class SchemeIBME:
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
 	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -519,7 +519,7 @@ class SchemeIBME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def SKGen(self:object, sender:Element) -> Element: # $\textbf{SKGen}(S) \to \textit{ek}_S$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("SKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``SKGen`` subsequently. ")
@@ -539,7 +539,7 @@ class SchemeIBME:
 		# Return #
 		return ek_S # \textbf{return} $\textit{ek}_S$
 	def RKGen(self:object, receiver:Element) -> Element: # $\textbf{RKGen}(S) \to \textit{dk}_R$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("RKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``RKGen`` subsequently. ")
@@ -563,7 +563,7 @@ class SchemeIBME:
 		# Return #
 		return dk_R # \textbf{return} $\textit{dk}_R$
 	def Enc(self:object, ekS:Element, receiver:Element, message:int|bytes) -> tuple: # $\textbf{Enc}(\textit{ek}_S, R, M) \to C$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
@@ -606,7 +606,7 @@ class SchemeIBME:
 		# Return #
 		return C # \textbf{return} $C$	
 	def Dec(self:object, dkR:tuple, sender:Element, cipher:tuple) -> int: # $\textbf{Dec}(\textit{dk}_R, S, C) \to M$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			self.Setup()
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")

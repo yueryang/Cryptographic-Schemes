@@ -516,7 +516,7 @@ class SchemeIBMETR:
 		except Exception:
 			return self.__group.init(ZR, 1)
 	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -551,7 +551,7 @@ class SchemeIBMETR:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def EKGen(self:object, idS:Element) -> Element: # $\textbf{EKGen}(\textit{id}_S) \to \textit{ek}_{\textit{id}_S}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("EKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKGen`` subsequently. ")
 			self.Setup()
@@ -571,7 +571,7 @@ class SchemeIBMETR:
 		# Return #
 		return ek_id_S # \textbf{return} $\textit{ek}_{\textit{id}_S}$
 	def DKGen(self:object, idR:Element) -> tuple: # $\textbf{DKGen}(\textit{id}_R) \to \textit{dk}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("DKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DKGen`` subsequently. ")
 			self.Setup()
@@ -596,7 +596,7 @@ class SchemeIBMETR:
 		# Return #
 		return dk_id_R # \textbf{return} $\textit{dk}_{\textit{id}_R}$
 	def TKGen(self:object, idR:Element) -> tuple: # $\textbf{TKGen}(\textit{id}_R) \to \textit{tk}_{\textit{id}_R}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("TKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TKGen`` subsequently. ")
 			self.Setup()
@@ -620,7 +620,7 @@ class SchemeIBMETR:
 		# Return #
 		return tk_id_R # \textbf{return} $\textit{tk}_{\textit{id}_R}$
 	def Enc(self:object, ekidS:Element, idRev:Element, message:int|bytes) -> Element: # $\textbf{Enc}(\textit{ek}_{\textit{id}_S}, \textit{id}_\textit{Rev}, m) \to \textit{ct}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -665,7 +665,7 @@ class SchemeIBMETR:
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
 	def Dec(self:object, dkidR:tuple, idRev:Element, idSnd:Element, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{dk}_{\textit{id}_R}, \textit{id}_\textit{Rev}, \textit{id}_\textit{Snd}, \textit{ct}) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
 			self.Setup()
@@ -705,7 +705,7 @@ class SchemeIBMETR:
 		# Return #
 		return m # \textbf{return} $m$
 	def TVerify(self:object, tkidR:tuple, cipherText:tuple) -> bool: # $\textbf{TVerify}(\textit{tk}_{\textit{id}_R}, \textit{ct}) \to y, y \in \{0, 1\}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("TVerify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TVerify`` subsequently. ")
 			self.Setup()

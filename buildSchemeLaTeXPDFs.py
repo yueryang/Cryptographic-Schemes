@@ -1,7 +1,17 @@
 import os
 from sys import argv, exit
 from getpass import getpass
-from re import findall
+try:
+	from libcst import CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
+except:
+	print("The Python `libcst` library is not installed. ")
+	print("Please try to install the Python `libcst` library via `pip install libcst`. ")
+	print("Please press the enter key to exit (-2). ")
+	try:
+		getpass("")
+	except:
+		print()
+	exit(-2)
 from subprocess import TimeoutExpired, run
 from time import perf_counter, sleep
 try:
@@ -64,7 +74,7 @@ class Environments:
 				else:
 					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
 					realNumber = 0
-					for ch in decimalPartString.rstrip("0")[::-1]:
+					for ch in reversed(decimalPartString.rstrip("0")):
 						realNumber += digits.index(ch)
 						realNumber /= base
 					integerPartString = integerPartString.lstrip("0")
@@ -122,61 +132,83 @@ class Builder:
 	def generate(self:object) -> None:
 		if self.__flag >= 1:
 			try:
-				with open(self.__schemeFilePath, "rb") as f:
-					binaryStrings = f.read()
-				os.makedirs(self.__targetFolderPath, exist_ok = True)
 				startTime = perf_counter()
-				with open(self.__schemeLaTeXFilePath, "wb") as f:
-					f.write(b"\\documentclass[a4paper]{article}" + os.linesep.encode() + b"\\setlength{\\parindent}{0pt}" + os.linesep.encode())
-					f.write(b"\\usepackage{amsmath,amssymb}" + os.linesep.encode() + b"\\usepackage{bm}" + os.linesep.encode() + os.linesep.encode())
-					f.write(b"\\begin{document}" + os.linesep.encode() + os.linesep.encode())
-					className, functionName, schemeFlag, doubleSeparatorFlag, bucketCount, buffer = None, None, False, True, 0, ""
-					for idx, line in enumerate(binaryStrings.splitlines()):
-						if line.startswith(b"class Scheme"): # class SchemeXXX
-							className = findall(b"^[0-9A-Za-z]+", line[6:])
-							if className:
-								className = className[0]
-								if len(className) >= 7:
-									f.write(b"\\section{" + className + b"}" + os.linesep.encode() * 2)
-									functionName, schemeFlag, doubleSeparatorFlag = None, False, True
-								else:
-									className, functionName, schemeFlag, doubleSeparatorFlag = None, None, False, True
-							else:
-								className, functionName, schemeFlag, doubleSeparatorFlag = None, None, False, True
-						elif isinstance(className, bytes) and line.startswith(b"\tdef ") and b"(self:object" in line and b") -> " in line and b": # " in line: # def XXX
-							functionName, schemeFlag, doubleSeparatorFlag = line[5:line.index(b"(self:object")].strip(), False, True
-							if b"__init__" == functionName:
-								f.write(line[line.index(b": # ") + 4:] + os.linesep.encode() * 2)
-								functionName = None
-							elif b"__" in functionName or "getLengthOf" == functionName:
-								functionName = None
-							else:
-								f.write(b"\\subsection{" + line[line.index(b": # ") + 4:].strip() + b"}" + os.linesep.encode() * 2)
-						elif isinstance(className, bytes) and isinstance(functionName, bytes) and b"\t\t# Scheme #" == line: # XXX # Scheme # XXX
-							schemeFlag, doubleSeparatorFlag = True, True
-						elif isinstance(className, bytes) and isinstance(functionName, bytes) and schemeFlag and b" # " in line:
-							prompt = line[line.index(b" # ") + 3:].lstrip()
-							if b"$" == prompt.strip():
-								doubleSeparatorFlag = not doubleSeparatorFlag # invert the double separator switch
-							elif prompt.startswith((b"$", b"\\quad$", b"\\textbf{return} $")) and not prompt.rstrip().endswith(b"$"):
-								doubleSeparatorFlag = False # disable the double separator switch
-							elif not prompt.startswith(b"$") and prompt.rstrip().endswith(b"$"):
-								doubleSeparatorFlag = True # enable the double separator switch
-							tabCount = 0
-							for tabIdx in range(0, len(prompt), 5):
-								if prompt[tabIdx:].startswith(b"\\quad"):
-									tabCount += 1
-								else:
-									break
-							f.write(b"\t" * tabCount + prompt + os.linesep.encode() * (2 if doubleSeparatorFlag else 1))
-						elif (
-							isinstance(className, bytes) and isinstance(functionName, bytes) and schemeFlag
-							and line.lstrip().startswith(b"# ") and line.rstrip().endswith(b"\\textbf{end if}")
-						):
-							f.write(line.lstrip()[2:].lstrip() + os.linesep.encode() * (2 if doubleSeparatorFlag else 1))
-						elif not line.startswith(b"\t") and line.strip() and not line.lstrip().startswith(b"#"): # Reset
-							className, functionName, schemeFlag, doubleSeparatorFlag = None, None, False, True # reset
-					f.write(b"\\end{document}")
+				with open(self.__schemeFilePath, "rb") as f:
+					tree = parse_module(f.read())
+				os.makedirs(self.__targetFolderPath, exist_ok = True)
+				with open(self.__schemeLaTeXFilePath, "w", encoding = tree.encoding) as f:
+					f.write("\\documentclass[a4paper]{article}" + os.linesep + "\\setlength{\\parindent}{0pt}" + os.linesep + "\\usepackage{amsmath,amssymb}" + os.linesep)
+					f.write("\\usepackage{bm}" + os.linesep * 2 + "\\begin{document}" + os.linesep * 2)
+					stack, strings, issues = [tree], [], []
+					while stack:
+						element = stack.pop()
+						if isinstance(element, Call) and isinstance(element.func, Name) and "print" == element.func.value:
+							for argument in element.args:
+								if isinstance(argument.value, (ConcatenatedString, SimpleString)):
+									strings.append(argument.value.evaluated_value)
+						elif isinstance(element, ClassDef) and element.name.value.startswith("Scheme"): # search("^class\\s+Scheme[0-9A-Z_a-z]*", line)
+							f.write("\\section{" + element.name.value.replace("_", "\\_") + "}" + os.linesep * 2)
+							for item in element.body.body:
+								if isinstance(item, FunctionDef):
+									if "__init__" == item.name.value: # search("^\tdef\\s+__init__", line)
+										if item.body.header.comment:
+											f.write(item.body.header.comment.value.lstrip("# ") + os.linesep * 2)
+									elif not item.name.value.startswith("_") and "getLengthOf" != item.name.value: # search("^\tdef\\s+[A-Za-z][0-9A-Z_a-z]*", line)
+										f.write("\\subsection{" + item.name.value.replace("_", "\\_") + "}" + os.linesep * 2)
+										s, mode = [item], False
+										while s:
+											ele = s.pop()
+											if isinstance(ele, (EmptyLine, TrailingWhitespace)):
+												if ele.comment:
+													if ele.comment.value in ("# Flag #", "# Return #", "# Scheme #"):
+														if False == mode:
+															mode = True
+													elif mode:
+														comment = ele.comment.value.lstrip("# ")
+														characterIndex, commentLength = 0, len(comment)
+														while characterIndex < commentLength:
+															if '\\' == comment[characterIndex]:
+																characterIndex += 1
+																if characterIndex < commentLength:
+																	if comment[characterIndex] in ('(', '['):
+																		if isinstance(mode, bool):
+																			mode = "\\" + comment[characterIndex]
+																		else:
+																			raise ValueError((mode, comment, characterIndex))
+																	elif ')' == comment[characterIndex]:
+																		if "\\(" == mode:
+																			mode = True
+																		else:
+																			raise ValueError((mode, comment, characterIndex))
+																	elif ']' == comment[characterIndex]:
+																		if "\\[" == mode:
+																			mode = True
+																		else:
+																			raise ValueError((mode, comment, characterIndex))
+																	characterIndex += 1
+																else:
+																	break
+															elif '$' == comment[characterIndex]:
+																characterIndex += 1
+																dollarCount = 1
+																while characterIndex < commentLength and '$' == comment[characterIndex]:
+																	characterIndex += 1
+																	dollarCount += 1
+																if isinstance(mode, str):
+																	if "$" * dollarCount == mode:
+																		mode = True
+																	else:
+																		raise ValueError((mode, comment, characterIndex))
+																else:
+																	mode = "$" * dollarCount
+															else:
+																characterIndex += 1
+														f.write(comment + os.linesep * (1 if isinstance(mode, str) else 2))
+											elif isinstance(ele, CSTNode):
+												s.extend(reversed(list(ele.children)))
+						elif isinstance(element, CSTNode):
+							stack.extend(reversed(list(element.children)))
+					f.write("\\end{document}")
 				endTime = perf_counter()
 				self.__generationResult = endTime - startTime
 				self.__flag = 2
@@ -237,7 +269,7 @@ class Builders:
 		self.__filePaths = []
 		self.__builders = []
 		if paths:
-			self.updateFilePaths(paths)
+			self.updateFilePaths(*paths)
 		else:
 			self.updateFilePaths(".")
 	def __format(self:object, _m:str = "", _n:str = "", _p:str = "", _s:str = os.sep, _x:str = ".py") -> str:
@@ -271,29 +303,30 @@ class Builders:
 				index += 1
 		return "".join(buffer)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
-		originalLength, queue = len(self.__builders), list(paths)
-		while queue:
-			if isinstance(queue[0], (tuple, list, set)):
-				for path in queue[0]:
-					queue.append(path)
-			elif isinstance(queue[0], str):
-				if os.path.isdir(queue[0]) and not os.path.islink(queue[0]):
+		originalLength, stack = len(self.__builders), list(reversed(paths))
+		while stack:
+			element = stack.pop()
+			if isinstance(element, (tuple, list)):
+				stack.extend(reversed(element))
+			elif isinstance(element, set):
+				stack.extend(sorted(element, reverse = True))
+			elif isinstance(element, str):
+				if os.path.isdir(element) and not os.path.islink(element):
 					filePaths = []
-					for root, folderNames, fileNames in os.walk(queue[0]):
+					for root, folderNames, fileNames in os.walk(element):
 						for fileName in fileNames:
 							filePath = os.path.join(root, fileName)
 							if os.path.isfile(filePath) and not os.path.islink(filePath) and os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
 								filePaths.append(filePath)
-					filePaths.sort()
-					queue[1:1] = filePaths
+					filePaths.sort(reverse = True)
+					stack.extend(filePaths)
 					del filePaths
-				elif os.path.isfile(queue[0]) and not os.path.islink(queue[0]):
-					fileName = os.path.split(queue[0])[1]
+				elif os.path.isfile(element) and not os.path.islink(element):
+					fileName = os.path.split(element)[1]
 					if os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-						relativePath = os.path.relpath(queue[0])
+						relativePath = os.path.relpath(element)
 						if relativePath not in self.__filePaths:
 							self.__filePaths.append(relativePath)
-			del queue[0]
 		for filePath in self.__filePaths[originalLength:]:
 			p, n = os.path.split(filePath)
 			m, x = os.path.splitext(n)
@@ -325,8 +358,8 @@ class Builders:
 
 def main() -> int:
 	environments = Environments()
-	environments.disableConsoleEchoes()
 	formatter, waitingTime = environments.resolve()
+	environments.disableConsoleEchoes()
 	builders = Builders(formatter, *argv[1:])
 	totalCount = len(builders)
 	print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))

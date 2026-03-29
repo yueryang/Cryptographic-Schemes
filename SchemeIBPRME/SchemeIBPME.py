@@ -523,7 +523,7 @@ class SchemeIBPME:
 		else:
 			return (int.from_bytes(sha512(bytesToBeHashed).digest() * ceil(length / 512), byteorder = "big") & ((1 << length) - 1)).to_bytes(ceil(length / 8))
 	def Setup(self:object) -> tuple: # $\textbf{Setup}() \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		
 		# Scheme #
@@ -553,7 +553,7 @@ class SchemeIBPME:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def SKGen(self:object, snd:bytes) -> Element: # $\textbf{SKGen}(\sigma) \to \textit{ek}_\sigma$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("SKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``SKGen`` subsequently. ")
 			self.Setup()
@@ -573,7 +573,7 @@ class SchemeIBPME:
 		# Return #
 		return ek_sigma # \textbf{return} $\textit{ek}_\sigma$
 	def RKGen(self:object, rcv:bytes) -> tuple: # $\textbf{RKGen}(\rho) \to \textit{dk}_\rho$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("RKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``RKGen`` subsequently. ")
 			self.Setup()
@@ -595,7 +595,7 @@ class SchemeIBPME:
 		# Return #
 		return dk_rho # \textbf{return} $\textit{dk}_\rho$
 	def PKGen(self:object, dkrho:Element, snd:bytes) -> tuple: # $\textbf{PKGen}(\textit{dk}_\rho, \sigma) \to \textit{pdk}_{\rho, \sigma}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("PKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``PKGen`` subsequently. ")
 			self.Setup()
@@ -624,7 +624,7 @@ class SchemeIBPME:
 		# Return #
 		return pdk # \textbf{return} $\textit{pdk}_{(\rho, \sigma)}$
 	def Enc(self:object, eksigma:Element, rcv:bytes, message:int|bytes) -> tuple: # $\textbf{Enc}(\textit{ek}_\sigma, \textit{id}_2, m) \to C$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
@@ -667,7 +667,7 @@ class SchemeIBPME:
 		# Return #
 		return C # \textbf{return} $C$
 	def ProxyDec(self:object, _pdk:tuple, cipher:tuple) -> tuple|bool: # $\textbf{ProxyDec}(\textit{pdk}, C) \to \textit{CT}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("ProxyDec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``ProxyDec`` subsequently. ")
 			self.Setup()
@@ -710,7 +710,7 @@ class SchemeIBPME:
 		# Return #
 		return CT # \textbf{return} $\textit{CT}$
 	def Dec1(self:object, dkrho:tuple, snd:bytes, cipher:tuple) -> int|bool: # $\textbf{Dec}_1(\textit{dk}_\rho, \sigma, C) \to m$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec1`` subsequently. ")
 			self.Setup()
@@ -754,7 +754,7 @@ class SchemeIBPME:
 		# Return #
 		return m # \textbf{return} $m$
 	def Dec2(self:object, dkrho:tuple, snd:bytes, cipherText:tuple) -> int|bool: # $\textbf{Dec}_2(\textit{dk}_\rho, \sigma, \textit{CT}) \to m'$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Dec2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec2`` subsequently. ")
 			self.Setup()

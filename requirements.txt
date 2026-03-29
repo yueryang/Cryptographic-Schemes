@@ -1,6 +1,7 @@
 # Python built-in standard libraries
-# charm
+# Python charm library
+libcst
 setuptools
-xlwt
-openpyxl
-PyYAML
+xlwt # XLS
+openpyxl # XLSX
+PyYAML # YAML/YML

@@ -526,7 +526,7 @@ class SchemeVLPSICA:
 		else:
 			return self.__init(ZR, 0)
 	def Setup(self:object, m:int = 10, n:int = 10, d:int = 10) -> tuple: # $\textbf{Setup}(m, n, d) \to (\textit{mpk}, \textit{msk})$
-		# Check #
+		# Checks #
 		self.__flag = False
 		if isinstance(m, int) and m >= 1:
 			self.__m = m
@@ -572,7 +572,7 @@ class SchemeVLPSICA:
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
 	def Sender(self:object, _vVec:tuple, _YVec:tuple) -> tuple: # $\textbf{Sender}(\vec{v}, \vec{Y}) \to (\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Sender: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Sender`` subsequently. ")
 			self.Setup()
@@ -603,7 +603,7 @@ class SchemeVLPSICA:
 		# Return #
 		return (TVec + TPrimeVec, UVec + UPrimeVec) # \textbf{return} $(\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
 	def Receiver(self:object, _vVec:tuple, _XVec:tuple) -> tuple: # $\textbf{Receiver}(\vec{v}, \vec{X}) \to (R, \vec{R}')$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Receiver: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Receiver`` subsequently. ")
 			self.Setup()
@@ -634,7 +634,7 @@ class SchemeVLPSICA:
 		# Return #
 		return (R, RPrimeVec) # \textbf{return} $(R, \vec{R}')$
 	def Cloud1(self:object, _TTPrime:tuple, _R:Element) -> tuple: # $\textbf{Cloud1}((\vec{T}, \vec{T}'), R) \to \vec{W}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Cloud1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud1`` subsequently. ")
 			self.Setup()
@@ -661,7 +661,7 @@ class SchemeVLPSICA:
 		# Return #
 		return WVec # \textbf{return} $\vec{W}$
 	def Cloud2(self:object, _UUPrime:tuple, _RPrimeVec:tuple) -> tuple: # $\textbf{Cloud2}(\vec{U}, R') \to \vec{K}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Cloud2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud2`` subsequently. ")
 			self.Setup()
@@ -688,7 +688,7 @@ class SchemeVLPSICA:
 		# Return #
 		return KVec # \textbf{return} $\vec{K}$
 	def Verify(self:object, _KVec:tuple, _WVec:tuple) -> int|bool: # $\textbf{Verify}(\vec{K}, \vec{W}) \to \textit{result}$
-		# Check #
+		# Checks #
 		if not self.__flag:
 			print("Verify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Verify`` subsequently. ")
 			self.Setup()
