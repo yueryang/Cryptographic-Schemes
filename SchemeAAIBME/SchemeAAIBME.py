@@ -1,18 +1,11 @@
 import os
 from sys import argv, exit
-from getpass import getpass
 try:
 	from charm.toolbox.pairinggroup import PairingGroup, G1, GT, ZR, pair, pc_element as Element
 except:
-	print("The environment of the Python ``charm`` library is not handled correctly. ")
-	print("Please refer to https://github.com/JHUISI/charm if necessary.  ")
-	print("Please press the enter key to exit (-2). ")
-	try:
-		getpass("")
-	except:
-		print()
-	exit(-2)
+	PairingGroup, G1, GT, ZR, pair, Element = (None, ) * 6
 from codecs import lookup
+from getpass import getpass
 from random import shuffle
 from secrets import randbelow
 from time import perf_counter, sleep
@@ -918,7 +911,7 @@ class SchemeAAIBME:
 	def EKeySanity(self:object, ekIDAS:dict, IDA:tuple, _S:set) -> bool: # $\textbf{EKeySanity}(\textit{ek}_{\textit{ID}_A}(S), \textit{ID}_A, S) \to y, y \in \{0, 1\}$
 		# Checks #
 		if not self.__flag:
-			print("EKeySanity: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
+			print("EKeySanity: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``EKeySanity`` subsequently. ")
 			self.Setup()
 		if isinstance(_S, set) and len(_S) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _S):
 			S = _S
@@ -1269,55 +1262,61 @@ def main() -> int:
 	parser = Parser(argv)
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
-		parser.disableConsoleEchoes()
-		
-		# Parameters #
-		curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveParameter", "secparam", "n", "k", "d", "runCount")
-		validators = ("isSystemValid", "isSchemeCorrect", "isEKeySanity", "isDKeySanity", "isTracing1Verified", "isTracing2Verified")
-		metrics = (																	\
-			"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", "EKeySanity (s)", "DKeySanity (s)", "Trace1 (s)", "Trace2 (s)", 			\
-			"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 				\
-			"mpk (B)", "msk (B)", "ek_ID_A_S (B)", "dk_ID_B_SPrime (B)", "CT (B)"	\
-		)
-		
-		# Scheme #
-		columns, qLength, results = queries + validators + metrics, len(queries), []
-		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
-		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
-		try:
-			for curveParameter in curveParameters:
-				for n in range(15, 31, 5):
-					for k in range(10, n, 5):
-						for d in range(5, k, 5):
-							averages = conductScheme(curveParameter, n = n, k = k, d = d, run = 1)
-							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, n = n, k = k, d = d, run = run)
-								for idx in range(qLength, qvLength):
-									averages[idx] += result[idx]
+		if any((PairingGroup is None, G1 is None, GT is None, ZR is None, pair is None, Element is None)):
+			parser.disableConsoleEchoes()
+			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
+			errorLevel = EOF
+		else:
+			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
+			parser.disableConsoleEchoes()
+			
+			# Parameters #
+			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+			queries = ("curveParameter", "secparam", "n", "k", "d", "runCount")
+			validators = ("isSystemValid", "isSchemeCorrect", "isEKeySanity", "isDKeySanity", "isTracing1Verified", "isTracing2Verified")
+			metrics = (																	\
+				"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", "EKeySanity (s)", "DKeySanity (s)", "Trace1 (s)", "Trace2 (s)", 			\
+				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 				\
+				"mpk (B)", "msk (B)", "ek_ID_A_S (B)", "dk_ID_B_SPrime (B)", "CT (B)"	\
+			)
+			
+			# Scheme #
+			columns, qLength, results = queries + validators + metrics, len(queries), []
+			length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
+			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
+			try:
+				for curveParameter in curveParameters:
+					for n in range(15, 31, 5):
+						for k in range(10, n, 5):
+							for d in range(5, k, 5):
+								averages = conductScheme(curveParameter, n = n, k = k, d = d, run = 1)
+								for run in range(2, runCount + 1):
+									result = conductScheme(curveParameter, n = n, k = k, d = d, run = run)
+									for idx in range(qLength, qvLength):
+										averages[idx] += result[idx]
+									for idx in range(qvLength, length):
+										averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
+								averages[avgIndex] = runCount
 								for idx in range(qvLength, length):
-									averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
-							averages[avgIndex] = runCount
-							for idx in range(qvLength, length):
-								if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
-									averages[idx] /= runCount
-									if averages[idx].is_integer():
-										averages[idx] = int(averages[idx])
-								else:
-									averages[idx] = "N/A"
-							results.append(averages)
-							saver.save(results)
-							print()
-		except KeyboardInterrupt:
-			print()
-			print("The experiments were interrupted by users. Saved results are retained. ")
-		except BaseException as e:
-			print()
-			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-		errorLevel = EXIT_SUCCESS if results and all(all(																							\
-			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
-		) for result in results) else EXIT_FAILURE
+									if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
+										averages[idx] /= runCount
+										if averages[idx].is_integer():
+											averages[idx] = int(averages[idx])
+									else:
+										averages[idx] = "N/A"
+								results.append(averages)
+								saver.save(results)
+								print()
+			except KeyboardInterrupt:
+				print()
+				print("The experiments were interrupted by users. Saved results are retained. ")
+			except BaseException as e:
+				print()
+				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
+			errorLevel = EXIT_SUCCESS if results and all(all(																							\
+				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
+			) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		parser.disableConsoleEchoes()
@@ -1333,7 +1332,7 @@ def main() -> int:
 		if "e" in timeString:
 			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing `Ctrl + C` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
 		try:
 			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
 			sleep(decimalTime)

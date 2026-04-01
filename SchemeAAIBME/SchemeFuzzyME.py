@@ -1,17 +1,9 @@
 import os
 from sys import argv, exit
 try:
-	from charm.toolbox.pairinggroup import PairingGroup, G1, G2, GT, ZR, pair, pc_element as Element
+	from charm.toolbox.pairinggroup import PairingGroup, G1, GT, ZR, pair, pc_element as Element
 except:
-	print("The environment of the Python ``charm`` library is not handled correctly. ")
-	print("Please refer to https://github.com/JHUISI/charm if necessary.  ")
-	print("Please press the enter key to exit (-2). ")
-	try:
-		input()
-	except:
-		print()
-	print()
-	exit(-2)
+	PairingGroup, G1, GT, ZR, pair, Element = (None, ) * 6
 from codecs import lookup
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
 from random import shuffle
@@ -646,7 +638,7 @@ class SchemeFuzzyME:
 		dk_S_B_3 = tuple(T(S_B[i]) ** (-k2Vec[i] * theta4) for i in range(self.__n)) # $\textit{dk}_{S_{B_{3, i}}} \gets [T(b_i)]^{-k_{2, i} \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_S_B_4 = tuple(T(S_B[i]) ** (-k2Vec[i] * theta3) for i in range(self.__n)) # $\textit{dk}_{S_{B_{4, i}}} \gets [T(b_i)]^{-k_{2, i} \theta_3}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_S_B = (dk_S_B_0, dk_S_B_1, dk_S_B_2, dk_S_B_3, dk_S_B_4) # $\textit{dk}_{S_B} \gets (\textit{dk}_{S_{B_0}}, \textit{dk}_{S_{B_1}}, \textit{dk}_{S_{B_2}}, \textit{dk}_{S_{B_3}}, \textit{dk}_{S_{B_4}})$
-		dk_P_A_0 = tuple(g ** (rPrime1Vec[i] * theta1 * theta2 + rPrime2Vec[i] * theta3 * theta4) for i in range(self.__n)) # $\textit{dk}_{P_{A_{0, i}}} \gets g^{r'_{i, 1} \theta_1 \theta_2 + r'_{i, 2} \theta_3 \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
+		dk_P_A_0 = tuple(g ** (rPrime1Vec[i] * theta1 * theta2 + rPrime2Vec[i] * theta3 * theta4) for i in range(self.__n)) # $\textit{dk}_{P_{A_{0, i}}} \gets g^{r'_{1, i} \theta_1 \theta_2 + r'_{i, 2} \theta_3 \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_P_A_1 = tuple(																										\
 			g2 ** (-2 * qPrime(P_A[i]) * theta2) * G_ID ** (h(P_A[i]) * theta2) * H(P_A[i]) ** (-rPrime1Vec[i] * theta2) for i in range(self.__n)		\
 		) # $\textit{dk}_{P_{A_{1, i}}} \gets g_2^{-2q'(a_i) \theta_2} (G_{\textit{ID}})^{h(a_i \theta_2)} H(a_i)^{-r'_{1, i} \theta_2}, \forall i \in \{1, 2, \cdots, n\}$
@@ -969,20 +961,40 @@ def main() -> int:
 		) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
+		parser.disableConsoleEchoes()
 	else:
 		errorLevel = EOF
-	try:
-		if 0 == waitingTime:
-			print("The execution of the Python script has finished ({0}). ".format(errorLevel))
-		elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
-			print("Please wait for the countdown ({0} second(s)) to end, or exit the program manually like pressing the \"Ctrl + C\" ({1}). ".format(waitingTime, errorLevel))
-			sleep(waitingTime)
-		else:
-			print("Please press the enter key to exit ({0}). ".format(errorLevel))
-			input()
-	except:
+		parser.disableConsoleEchoes()
+	if 0 == waitingTime:
+		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
-	print()
+	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
+		integerTime, timeString = int(waitingTime), str(waitingTime)
+		decimalTime = waitingTime - integerTime
+		if "e" in timeString:
+			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
+		timeStringLength = len(timeString)
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		try:
+			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			sleep(decimalTime)
+			while integerTime >= 1:
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				sleep(1)
+				integerTime -= 1
+		except:
+			pass
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
+		print("The execution has finished ({0}). ".format(errorLevel))
+		print()
+	else:
+		print("Please press the enter key to exit ({0}). ".format(errorLevel))
+		try:
+			getpass("")
+		except:
+			print()
+	parser.restoreConsoleEchoes()
+	del parser
 	return errorLevel
 
 
