@@ -37,6 +37,9 @@ class Parser:
 	__OptionYes = ("y", "/y", "-y", "yes", "/yes", "--yes")
 	def __init__(self:object, arguments:tuple|list) -> object:
 		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
+		self.__originalConsoleAttributes = None
+		self.__echolessConsoleAttributes = None
+		self.__tcsetattr = None
 	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
 		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
 			prefix = pre if isinstance(pre, str) else "["
@@ -49,18 +52,18 @@ class Parser:
 		print("This is a possible implementation of the IBPME cryptographic scheme in Python programming language based on the Python charm library. ")
 		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
 		))
 		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(	\
-			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																						\
+			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																							\
 		)
 		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
 		print(																																							\
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
-			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
+			+ "Passing inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)						\
 		)
 		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
 		print()
@@ -76,6 +79,64 @@ class Parser:
 				return filePath
 		else:
 			return Parser.__DefaultOutputFileName
+	def __parseRealNumber(self:object, string:str) -> int|float|None:
+		try:
+			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			if "e" in realNumberString and not realNumberString.endswith("e"):
+				return float(realNumberString)
+			else:
+				minusSign = False
+				while realNumberString:
+					if '+' == realNumberString[0]:
+						realNumberString = realNumberString[1:]
+					elif '-' == realNumberString[0]:
+						minusSign, realNumberString = not minusSign, realNumberString[1:]
+					else:
+						break
+				while realNumberString.startswith("00"):
+					realNumberString = realNumberString[1:]
+				if realNumberString.startswith("0b"):
+					base, digits, realNumberString = 2, "01", realNumberString[2:]
+				elif realNumberString.startswith("0q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[2:]
+				elif realNumberString.startswith("0o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
+				elif realNumberString.startswith(("0d", "0l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
+				elif realNumberString.startswith(("0h", "0x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				elif realNumberString.endswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[:-1]
+				elif realNumberString.endswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[:-1]
+				elif realNumberString.endswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[:-1]
+				elif realNumberString.endswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[:-1]
+				elif realNumberString.endswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[:-1]
+				else:
+					base, digits = 10, "0123456789"
+				if "inf" == realNumberString:
+					realNumber = float("inf")
+				elif "nan" == realNumberString:
+					realNumber = float("nan")
+				else:
+					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					realNumber = 0
+					for ch in decimalPartString.rstrip("0")[::-1]:
+						realNumber += digits.index(ch)
+						realNumber /= base
+					integerPartString = integerPartString.lstrip("0")
+					if integerPartString:
+						realNumber += int(integerPartString, base = base)
+					if realNumber.is_integer():
+						realNumber = int(realNumber)
+				if minusSign:
+					realNumber = -realNumber
+				return realNumber
+		except:
+			return None
 	def parse(self:object) -> tuple:
 		flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = (																		\
 			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, Parser.__DefaultRun, Parser.__DefaultTime, False	\
@@ -113,55 +174,48 @@ class Parser:
 					if decimalPlaceLower in Parser.__PlaceTranslations:
 						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
 					else:
-						try:
-							p = int(self.__arguments[index], 0)
-							if p >= 0:
-								decimalPlace = p
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
-							del p
-						except:
+						p = self.__parseRealNumber(self.__arguments[index])
+						if p is None:
 							flag = EOF
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+						elif isinstance(p, int) and p >= 0:
+							decimalPlace = p
+						else:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
+						del p
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionRun:
 				index += 1
 				if index < argumentCount:
-					try:
-						r = int(self.__arguments[index].replace("_", ""), 0)
-						if r >= 1:
-							runCount = r
-						else:
-							flag = EOF
-							buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
-						del r
-					except:
+					r = self.__parseRealNumber(self.__arguments[index])
+					if r is None:
 						flag = EOF
 						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif isinstance(r, int) and r >= 1:
+						runCount = r
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
+					del r
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the run count option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
-					if self.__arguments[index].strip().lower() in ("+inf", "inf", "n", "nan", "none"):
-						waitingTime = float("inf")
+					t = self.__parseRealNumber(self.__arguments[index])
+					if t is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif t >= 0:
+						waitingTime = t
 					else:
-						try:
-							t = self.__arguments[index].replace("_", "")
-							t = float(t) if "." in self.__arguments[index] or "e" in self.__arguments[index] else int(t, 0)
-							if t >= 0:
-								waitingTime = int(t) if t.is_integer() else t
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
-							del t
-						except:
-							flag = EOF
-							buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
+					del t
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
@@ -197,6 +251,27 @@ class Parser:
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
+	def disableConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				if self.__originalConsoleAttributes is None:
+					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
+				if self.__echolessConsoleAttributes is None:
+					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
+					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
+				if self.__tcsetattr is None:
+					self.__tcsetattr = __import__("termios").tcsetattr
+				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
+			except:
+				return False
+		return True
+	def restoreConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+			except:
+				return False
+		return True
 	@staticmethod
 	def getDefaultOutputFilePath() -> str:
 		return Parser.__DefaultOutputFileName
@@ -666,17 +741,17 @@ class SchemeIBPME:
 		if isinstance(_pdk, tuple) and len(_pdk) == 2 and all(isinstance(ele, Element) for ele in _pdk): # hybrid check
 			pdk = _pdk
 		else:
-			pdk = self.PKGen(																						\
-				self.RKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 		\
+			pdk = self.PKGen(																										\
+				self.RKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 	\
 				randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")					\
 			)
 			print("ProxyDec: The variable $\\textit{pdk}$ should be a tuple containing 2 elements but it is not, which has been generated randomly. ")
 		if isinstance(cipher, tuple) and len(cipher) == 3 and all(isinstance(ele, Element) for ele in cipher[:2]) and isinstance(cipher[2], int): # hybrid check
 			C = cipher
 		else:
-			C = self.Enc(																								\
-				self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 			\
-				randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"		\
+			C = self.Enc(																											\
+				self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 	\
+				randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"	\
 			)
 			print("ProxyDec: The variable $C$ should be a tuple containing 2 elements and an integer but it is not, which has been generated with $m$ set to b\"SchemeIBPME\". ")
 		
@@ -719,9 +794,9 @@ class SchemeIBPME:
 		if isinstance(cipher, tuple) and len(cipher) == 3 and all(isinstance(ele, Element) for ele in cipher[:2]) and isinstance(cipher[2], int): # hybrid check
 			C = cipher
 		else:
-			C = self.Enc(																								\
-				self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 			\
-				randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"		\
+			C = self.Enc(																											\
+				self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 	\
+				randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"	\
 			)
 			print("Dec1: The variable $C$ should be a tuple containing 2 elements and an integer but it is not, which has been generated with $m$ set to b\"SchemeIBPME\". ")
 		
@@ -765,14 +840,14 @@ class SchemeIBPME:
 		elif isinstance(cipherText, bool):
 			return False
 		else:
-			CT = self.ProxyDec(																							\
-				self.PKGen(																								\
-					self.RKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 			\
-					randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")						\
-				), self.Enc(																								\
-					self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 			\
-					randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"		\
-				)																										\
+			CT = self.ProxyDec(																											\
+				self.PKGen(																												\
+					self.RKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 	\
+					randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")					\
+				), self.Enc(																											\
+					self.SKGen(randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big")), 	\
+					randbelow(1 << self.__group.secparam).to_bytes(ceil(self.__group.secparam / 8), byteorder = "big"), b"SchemeIBPME"	\
+				)																														\
 			)
 			print("Dec2: The variable $\\textit{CT}$ should be a tuple containing an element and an integer but it is not, which has been generated with $m$ set to b\"SchemeIBPME\". ")
 		
@@ -839,9 +914,9 @@ def conductScheme(curveParameter:tuple|list|str, run:int|None = None) -> list:
 		if isinstance(run, int) and run >= 1:
 			print("run =", run)
 		print("Is the system valid? No. \n\t{0}".format(e))
-		return (																																														\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
-			+ [run if isinstance(run, int) and run >= 1 else None] + [False] * 4 + ["N/A"] * 19																																	\
+		return (																																																																		\
+			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
+			+ [run if isinstance(run, int) and run >= 1 else None] + [False] * 4 + ["N/A"] * 19																																															\
 		)
 	print("curveParameter =", group.groupType())
 	print("secparam =", group.secparam)
@@ -906,8 +981,8 @@ def conductScheme(curveParameter:tuple|list|str, run:int|None = None) -> list:
 	
 	# End #
 	booleans = [True, not isinstance(CT, bool), not isinstance(m, bool) and message == m, not isinstance(mPrime, bool) and message == mPrime]
-	spaceRecords = [																															\
-		schemeIBPME.getLengthOf(group.random(ZR)), schemeIBPME.getLengthOf(group.random(G1)), schemeIBPME.getLengthOf(group.random(G2)), 				\
+	spaceRecords = [																																\
+		schemeIBPME.getLengthOf(group.random(ZR)), schemeIBPME.getLengthOf(group.random(G1)), schemeIBPME.getLengthOf(group.random(G2)), 			\
 		schemeIBPME.getLengthOf(group.random(GT)), schemeIBPME.getLengthOf(mpk), schemeIBPME.getLengthOf(msk), schemeIBPME.getLengthOf(ek_sigma), 	\
 		schemeIBPME.getLengthOf(dk_rho), schemeIBPME.getLengthOf(pdk), schemeIBPME.getLengthOf(C), schemeIBPME.getLengthOf(CT)						\
 	]
@@ -927,51 +1002,57 @@ def main() -> int:
 	parser = Parser(argv)
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
-		del parser
-		
-		# Parameters #
-		curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveParameter", "secparam", "runCount")
-		validators = ("isSystemValid", "isProxyDecPassed", "isDec1Passed", "isDec2Passed")
-		metrics = (																									\
-			"Setup (s)", "SKGen (s)", "RKGen (s)", "PKGen (s)", "Enc (s)", "ProxyDec (s)", "Dec1 (s)", "Dec2 (s)", 	\
-			"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 							\
-			"mpk (B)", "msk (B)", "ek_sigma (B)", "dk_rho (B)", "pdk (B)", "C (B)", "CT (B)"						\
-		)
-	
-		# Scheme #
-		columns, qLength, results = queries + validators + metrics, len(queries), []
-		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
-		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
-		try:
-			for curveParameter in curveParameters:
-				averages = conductScheme(curveParameter, run = 1)
-				for run in range(2, runCount + 1):
-					result = conductScheme(curveParameter, run = run)
-					for idx in range(qLength, qvLength):
-						averages[idx] += result[idx]
+		if any((PairingGroup is None, G1 is None, GT is None, ZR is None, pair is None, Element is None)):
+			parser.disableConsoleEchoes()
+			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
+			errorLevel = EOF
+		else:
+			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
+			parser.disableConsoleEchoes()
+			
+			# Parameters #
+			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+			queries = ("curveParameter", "secparam", "runCount")
+			validators = ("isSystemValid", "isProxyDecPassed", "isDec1Passed", "isDec2Passed")
+			metrics = (																									\
+				"Setup (s)", "SKGen (s)", "RKGen (s)", "PKGen (s)", "Enc (s)", "ProxyDec (s)", "Dec1 (s)", "Dec2 (s)", 	\
+				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 							\
+				"mpk (B)", "msk (B)", "ek_sigma (B)", "dk_rho (B)", "pdk (B)", "C (B)", "CT (B)"						\
+			)
+			
+			# Scheme #
+			columns, qLength, results = queries + validators + metrics, len(queries), []
+			length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
+			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
+			try:
+				for curveParameter in curveParameters:
+					averages = conductScheme(curveParameter, run = 1)
+					for run in range(2, runCount + 1):
+						result = conductScheme(curveParameter, run = run)
+						for idx in range(qLength, qvLength):
+							averages[idx] += result[idx]
+						for idx in range(qvLength, length):
+							averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
+					averages[avgIndex] = runCount
 					for idx in range(qvLength, length):
-						averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
-				averages[avgIndex] = runCount
-				for idx in range(qvLength, length):
-					if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
-						averages[idx] /= runCount
-						if averages[idx].is_integer():
-							averages[idx] = int(averages[idx])
-					else:
-						averages[idx] = "N/A"
-				results.append(averages)
-				saver.save(results)
+						if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
+							averages[idx] /= runCount
+							if averages[idx].is_integer():
+								averages[idx] = int(averages[idx])
+						else:
+							averages[idx] = "N/A"
+					results.append(averages)
+					saver.save(results)
+					print()
+			except KeyboardInterrupt:
 				print()
-		except KeyboardInterrupt:
-			print()
-			print("The experiments were interrupted by users. Saved results are retained. ")
-		except BaseException as e:
-			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-		errorLevel = EXIT_SUCCESS if results and all(all(																								\
-			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
-		) for result in results) else EXIT_FAILURE
+				print("The experiments were interrupted by users. Saved results are retained. ")
+			except BaseException as e:
+				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
+			errorLevel = EXIT_SUCCESS if results and all(all(																								\
+				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])		\
+			) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		parser.disableConsoleEchoes()

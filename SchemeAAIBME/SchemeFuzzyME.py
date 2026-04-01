@@ -36,6 +36,9 @@ class Parser:
 	__OptionYes = ("y", "/y", "-y", "yes", "/yes", "--yes")
 	def __init__(self:object, arguments:tuple|list) -> object:
 		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
+		self.__originalConsoleAttributes = None
+		self.__echolessConsoleAttributes = None
+		self.__tcsetattr = None
 	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
 		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
 			prefix = pre if isinstance(pre, str) else "["
@@ -48,18 +51,18 @@ class Parser:
 		print("This is a possible implementation of the Fuzzy-ME cryptographic scheme in Python programming language based on the Python charm library. ")
 		print()
 		print("Options (not case-sensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for text-based outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
 		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(	\
 			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)												\
 		))
 		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(	\
-			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																						\
+			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																							\
 		)
 		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
 		print(																																							\
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
-			+ "Passing nan, None, or inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)		\
+			+ "Passing inf requires users to manually press the enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)						\
 		)
 		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
 		print()
@@ -75,6 +78,64 @@ class Parser:
 				return filePath
 		else:
 			return Parser.__DefaultOutputFileName
+	def __parseRealNumber(self:object, string:str) -> int|float|None:
+		try:
+			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			if "e" in realNumberString and not realNumberString.endswith("e"):
+				return float(realNumberString)
+			else:
+				minusSign = False
+				while realNumberString:
+					if '+' == realNumberString[0]:
+						realNumberString = realNumberString[1:]
+					elif '-' == realNumberString[0]:
+						minusSign, realNumberString = not minusSign, realNumberString[1:]
+					else:
+						break
+				while realNumberString.startswith("00"):
+					realNumberString = realNumberString[1:]
+				if realNumberString.startswith("0b"):
+					base, digits, realNumberString = 2, "01", realNumberString[2:]
+				elif realNumberString.startswith("0q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[2:]
+				elif realNumberString.startswith("0o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
+				elif realNumberString.startswith(("0d", "0l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
+				elif realNumberString.startswith(("0h", "0x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				elif realNumberString.endswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[:-1]
+				elif realNumberString.endswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[:-1]
+				elif realNumberString.endswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[:-1]
+				elif realNumberString.endswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[:-1]
+				elif realNumberString.endswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[:-1]
+				else:
+					base, digits = 10, "0123456789"
+				if "inf" == realNumberString:
+					realNumber = float("inf")
+				elif "nan" == realNumberString:
+					realNumber = float("nan")
+				else:
+					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					realNumber = 0
+					for ch in decimalPartString.rstrip("0")[::-1]:
+						realNumber += digits.index(ch)
+						realNumber /= base
+					integerPartString = integerPartString.lstrip("0")
+					if integerPartString:
+						realNumber += int(integerPartString, base = base)
+					if realNumber.is_integer():
+						realNumber = int(realNumber)
+				if minusSign:
+					realNumber = -realNumber
+				return realNumber
+		except:
+			return None
 	def parse(self:object) -> tuple:
 		flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = (																		\
 			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, Parser.__DefaultRun, Parser.__DefaultTime, False	\
@@ -112,55 +173,48 @@ class Parser:
 					if decimalPlaceLower in Parser.__PlaceTranslations:
 						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
 					else:
-						try:
-							p = int(self.__arguments[index], 0)
-							if p >= 0:
-								decimalPlace = p
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
-							del p
-						except:
+						p = self.__parseRealNumber(self.__arguments[index])
+						if p is None:
 							flag = EOF
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+						elif isinstance(p, int) and p >= 0:
+							decimalPlace = p
+						else:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
+						del p
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionRun:
 				index += 1
 				if index < argumentCount:
-					try:
-						r = int(self.__arguments[index].replace("_", ""), 0)
-						if r >= 1:
-							runCount = r
-						else:
-							flag = EOF
-							buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
-						del r
-					except:
+					r = self.__parseRealNumber(self.__arguments[index])
+					if r is None:
 						flag = EOF
 						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif isinstance(r, int) and r >= 1:
+						runCount = r
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
+					del r
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the run count option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
-					if self.__arguments[index].strip().lower() in ("+inf", "inf", "n", "nan", "none"):
-						waitingTime = float("inf")
+					t = self.__parseRealNumber(self.__arguments[index])
+					if t is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif t >= 0:
+						waitingTime = t
 					else:
-						try:
-							t = self.__arguments[index].replace("_", "")
-							t = float(t) if "." in self.__arguments[index] or "e" in self.__arguments[index] else int(t, 0)
-							if t >= 0:
-								waitingTime = int(t) if t.is_integer() else t
-							else:
-								flag = EOF
-								buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
-							del t
-						except:
-							flag = EOF
-							buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
+					del t
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
@@ -196,6 +250,27 @@ class Parser:
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
+	def disableConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				if self.__originalConsoleAttributes is None:
+					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
+				if self.__echolessConsoleAttributes is None:
+					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
+					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
+				if self.__tcsetattr is None:
+					self.__tcsetattr = __import__("termios").tcsetattr
+				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
+			except:
+				return False
+		return True
+	def restoreConsoleEchoes(self:object) -> bool:
+		if "posix" == os.name:
+			try:
+				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+			except:
+				return False
+		return True
 	@staticmethod
 	def getDefaultOutputFilePath() -> str:
 		return Parser.__DefaultOutputFileName
@@ -629,21 +704,21 @@ class SchemeFuzzyME:
 		rPrime1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{r}'_1 = (r'_{1, 1}, r'_{1, 2}, \cdots, r'_{1, n}) \in \mathbb{Z}_r^n$ randomly
 		rPrime2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{r}'_2 = (r'_{2, 1}, r'_{2, 2}, \cdots, r'_{2, n}) \in \mathbb{Z}_r^n$ randomly
 		dk_S_B_0 = tuple(g ** (k1Vec[i] * theta1 * theta2 + k2Vec[i] * theta3 * theta4) for i in range(self.__n)) # $\textit{dk}_{S_{B_{0, i}}} \gets g^{k_{1, i} \theta_1 \theta_2 + k_{2, i} \theta_3 \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
-		dk_S_B_1 = tuple(																						\
+		dk_S_B_1 = tuple(																												\
 			g2 ** (-f(S_B[i]) * theta2) * G_ID ** (-h(S_B[i]) * theta2) * T(S_B[i]) ** (-k1Vec[i] * theta2) for i in range(self.__n)	\
 		) # $\textit{dk}_{S_{B_{1, i}}} \gets g_2^{-f(b_i) \theta_2} (G_{\textit{ID}})^{-h(b_i) \theta_2} [T(b_i)]^{-k_{1, i} \theta_2}, \forall i \in \{1, 2, \cdots, n\}$
-		dk_S_B_2 = tuple(																						\
+		dk_S_B_2 = tuple(																												\
 			g2 ** (-f(S_B[i]) * theta1) * G_ID ** (-h(S_B[i]) * theta1) * T(S_B[i]) ** (-k1Vec[i] * theta1) for i in range(self.__n)	\
 		) # $\textit{dk}_{S_{B_{2, i}}} \gets g_2^{-f(b_i) \theta_1} (G_{\textit{ID}})^{-h(b_i) \theta_1} [T(b_i)]^{-k_{1, i} \theta_1}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_S_B_3 = tuple(T(S_B[i]) ** (-k2Vec[i] * theta4) for i in range(self.__n)) # $\textit{dk}_{S_{B_{3, i}}} \gets [T(b_i)]^{-k_{2, i} \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_S_B_4 = tuple(T(S_B[i]) ** (-k2Vec[i] * theta3) for i in range(self.__n)) # $\textit{dk}_{S_{B_{4, i}}} \gets [T(b_i)]^{-k_{2, i} \theta_3}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_S_B = (dk_S_B_0, dk_S_B_1, dk_S_B_2, dk_S_B_3, dk_S_B_4) # $\textit{dk}_{S_B} \gets (\textit{dk}_{S_{B_0}}, \textit{dk}_{S_{B_1}}, \textit{dk}_{S_{B_2}}, \textit{dk}_{S_{B_3}}, \textit{dk}_{S_{B_4}})$
 		dk_P_A_0 = tuple(g ** (rPrime1Vec[i] * theta1 * theta2 + rPrime2Vec[i] * theta3 * theta4) for i in range(self.__n)) # $\textit{dk}_{P_{A_{0, i}}} \gets g^{r'_{1, i} \theta_1 \theta_2 + r'_{i, 2} \theta_3 \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
-		dk_P_A_1 = tuple(																										\
-			g2 ** (-2 * qPrime(P_A[i]) * theta2) * G_ID ** (h(P_A[i]) * theta2) * H(P_A[i]) ** (-rPrime1Vec[i] * theta2) for i in range(self.__n)		\
+		dk_P_A_1 = tuple(																															\
+			g2 ** (-2 * qPrime(P_A[i]) * theta2) * G_ID ** (h(P_A[i]) * theta2) * H(P_A[i]) ** (-rPrime1Vec[i] * theta2) for i in range(self.__n)	\
 		) # $\textit{dk}_{P_{A_{1, i}}} \gets g_2^{-2q'(a_i) \theta_2} (G_{\textit{ID}})^{h(a_i \theta_2)} H(a_i)^{-r'_{1, i} \theta_2}, \forall i \in \{1, 2, \cdots, n\}$
-		dk_P_A_2 = tuple(																										\
-			g2 ** (-2 * qPrime(P_A[i]) * theta1) * G_ID ** (h(P_A[i]) * theta1) * H(P_A[i]) ** (-rPrime1Vec[i] * theta1) for i in range(self.__n)		\
+		dk_P_A_2 = tuple(																															\
+			g2 ** (-2 * qPrime(P_A[i]) * theta1) * G_ID ** (h(P_A[i]) * theta1) * H(P_A[i]) ** (-rPrime1Vec[i] * theta1) for i in range(self.__n)	\
 		) # $\textit{dk}_{P_{A_{2, i}}} \gets g_2^{-2q'(a_i) \theta_1} (G_{\textit{ID}})^{h(a_i \theta_1)} H(a_i)^{-r'_{1, i} \theta_1}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_P_A_3 = tuple(H(P_A[i]) ** (-rPrime2Vec[i] * theta4) for i in range(self.__n)) # $\textit{dk}_{P_{A_{3, i}}} \gets [H(a_i)]^{-r'_{2, i} \theta_4}, \forall i \in \{1, 2, \cdots, n\}$
 		dk_P_A_4 = tuple(H(P_A[i]) ** (-rPrime2Vec[i] * theta3) for i in range(self.__n)) # $\textit{dk}_{P_{A_{3, i}}} \gets [H(a_i)]^{-r'_{2, i} \theta_3}, \forall i \in \{1, 2, \cdots, n\}$
@@ -706,8 +781,8 @@ class SchemeFuzzyME:
 		chiVec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{\chi} = (\chi_1, \chi_2, \cdots, \chi_n) \in \mathbb{Z}_r^n$ randomly
 		C3Vec = tuple(eVec[i] * g ** xiVec[i] for i in range(self.__n)) # $C_{3, i} \gets e_i \cdot g^{\xi_i}, \forall i \in \{1, 2, \cdots, n\}$
 		C4Vec = tuple(g ** chiVec[i] for i in range(self.__n)) # $C_{4, i} \gets g^{\chi_i}, \forall i \in \{1, 2, \cdots, n\}$
-		C5Vec = tuple(EVec[i] ** s * g3 ** l(S_A[i]) * H(S_A[i]) ** (s * xiVec[i]) * H1(														\
-			self.__group.serialize(C0) + self.__group.serialize(C1) + self.__group.serialize(C2) + self.__group.serialize(C3) + self.__group.serialize(C4)		\
+		C5Vec = tuple(EVec[i] ** s * g3 ** l(S_A[i]) * H(S_A[i]) ** (s * xiVec[i]) * H1(																	\
+			self.__group.serialize(C0) + self.__group.serialize(C1) + self.__group.serialize(C2) + self.__group.serialize(C3) + self.__group.serialize(C4)	\
 			+ self.__group.serialize(C1Vec[i]) + self.__group.serialize(C2Vec[i]) + self.__group.serialize(C3Vec[i]) + self.__group.serialize(C4Vec[i])		\
 		) for i in range(self.__n)) # $C_{5, i} \gets E_i^s \cdot g_3^{l(a_i)} H(a_i)^{s \cdot \xi_i} \cdot H_1(C_0 || C_1 || C_2 || C_3 || C_4 || C_{1, i} || C_{2, i} || C_{3, i} || C_{4, i})^{\chi_i}$
 		CT = (C0, C1, C2, C3, C4, C1Vec, C2Vec, C3Vec, C4Vec, C5Vec) # $\textit{CT} \gets (C_0, C_1, C_2, C_3, C_4, \vec{C}_1, \vec{C}_2, \vec{C}_3, \vec{C}_4, \vec{C}_5)$
@@ -719,15 +794,15 @@ class SchemeFuzzyME:
 		if not self.__flag:
 			print("Decryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Decryption`` subsequently. ")
 			self.Setup()
-		if (																																	\
+		if (																																								\
 			isinstance(SA, tuple) and isinstance(PA, tuple) and isinstance(SB, tuple) and isinstance(PB, tuple) and len(SA) == len(PA) == len(SA) == len(SB) == self.__n	\
-			and all(isinstance(ele, Element) and ele.type == ZR for ele in SA) and all(isinstance(ele, Element) and ele.type == ZR for ele in PA)						\
-			and all(isinstance(ele, Element) and ele.type == ZR for ele in SB) and all(isinstance(ele, Element) and ele.type == ZR for ele in PB)						\
+			and all(isinstance(ele, Element) and ele.type == ZR for ele in SA) and all(isinstance(ele, Element) and ele.type == ZR for ele in PA)							\
+			and all(isinstance(ele, Element) and ele.type == ZR for ele in SB) and all(isinstance(ele, Element) and ele.type == ZR for ele in PB)							\
 		): # hybrid check
 			S_A, P_A, S_B, P_B = SA, PA, SB, PB
-			if (																																		\
-				isinstance(dkSBPA, tuple) and len(dkSBPA) == 2 and isinstance(dkSBPA[0], tuple) and isinstance(dkSBPA[1], tuple) and len(dkSBPA[0]) == len(dkSBPA[1]) == 5	\
-				and all(isinstance(ele, tuple) and len(ele) == self.__n for ele in dkSBPA[0]) and all(isinstance(ele, tuple) and len(ele) == self.__n for ele in dkSBPA[1])				\
+			if (																																								\
+				isinstance(dkSBPA, tuple) and len(dkSBPA) == 2 and isinstance(dkSBPA[0], tuple) and isinstance(dkSBPA[1], tuple) and len(dkSBPA[0]) == len(dkSBPA[1]) == 5		\
+				and all(isinstance(ele, tuple) and len(ele) == self.__n for ele in dkSBPA[0]) and all(isinstance(ele, tuple) and len(ele) == self.__n for ele in dkSBPA[1])		\
 			): # hybrid check
 				dk_SBPA = dkSBPA
 			else:
@@ -764,11 +839,11 @@ class SchemeFuzzyME:
 				pair(C1Vec[i], dk_S_B_0[i]) * pair(C1, dk_S_B_1[i]) * pair(C2, dk_S_B_2[i]) # \hat{e}(C_{1, i}, \textit{dk}_{S_{B_{0, i}}}) \hat{e}(C_1, \textit{dk}_{S_{B_{1, i}}}) \hat{e}(C_2, \textit{dk}_{S_{B_{2, i}}})
 				* pair(C3, dk_S_B_3[i]) * pair(C4, dk_S_B_4[i]) # \hat{e}(C_3, \textit{dk}_{S_{B_{3, i}}}) \hat{e}(C_4, \textit{dk}_{S_{B_{4, i}}})
 			) ** Delta(S_B[i], WB, 0) for i in range(self.__n))) # )^{\Delta_{b_i, W_B}(0)}$
-			CTVec = tuple(																												\
-				(																														\
-					self.__group.serialize(C0) + self.__group.serialize(C1) + self.__group.serialize(C2) + self.__group.serialize(C3) + self.__group.serialize(C4)		\
+			CTVec = tuple(																																			\
+				(																																					\
+					self.__group.serialize(C0) + self.__group.serialize(C1) + self.__group.serialize(C2) + self.__group.serialize(C3) + self.__group.serialize(C4)	\
 					+ self.__group.serialize(C1Vec[i]) + self.__group.serialize(C2Vec[i]) + self.__group.serialize(C3Vec[i]) + self.__group.serialize(C4Vec[i])		\
-				) for i in range(self.__n)																										\
+				) for i in range(self.__n)																															\
 			) # \quad$\textit{CT}_i \gets C_0 || C_1 || C_2 || C_3 || C_4 || C_{1, i} || C_{2, i} || C_{3, i} || C_{4, i}, \forall i \in \{1, 2, \cdots, n\}$
 			KlPrime = self.__product(tuple( # \quad$K'_l \gets \prod\limits_{a_i \in W_A} 
 				( # \left(
@@ -827,15 +902,15 @@ def conductScheme(curveParameter:tuple|list|str, n:int = 30, d:int = 10, run:int
 			if isinstance(run, int) and run >= 1:
 				print("run =", run)
 			print("Is the system valid? No. \n\t{0}".format(e))
-			return (																																													\
+			return (																																																																		\
 				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
-				+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																			\
+				+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																													\
 			)
 	else:
 		print("Is the system valid? No. The parameter $n$ should be a positive integer, and the parameter $d$ should be a positive integer not smaller than $2$. ")
-		return (																																														\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])		\
-			+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																	\
+		return (																																																																		\
+			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
+			+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																													\
 		)
 	print("curveParameter =", group.groupType())
 	print("secparam =", group.secparam)
@@ -894,10 +969,10 @@ def conductScheme(curveParameter:tuple|list|str, n:int = 30, d:int = 10, run:int
 	
 	# End #
 	booleans = [True, not isinstance(M, bool) and message == M]
-	spaceRecords = [																														\
+	spaceRecords = [																															\
 		schemeFuzzyME.getLengthOf(group.random(ZR)), schemeFuzzyME.getLengthOf(group.random(G1)), schemeFuzzyME.getLengthOf(group.random(GT)), 	\
 		schemeFuzzyME.getLengthOf(mpk), schemeFuzzyME.getLengthOf(msk), schemeFuzzyME.getLengthOf(ek_S_A),  									\
-		schemeFuzzyME.getLengthOf(dk_SBPA), schemeFuzzyME.getLengthOf(CT)																	\
+		schemeFuzzyME.getLengthOf(dk_SBPA), schemeFuzzyME.getLengthOf(CT)																		\
 	]
 	del schemeFuzzyME
 	print("Original:", message)
@@ -912,53 +987,59 @@ def main() -> int:
 	parser = Parser(argv)
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
-		del parser
-		
-		# Parameters #
-		curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-		queries = ("curveParameter", "secparam", "n", "d", "runCount")
-		validators = ("isSystemValid", "isSchemeCorrect")
-		metrics = (															\
-			"Setup (s)", "EKGen (s)", "DKGen (s)", "Encryption (s)", "Decryption (s)", 	\
-			"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 			\
-			"mpk (B)", "msk (B)", "ek_S_A (B)", "dk_SBPA (B)", "CT (B)"			\
-		)
-		
-		# Scheme #
-		columns, qLength, results = queries + validators + metrics, len(queries), []
-		length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
-		saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
-		try:
-			for curveParameter in curveParameters:
-				for n in range(10, 31, 5):
-					for d in range(5, n, 5):
-						averages = conductScheme(curveParameter, n = n, d = d, run = 1)
-						for run in range(2, runCount + 1):
-							result = conductScheme(curveParameter, n = n, d = d, run = run)
-							for idx in range(qLength, qvLength):
-								averages[idx] += result[idx]
+		if any((PairingGroup is None, G1 is None, GT is None, ZR is None, pair is None, Element is None)):
+			parser.disableConsoleEchoes()
+			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
+			errorLevel = EOF
+		else:
+			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
+			parser.disableConsoleEchoes()
+			
+			# Parameters #
+			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+			queries = ("curveParameter", "secparam", "n", "d", "runCount")
+			validators = ("isSystemValid", "isSchemeCorrect")
+			metrics = (																		\
+				"Setup (s)", "EKGen (s)", "DKGen (s)", "Encryption (s)", "Decryption (s)", 	\
+				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 					\
+				"mpk (B)", "msk (B)", "ek_S_A (B)", "dk_SBPA (B)", "CT (B)"					\
+			)
+			
+			# Scheme #
+			columns, qLength, results = queries + validators + metrics, len(queries), []
+			length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
+			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
+			try:
+				for curveParameter in curveParameters:
+					for n in range(10, 31, 5):
+						for d in range(5, n, 5):
+							averages = conductScheme(curveParameter, n = n, d = d, run = 1)
+							for run in range(2, runCount + 1):
+								result = conductScheme(curveParameter, n = n, d = d, run = run)
+								for idx in range(qLength, qvLength):
+									averages[idx] += result[idx]
+								for idx in range(qvLength, length):
+									averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
+							averages[avgIndex] = runCount
 							for idx in range(qvLength, length):
-								averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
-						averages[avgIndex] = runCount
-						for idx in range(qvLength, length):
-							if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
-								averages[idx] /= runCount
-								if averages[idx].is_integer():
-									averages[idx] = int(averages[idx])
-							else:
-								averages[idx] = "N/A"
-						results.append(averages)
-						saver.save(results)
-						print()
-		except KeyboardInterrupt:
-			print()
-			print("The experiments were interrupted by users. Saved results are retained. ")
-		except BaseException as e:
-			print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-		errorLevel = EXIT_SUCCESS if results and all(all(																								\
-			tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
-		) for result in results) else EXIT_FAILURE
+								if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
+									averages[idx] /= runCount
+									if averages[idx].is_integer():
+										averages[idx] = int(averages[idx])
+								else:
+									averages[idx] = "N/A"
+							results.append(averages)
+							saver.save(results)
+							print()
+			except KeyboardInterrupt:
+				print()
+				print("The experiments were interrupted by users. Saved results are retained. ")
+			except BaseException as e:
+				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
+			errorLevel = EXIT_SUCCESS if results and all(all(																							\
+				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
+			) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		parser.disableConsoleEchoes()
