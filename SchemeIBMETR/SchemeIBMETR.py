@@ -590,7 +590,7 @@ class SchemeIBMETR:
 		p = self.__group.order() # $p \gets \|\mathbb{G}\|$
 		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
 		H1 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_1:\{0, 1\}^* \to \mathbb{G}_1$
-		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G2) # $H_2:\{0, 1\}^* \to \mathbb{G}_2$
+		H2 = lambda x:self.__group.hash(self.__group.serialize(x), G1) # $H_2:\{0, 1\}^* \to \mathbb{G}_1$
 		if 512 == self.__group.secparam:
 			HHat = lambda x:int.from_bytes(sha512(self.__group.serialize(x)).digest(), byteorder = "big")
 		elif 384 == self.__group.secparam:
@@ -964,6 +964,7 @@ def main() -> int:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")
 			except BaseException as e:
+				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 			errorLevel = EXIT_SUCCESS if results and all(all(																							\
 				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\

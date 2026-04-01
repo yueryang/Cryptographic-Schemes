@@ -878,6 +878,7 @@ def main() -> int:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")
 			except BaseException as e:
+				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 			errorLevel = EXIT_SUCCESS if results and all(all(																								\
 				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\

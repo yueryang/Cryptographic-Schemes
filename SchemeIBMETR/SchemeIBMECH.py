@@ -813,7 +813,7 @@ def main() -> int:
 	parser = Parser(argv)
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		if any((PairingGroup is None, G1 is None, GT is None, ZR is None, pair is None, Element is None)):
+		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
 			print("The environment of the Python ``charm`` library is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
@@ -860,6 +860,7 @@ def main() -> int:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")
 			except BaseException as e:
+				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
 			errorLevel = EXIT_SUCCESS if results and all(all(																							\
 				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
