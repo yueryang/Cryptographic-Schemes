@@ -230,23 +230,28 @@ class Parser:
 		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
-			outputFilePath, overwritingConfirmed = outputFP, overwriting
+			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
 			while outputFilePath and os.path.exists(outputFilePath):
 				if os.path.isfile(outputFilePath):
 					if not overwritingConfirmed:
+						flag = True
 						try:
 							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
 						except:
 							print()
 				else:
+					flag = True
 					print("Parser: The path {0} exists not to be a regular file. ".format(repr(outputFilePath)))
 				if overwritingConfirmed:
 					break
 				else:
+					flag = True
 					try:
 						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
 					except:
 						print()
+			if flag:
+				print()
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
@@ -876,112 +881,130 @@ class SchemeFuzzyME:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|str, n:int = 30, d:int = 10, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
-	if isinstance(n, int) and isinstance(d, int) and n >= 1 and d >= 2: # no need to check the parameters for curve types here
-		try:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				if curveParameter[1] >= 1:
-					group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
-				else:
-					group = PairingGroup(curveParameter[0])
-			else:
-				group = PairingGroup(curveParameter)
-			pair(group.random(G1), group.random(G1))
-		except BaseException as e:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				print("curveParameter =", curveParameter[0])
-				if curveParameter[1] >= 1:
-					print("secparam =", curveParameter[1])
-			elif isinstance(curveParameter, str):
-				print("curveParameter =", curveParameter)
-			else:
-				print("curveParameter = Unknown")
-			print("n =", n)
-			print("d =", d)
-			if isinstance(run, int) and run >= 1:
-				print("run =", run)
-			print("Is the system valid? No. \n\t{0}".format(e))
-			return (																																																																		\
-				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
-				+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																													\
-			)
+	curveName, securityParameter, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
+	isSystemValid, isSchemeCorrect = False, False
+	timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption = ("N/A", ) * 5
+	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption = ("N/A", ) * 5
+	
+	# Checks #
+	if isinstance(curveParameter, (tuple, list)):
+		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
+			curveName = curveParameter[0]
+		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+			securityParameter = curveParameter[1]
+	elif isinstance(curveParameter, dict):
+		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
+			curveName = curveParameter["curveName"]
+		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+			securityParameter = curveParameter["securityParameter"]
+	elif isinstance(curveParameter, str) and curveParameter.isalnum():
+		curveName = curveParameter
+	flag = True
+	if isinstance(n, int):
+		nString = n
 	else:
-		print("Is the system valid? No. The parameter $n$ should be a positive integer, and the parameter $d$ should be a positive integer not smaller than $2$. ")
-		return (																																																																		\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
-			+ [n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 13																													\
-		)
-	print("curveParameter =", group.groupType())
-	print("secparam =", group.secparam)
-	print("n =", n)
-	print("d =", d)
+		flag = False
+	if isinstance(d, int):
+		dString = d
+	else:
+		flag = False
 	if isinstance(run, int) and run >= 1:
-		print("run =", run)
-	print("Is the system valid? Yes. ")
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Curve: ({0}, {1})".format(curveName, securityParameter))
+		print("$n$:", nString)
+		print("$d$:", dString)
+		print("run:", runString)
+	if flag and n >= 1 and d >= 2:
+		try:
+			group = PairingGroup(curveName, secparam = securityParameter)
+			pair(group.random(G1), group.random(G1))
+			isSystemValid = True
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? Yes. ")
+		except BaseException as e:
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+				print()
+	elif not isinstance(isVerbose, bool) or isVerbose:
+		print("Is the system valid? No. The parameter $n$ should be a positive integer, and the parameter $d$ should be a positive integer not smaller than $2$. ")
+		print()
 	
-	# Initialization #
-	schemeFuzzyME = SchemeFuzzyME(group)
-	timeRecords = []
-	
-	# Setup #
-	startTime = perf_counter()
-	mpk, msk = schemeFuzzyME.Setup(n = n, d = d)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# EKGen #
-	startTime = perf_counter()
-	S_A = tuple(group.random(ZR) for _ in range(n))
-	ek_S_A = schemeFuzzyME.EKGen(S_A)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# DKGen #
-	startTime = perf_counter()
-	S_B = tuple(group.random(ZR) for _ in range(n))
-	P_A = list(S_A)
-	shuffle(P_A)
-	P_A = P_A[:d] + list(group.random(ZR) for _ in range(n - d))
-	shuffle(P_A)
-	P_A = tuple(P_A)
-	dk_SBPA = schemeFuzzyME.DKGen(S_B, P_A)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Encryption #
-	startTime = perf_counter()
-	P_B = list(S_B)
-	shuffle(P_B)
-	P_B = P_B[:d] + list(group.random(ZR) for _ in range(n - d))
-	shuffle(P_B)
-	P_B = tuple(P_B)
-	message = group.random(GT)
-	CT = schemeFuzzyME.Encryption(ek_S_A, S_A, P_B, message)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Decryption #
-	startTime = perf_counter()
-	M = schemeFuzzyME.Decryption(dk_SBPA, S_A, P_A, S_B, P_B, CT)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
+	# Execution #
+	if isSystemValid:
+		# Initialization #
+		schemeFuzzyME = SchemeFuzzyME(group)
+		sizeZR, sizeG1G2, sizeGT = schemeFuzzyME.getLengthOf(group.random(ZR)), schemeFuzzyME.getLengthOf(group.random(G1)), schemeFuzzyME.getLengthOf(group.random(GT))
+		
+		# Setup #
+		startTime = perf_counter()
+		mpk, msk = schemeFuzzyME.Setup(n = n, d = d)
+		endTime = perf_counter()
+		timeSetup = endTime - startTime
+		sizeMpk, sizeMsk = schemeFuzzyME.getLengthOf(mpk), schemeFuzzyME.getLengthOf(msk)
+		
+		# EKGen #
+		startTime = perf_counter()
+		S_A = tuple(group.random(ZR) for _ in range(n))
+		ek_S_A = schemeFuzzyME.EKGen(S_A)
+		endTime = perf_counter()
+		timeEKGen = endTime - startTime
+		sizeEKGen = schemeFuzzyME.getLengthOf(ek_S_A)
+		
+		# DKGen #
+		startTime = perf_counter()
+		S_B = tuple(group.random(ZR) for _ in range(n))
+		P_A = list(S_A)
+		shuffle(P_A)
+		P_A = P_A[:d] + list(group.random(ZR) for _ in range(n - d))
+		shuffle(P_A)
+		P_A = tuple(P_A)
+		dk_SBPA = schemeFuzzyME.DKGen(S_B, P_A)
+		endTime = perf_counter()
+		timeDKGen = endTime - startTime
+		sizeDKGen = schemeFuzzyME.getLengthOf(dk_SBPA)
+		
+		# Encryption #
+		startTime = perf_counter()
+		P_B = list(S_B)
+		shuffle(P_B)
+		P_B = P_B[:d] + list(group.random(ZR) for _ in range(n - d))
+		shuffle(P_B)
+		P_B = tuple(P_B)
+		message = group.random(GT)
+		CT = schemeFuzzyME.Encryption(ek_S_A, S_A, P_B, message)
+		endTime = perf_counter()
+		timeEncryption = endTime - startTime
+		sizeEncryption = schemeFuzzyME.getLengthOf(CT)
+		
+		# Decryption #
+		startTime = perf_counter()
+		M = schemeFuzzyME.Decryption(dk_SBPA, S_A, P_A, S_B, P_B, CT)
+		endTime = perf_counter()
+		isSchemeCorrect = not isinstance(M, bool) and M == message
+		timeDecryption = endTime - startTime
+		
+		# Destruction #
+		del schemeFuzzyME
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Original:", message)
+			print("Decrypted:", M)
+			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption))
+			print()
 	
 	# End #
-	booleans = [True, not isinstance(M, bool) and message == M]
-	spaceRecords = [																															\
-		schemeFuzzyME.getLengthOf(group.random(ZR)), schemeFuzzyME.getLengthOf(group.random(G1)), schemeFuzzyME.getLengthOf(group.random(GT)), 	\
-		schemeFuzzyME.getLengthOf(mpk), schemeFuzzyME.getLengthOf(msk), schemeFuzzyME.getLengthOf(ek_S_A),  									\
-		schemeFuzzyME.getLengthOf(dk_SBPA), schemeFuzzyME.getLengthOf(CT)																		\
+	return [
+		curveName, securityParameter, nString, dString, runString, 									\
+		isSystemValid, isSchemeCorrect, 															\
+		timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption, 							\
+		sizeZR, sizeG1G2, sizeGT, 																	\
+		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption										\
 	]
-	del schemeFuzzyME
-	print("Original:", message)
-	print("Decrypted:", M)
-	print("Is the scheme correct (message == M)? {0}. ".format("Yes" if booleans[1] else "No"))
-	print("Time:", timeRecords)
-	print("Space:", spaceRecords)
-	print()
-	return [group.groupType(), group.secparam, n, d, run if isinstance(run, int) and run >= 1 else None] + booleans + timeRecords + spaceRecords
 
 def main() -> int:
 	parser = Parser(argv)
@@ -995,6 +1018,8 @@ def main() -> int:
 		else:
 			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			parser.disableConsoleEchoes()
+			print("The execution has started. ")
+			print()
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))

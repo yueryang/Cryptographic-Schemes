@@ -231,23 +231,28 @@ class Parser:
 		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
-			outputFilePath, overwritingConfirmed = outputFP, overwriting
+			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
 			while outputFilePath and os.path.exists(outputFilePath):
 				if os.path.isfile(outputFilePath):
 					if not overwritingConfirmed:
+						flag = True
 						try:
 							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
 						except:
 							print()
 				else:
+					flag = True
 					print("Parser: The path {0} exists not to be a regular file. ".format(repr(outputFilePath)))
 				if overwritingConfirmed:
 					break
 				else:
+					flag = True
 					try:
 						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
 					except:
 						print()
+			if flag:
+				print()
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
@@ -1118,9 +1123,15 @@ class SchemeAAIBME:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:int = 10, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
-	curveName, securityParameter, flag = "N/A", 512, True # the default value of the security parameter in Python charm library is 512
+	curveName, securityParameter, nString, kString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
+	isSystemValid, isSchemeCorrect, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified = (False, ) * 6
+	timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2 = ("N/A", ) * 9
+	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc = ("N/A", ) * 5
+	
+	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
 		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
 			curveName = curveParameter[0]
@@ -1133,130 +1144,141 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 			securityParameter = curveParameter["securityParameter"]
 	elif isinstance(curveParameter, str) and curveParameter.isalnum():
 		curveName = curveParameter
+	flag = True
 	if isinstance(n, int):
 		nString = n
 	else:
 		flag = False
-		nString = "N/A"
 	if isinstance(k, int):
 		kString = k
 	else:
 		flag = False
-		kString = "N/A"
 	if isinstance(d, int):
 		dString = d
 	else:
 		flag = False
-		dString = "N/A"
-	runString = run if isinstance(run, int) and run >= 1 else "N/A"
-	print("Curve: ({0}, {1})".format(curveName, securityParameter))
-	print("$n$:", nString)
-	print("$k$:", kString)
-	print("$d$:", dString)
-	print("run:", runString)
+	if isinstance(run, int) and run >= 1:
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Curve: ({0}, {1})".format(curveName, securityParameter))
+		print("$n$:", nString)
+		print("$k$:", kString)
+		print("$d$:", dString)
+		print("run:", runString)
 	if flag and 1 <= d <= k <= n:
 		try:
 			group = PairingGroup(curveName, secparam = securityParameter)
 			pair(group.random(G1), group.random(G1))
+			isSystemValid = True
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? Yes. ")
 		except BaseException as e:
-			print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-			print()
-			return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 6 + ["N/A"] * 16
-	else:
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+				print()
+	elif not isinstance(isVerbose, bool) or isVerbose:
 		print("Is the system valid? No. The parameters $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$. ")
 		print()
-		return [curveName, securityParameter, nString, kString, dString, runString] + [False] * 6 + ["N/A"] * 16
-	print("Is the system valid? Yes. ")
 	
-	# Initialization #
-	schemeAAIBME = SchemeAAIBME(group)
-	timeRecords = []
-	
-	# Setup #
-	startTime = perf_counter()
-	mpk, msk = schemeAAIBME.Setup(n = n, k = k, d = d)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# EKGen #
-	startTime = perf_counter()
-	ID_A = tuple(group.random(ZR) for _ in range(n))
-	SPrimePrime = list(range(n))
-	shuffle(SPrimePrime)
-	SPrimePrime = set(SPrimePrime[:k])
-	S = list(SPrimePrime)
-	shuffle(S)
-	S = set(S[:d])
-	ek_ID_A_S = schemeAAIBME.EKGen(ID_A, S)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# DKGen #
-	startTime = perf_counter()
-	ID_B = tuple(group.random(ZR) for _ in range(n))
-	SPrime = list(SPrimePrime)
-	shuffle(SPrime)
-	SPrime = set(SPrime[:d])
-	dk_ID_B_SPrime = schemeAAIBME.DKGen(ID_B, SPrime)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Enc #
-	startTime = perf_counter()
-	message = group.random(GT)
-	CT = schemeAAIBME.Enc(ek_ID_A_S, ID_A, ID_B, SPrimePrime, S, message)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Dec #
-	startTime = perf_counter()
-	M = schemeAAIBME.Dec(dk_ID_B_SPrime, ID_B, ID_A, SPrimePrime, SPrime, CT)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# EKeySanity #
-	startTime = perf_counter()
-	isEKeySanity = schemeAAIBME.EKeySanity(ek_ID_A_S, ID_A, S)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# DKeySanity #
-	startTime = perf_counter()
-	isDKeySanity = schemeAAIBME.DKeySanity(dk_ID_B_SPrime, ID_B, SPrime)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Trace1 #
-	startTime = perf_counter()
-	isTracing1Verified = schemeAAIBME.Trace1(schemeAAIBME.Enc, ek_ID_A_S, ID_A, S)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Trace2 #
-	startTime = perf_counter()
-	isTracing2Verified = schemeAAIBME.Trace2(schemeAAIBME.Dec, dk_ID_B_SPrime, ID_B, SPrime)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
+	# Execution #
+	if isSystemValid:
+		# Initialization #
+		schemeAAIBME = SchemeAAIBME(group)
+		sizeZR, sizeG1G2, sizeGT = schemeAAIBME.getLengthOf(group.random(ZR)), schemeAAIBME.getLengthOf(group.random(G1)), schemeAAIBME.getLengthOf(group.random(GT))
+		
+		# Setup #
+		startTime = perf_counter()
+		mpk, msk = schemeAAIBME.Setup(n = n, k = k, d = d)
+		endTime = perf_counter()
+		timeSetup = endTime - startTime
+		sizeMpk, sizeMsk = schemeAAIBME.getLengthOf(mpk), schemeAAIBME.getLengthOf(msk)
+		
+		# EKGen #
+		startTime = perf_counter()
+		ID_A = tuple(group.random(ZR) for _ in range(n))
+		SPrimePrime = list(range(n))
+		shuffle(SPrimePrime)
+		SPrimePrime = set(SPrimePrime[:k])
+		S = list(SPrimePrime)
+		shuffle(S)
+		S = set(S[:d])
+		ek_ID_A_S = schemeAAIBME.EKGen(ID_A, S)
+		endTime = perf_counter()
+		timeEKGen = endTime - startTime
+		sizeEKGen = schemeAAIBME.getLengthOf(ek_ID_A_S)
+		
+		# DKGen #
+		startTime = perf_counter()
+		ID_B = tuple(group.random(ZR) for _ in range(n))
+		SPrime = list(SPrimePrime)
+		shuffle(SPrime)
+		SPrime = set(SPrime[:d])
+		dk_ID_B_SPrime = schemeAAIBME.DKGen(ID_B, SPrime)
+		endTime = perf_counter()
+		timeDKGen = endTime - startTime
+		sizeDKGen = schemeAAIBME.getLengthOf(dk_ID_B_SPrime)
+		
+		# Enc #
+		startTime = perf_counter()
+		message = group.random(GT)
+		CT = schemeAAIBME.Enc(ek_ID_A_S, ID_A, ID_B, SPrimePrime, S, message)
+		endTime = perf_counter()
+		timeEnc = endTime - startTime
+		sizeEnc = schemeAAIBME.getLengthOf(CT)
+		
+		# Dec #
+		startTime = perf_counter()
+		M = schemeAAIBME.Dec(dk_ID_B_SPrime, ID_B, ID_A, SPrimePrime, SPrime, CT)
+		endTime = perf_counter()
+		isSchemeCorrect = M == message
+		timeDec = endTime - startTime
+		
+		# EKeySanity #
+		startTime = perf_counter()
+		isEKeySanity = schemeAAIBME.EKeySanity(ek_ID_A_S, ID_A, S)
+		endTime = perf_counter()
+		timeEKeySanity = endTime - startTime
+		
+		# DKeySanity #
+		startTime = perf_counter()
+		isDKeySanity = schemeAAIBME.DKeySanity(dk_ID_B_SPrime, ID_B, SPrime)
+		endTime = perf_counter()
+		timeDKeySanity = endTime - startTime
+		
+		# Trace1 #
+		startTime = perf_counter()
+		isTracing1Verified = schemeAAIBME.Trace1(schemeAAIBME.Enc, ek_ID_A_S, ID_A, S)
+		endTime = perf_counter()
+		timeTrace1 = endTime - startTime
+		
+		# Trace2 #
+		startTime = perf_counter()
+		isTracing2Verified = schemeAAIBME.Trace2(schemeAAIBME.Dec, dk_ID_B_SPrime, ID_B, SPrime)
+		endTime = perf_counter()
+		timeTrace2 = endTime - startTime
+		
+		# Destruction #
+		del schemeAAIBME
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Original:", message)
+			print("Decrypted:", M)
+			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Is EKey Sanity? {0}. ".format("Yes" if isEKeySanity else "No"))
+			print("Is DKey Sanity? {0}. ".format("Yes" if isDKeySanity else "No"))
+			print("Is tracing 1 verified (M1 == message1)? {0}. ".format("Yes" if isTracing1Verified else "No"))
+			print("Is tracing 2 verified (M2 == message2)? {0}. ".format("Yes" if isTracing2Verified else "No"))
+			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc))
+			print()
 	
 	# End #
-	booleans = [True, not isinstance(M, bool) and message == M, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified]
-	spaceRecords = [																															\
-		schemeAAIBME.getLengthOf(group.random(ZR)), schemeAAIBME.getLengthOf(group.random(G1)), schemeAAIBME.getLengthOf(group.random(GT)), 	\
-		schemeAAIBME.getLengthOf(mpk), schemeAAIBME.getLengthOf(msk), schemeAAIBME.getLengthOf(ek_ID_A_S), 										\
-		schemeAAIBME.getLengthOf(dk_ID_B_SPrime), schemeAAIBME.getLengthOf(CT)																	\
+	return [														\
+		curveName, securityParameter, nString, kString, dString, runString, 						\
+		isSystemValid, isSchemeCorrect, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified, 		\
+		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2, 	\
+		sizeZR, sizeG1G2, sizeGT, 											\
+		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc									\
 	]
-	del schemeAAIBME
-	print("Original:", message)
-	print("Decrypted:", M)
-	print("Is the scheme correct (message == M)? {0}. ".format("Yes" if booleans[1] else "No"))
-	print("Is EKey Sanity? {0}. ".format("Yes" if booleans[2] else "No"))
-	print("Is DKey Sanity? {0}. ".format("Yes" if booleans[3] else "No"))
-	print("Is tracing 1 verified (message1 == M1)? {0}. ".format("Yes" if booleans[4] else "No"))
-	print("Is tracing 2 verified (message2 == M2)? {0}. ".format("Yes" if booleans[5] else "No"))
-	print("Time:", timeRecords)
-	print("Space:", spaceRecords)
-	print()
-	return [group.groupType(), group.secparam, n, k, d, runString] + booleans + timeRecords + spaceRecords
 
 def main() -> int:
 	parser = Parser(argv)
@@ -1270,6 +1292,8 @@ def main() -> int:
 		else:
 			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			parser.disableConsoleEchoes()
+			print("The execution has started. ")
+			print()
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))

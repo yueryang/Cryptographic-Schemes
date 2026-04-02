@@ -228,23 +228,28 @@ class Parser:
 		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
-			outputFilePath, overwritingConfirmed = outputFP, overwriting
+			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
 			while outputFilePath and os.path.exists(outputFilePath):
 				if os.path.isfile(outputFilePath):
 					if not overwritingConfirmed:
+						flag = True
 						try:
 							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
 						except:
 							print()
 				else:
+					flag = True
 					print("Parser: The path {0} exists not to be a regular file. ".format(repr(outputFilePath)))
 				if overwritingConfirmed:
 					break
 				else:
+					flag = True
 					try:
 						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
 					except:
 						print()
+			if flag:
+				print()
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
@@ -777,103 +782,124 @@ class SchemeCANIFPPCT:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|str, n:int = 30, k:int = 10, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
-	if isinstance(n, int) and isinstance(k, int) and 2 <= k < n:
-		try:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				if curveParameter[1] >= 1:
-					group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
-				else:
-					group = PairingGroup(curveParameter[0])
-			else:
-				group = PairingGroup(curveParameter)
-		except BaseException as e:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				print("curveParameter =", curveParameter[0])
-				if curveParameter[1] >= 1:
-					print("secparam =", curveParameter[1])
-			elif isinstance(curveParameter, str):
-				print("curveParameter =", curveParameter)
-			else:
-				print("curveParameter = Unknown")
-			print("n =", n)
-			print("k =", k)
-			if isinstance(run, int) and run >= 1:
-				print("run =", run)
-			print("Is the system valid? No. \n\t{0}".format(e))
-			return (																																																																			\
-				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [(curveParameter if isinstance(curveParameter, str) else None), None])		\
-				+ [n, k, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																																														\
-			)
+	curveName, securityParameter, lString, kString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
+	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
+	timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
+	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+	sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT = ("N/A", ) * 5
+	
+	# Checks #
+	if isinstance(curveParameter, (tuple, list)):
+		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
+			curveName = curveParameter[0]
+		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+			securityParameter = curveParameter[1]
+	elif isinstance(curveParameter, dict):
+		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
+			curveName = curveParameter["curveName"]
+		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+			securityParameter = curveParameter["securityParameter"]
+	elif isinstance(curveParameter, str) and curveParameter.isalnum():
+		curveName = curveParameter
+	flag = True
+	if isinstance(l, int):
+		lString = l
 	else:
-		print("Is the system valid? No. The parameters $n$ and $k$ should be two positive integers satisfying $2 \\leqslant k < n$. ")
-		return (																																																																			\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [(curveParameter if isinstance(curveParameter, str) else None), None])		\
-			+ [n if isinstance(n, int) else None, k if isinstance(k, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																														\
-		)
-	print("curveParameter =", group.groupType())
-	print("secparam =", group.secparam)
-	print("n =", n)
-	print("k =", k)
+		flag = False
+	if isinstance(k, int):
+		kString = k
+	else:
+		flag = False
 	if isinstance(run, int) and run >= 1:
-		print("run =", run)
-	print("Is the system valid? Yes. ")
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Curve: ({0}, {1})".format(curveName, securityParameter))
+		print("$l$:", lString)
+		print("$k$:", kString)
+		print("run:", runString)
+	if flag and 2 <= k < l:
+		try:
+			group = PairingGroup(curveName, secparam = securityParameter)
+			pair(group.random(G1), group.random(G2)) # The scheme uses both G1 and G2
+			isSystemValid = True
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? Yes. ")
+		except BaseException as e:
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+				print()
+	elif not isinstance(isVerbose, bool) or isVerbose:
+		print("Is the system valid? No. The parameters $l$ and $k$ should be two positive integers satisfying $2 \\leqslant k < l$. ")
+		print()
 	
-	# Initialization #
-	schemeCANIFPPCT = SchemeCANIFPPCT(group)
-	timeRecords = []
-	
-	# Setup #
-	startTime = perf_counter()
-	mpk, msk = schemeCANIFPPCT.Setup(l)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# KGen #
-	startTime = perf_counter()
-	ID_k = tuple(group.random(ZR) for i in range(k))
-	sk_ID_k = schemeCANIFPPCT.KGen(ID_k)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# DerivedKGen #
-	startTime = perf_counter()
-	sk_ID_kMinus1 = schemeCANIFPPCT.KGen(ID_k[:-1]) # remove the last one to generate the sk_ID_kMinus1
-	sk_ID_kDerived = schemeCANIFPPCT.DerivedKGen(sk_ID_kMinus1, ID_k)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Enc #
-	startTime = perf_counter()
-	message = group.random(GT)
-	CT = schemeCANIFPPCT.Enc(ID_k, message)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Dec #
-	startTime = perf_counter()
-	M = schemeCANIFPPCT.Dec(sk_ID_k,  CT)
-	MDerived = schemeCANIFPPCT.Dec(sk_ID_kDerived, CT)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
+	# Execution #
+	if isSystemValid:
+		# Initialization #
+		schemeCANIFPPCT = SchemeCANIFPPCT(group)
+		sizeZR, sizeG1, sizeG2, sizeGT = schemeCANIFPPCT.getLengthOf(group.random(ZR)), schemeCANIFPPCT.getLengthOf(group.random(G1)), schemeCANIFPPCT.getLengthOf(group.random(G2)), schemeCANIFPPCT.getLengthOf(group.random(GT))
+		
+		# Setup #
+		startTime = perf_counter()
+		mpk, msk = schemeCANIFPPCT.Setup(l)
+		endTime = perf_counter()
+		timeSetup = endTime - startTime
+		sizeMpk, sizeMsk = schemeCANIFPPCT.getLengthOf(mpk), schemeCANIFPPCT.getLengthOf(msk)
+		
+		# KGen #
+		startTime = perf_counter()
+		ID_k = tuple(group.random(ZR) for i in range(k))
+		sk_ID_k = schemeCANIFPPCT.KGen(ID_k)
+		endTime = perf_counter()
+		timeKGen = endTime - startTime
+		sizeSK = schemeCANIFPPCT.getLengthOf(sk_ID_k)
+		
+		# DerivedKGen #
+		startTime = perf_counter()
+		sk_ID_kMinus1 = schemeCANIFPPCT.KGen(ID_k[:-1]) # remove the last one to generate the sk_ID_kMinus1
+		sk_ID_kDerived = schemeCANIFPPCT.DerivedKGen(sk_ID_kMinus1, ID_k)
+		endTime = perf_counter()
+		timeDerivedKGen = endTime - startTime
+		sizeSKDerived = schemeCANIFPPCT.getLengthOf(sk_ID_kDerived)
+		
+		# Enc #
+		startTime = perf_counter()
+		message = group.random(GT)
+		CT = schemeCANIFPPCT.Enc(ID_k, message)
+		endTime = perf_counter()
+		timeEnc = endTime - startTime
+		sizeCT = schemeCANIFPPCT.getLengthOf(CT)
+		
+		# Dec #
+		startTime = perf_counter()
+		M = schemeCANIFPPCT.Dec(sk_ID_k, CT)
+		MDerived = schemeCANIFPPCT.Dec(sk_ID_kDerived, CT)
+		endTime = perf_counter()
+		isDeriverPassed = message == MDerived
+		isSchemeCorrect = message == M
+		timeDec = endTime - startTime
+		
+		# Destruction #
+		del schemeCANIFPPCT
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Original:", message)
+			print("Derived:", MDerived)
+			print("Decrypted:", M)
+			print("Is the deriver passed (message == M')? {0}. ".format("Yes" if isDeriverPassed else "No"))
+			print("Is the scheme correct (message == M)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT))
+			print()
 	
 	# End #
-	booleans = [True, message == MDerived, message == M]
-	spaceRecords = [																																													\
-		schemeCANIFPPCT.getLengthOf(group.random(ZR)), schemeCANIFPPCT.getLengthOf(group.random(G1)), schemeCANIFPPCT.getLengthOf(group.random(G2)), schemeCANIFPPCT.getLengthOf(group.random(GT)),		\
-		schemeCANIFPPCT.getLengthOf(mpk), schemeCANIFPPCT.getLengthOf(msk), schemeCANIFPPCT.getLengthOf(sk_ID_k), schemeCANIFPPCT.getLengthOf(sk_ID_kDerived), schemeCANIFPPCT.getLengthOf(CT)			\
+	return [
+		curveName, securityParameter, lString, kString, runString, 									\
+		isSystemValid, isDeriverPassed, isSchemeCorrect, 											\
+		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 									\
+		sizeZR, sizeG1, sizeG2, sizeGT, 															\
+		sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT												\
 	]
-	del schemeCANIFPPCT
-	print("Original:", message)
-	print("Derived:", MDerived)
-	print("Decrypted:", M)
-	print("Is the deriver passed (message == M')? {0}. ".format("Yes" if booleans[1] else "No"))
-	print("Is the scheme correct (message == M)? {0}. ".format("Yes" if booleans[2] else "No"))
-	print("Time:", timeRecords)
-	print("Space:", spaceRecords)
-	print()
-	return [group.groupType(), group.secparam, l, k, run if isinstance(run, int) and run >= 1 else None] + booleans + timeRecords + spaceRecords
 
 def main() -> int:
 	parser = Parser(argv)
@@ -887,6 +913,8 @@ def main() -> int:
 		else:
 			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			parser.disableConsoleEchoes()
+			print("The execution has started. ")
+			print()
 			
 			# Parameters #
 			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))

@@ -229,23 +229,28 @@ class Parser:
 		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
-			outputFilePath, overwritingConfirmed = outputFP, overwriting
+			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
 			while outputFilePath and os.path.exists(outputFilePath):
 				if os.path.isfile(outputFilePath):
 					if not overwritingConfirmed:
+						flag = True
 						try:
 							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
 						except:
 							print()
 				else:
+					flag = True
 					print("Parser: The path {0} exists not to be a regular file. ".format(repr(outputFilePath)))
 				if overwritingConfirmed:
 					break
 				else:
+					flag = True
 					try:
 						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
 					except:
 						print()
+			if flag:
+				print()
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
@@ -839,6 +844,8 @@ def main() -> int:
 		else:
 			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			parser.disableConsoleEchoes()
+			print("The execution has started. ")
+			print()
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
