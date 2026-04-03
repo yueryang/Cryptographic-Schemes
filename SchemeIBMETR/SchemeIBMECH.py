@@ -4,7 +4,7 @@ try:
 	from charm.toolbox.pairinggroup import PairingGroup, G1, G2, GT, ZR, pair, pc_element as Element
 	from charm.toolbox.matrixops import GaussEliminationinGroups
 except:
-	PairingGroup, G1, G2, GT, ZR, pair, Element = (None, ) * 7
+	PairingGroup, G1, G2, GT, ZR, pair, Element, GaussEliminationinGroups = (None, ) * 8
 from codecs import lookup
 from time import perf_counter, sleep
 try:
@@ -729,96 +729,113 @@ class SchemeIBMECH:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|str, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
-	try:
-		if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-			if curveParameter[1] >= 1:
-				group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
-			else:
-				group = PairingGroup(curveParameter[0])
-		else:
-			group = PairingGroup(curveParameter)
-	except BaseException as e:
-		if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-			print("curveParameter =", curveParameter[0])
-			if curveParameter[1] >= 1:
-				print("secparam =", curveParameter[1])
-		elif isinstance(curveParameter, str):
-			print("curveParameter =", curveParameter)
-		else:
-			print("curveParameter = Unknown")
-		if isinstance(run, int) and run >= 1:
-			print("run =", run)
-		print("Is the system valid? No. \n\t{0}".format(e))
-		return (																																																																		\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [curveParameter if isinstance(curveParameter, str) else None, None])	\
-			+ [run if isinstance(run, int) and run >= 1 else None] + [False] * 2 + ["N/A"] * 14																																															\
-		)
-	print("curveParameter =", group.groupType())
-	print("secparam =", group.secparam)
+	curveName, securityParameter, runString = "N/A", 512, "N/A" # the default value of the security parameter in the Python charm library is 512
+	isSystemValid, isSchemeCorrect = False, False
+	timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec = ("N/A", ) * 5
+	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+	sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc = ("N/A", ) * 5
+	
+	# Checks #
+	if isinstance(curveParameter, (tuple, list)):
+		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
+			curveName = curveParameter[0]
+		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+			securityParameter = curveParameter[1]
+	elif isinstance(curveParameter, dict):
+		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
+			curveName = curveParameter["curveName"]
+		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+			securityParameter = curveParameter["securityParameter"]
+	elif isinstance(curveParameter, str) and curveParameter.isalnum():
+		curveName = curveParameter
+	flag = True
 	if isinstance(run, int) and run >= 1:
-		print("run =", run)
-	print("Is the system valid? Yes. ")
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Curve: ({0}, {1})".format(curveName, securityParameter))
+		print("run:", runString)
+	if flag:
+		try:
+			group = PairingGroup(curveName, secparam = securityParameter)
+			pair(group.random(G1), group.random(G2))
+			isSystemValid = True
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? Yes. ")
+		except BaseException as e:
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+				print()
 	
-	# Initialization #
-	schemeIBMECH = SchemeIBMECH(group)
-	timeRecords = []
-
-	# Setup #
-	startTime = perf_counter()
-	mpk, msk = schemeIBMECH.Setup()
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# SKGen #
-	startTime = perf_counter()
-	sigma = group.random(ZR)
-	ek_sigma = schemeIBMECH.SKGen(sigma)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# RKGen #
-	startTime = perf_counter()
-	rho = group.random(ZR)
-	dk_rho = schemeIBMECH.RKGen(rho)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Enc #
-	startTime = perf_counter()
-	message = group.random(GT)
-	ct = schemeIBMECH.Enc(ek_sigma, rho, message)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Dec #
-	startTime = perf_counter()
-	m = schemeIBMECH.Dec(dk_rho, sigma, ct)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
+	# Execution #
+	if isSystemValid:
+		# Initialization #
+		schemeIBMECH = SchemeIBMECH(group)
+		sizeZR, sizeG1, sizeG2, sizeGT = schemeIBMECH.getLengthOf(group.random(ZR)), schemeIBMECH.getLengthOf(group.random(G1)), schemeIBMECH.getLengthOf(group.random(G2)), schemeIBMECH.getLengthOf(group.random(GT))
+		
+		# Setup #
+		startTime = perf_counter()
+		mpk, msk = schemeIBMECH.Setup()
+		endTime = perf_counter()
+		timeSetup = endTime - startTime
+		sizeMpk, sizeMsk = schemeIBMECH.getLengthOf(mpk), schemeIBMECH.getLengthOf(msk)
+		
+		# SKGen #
+		startTime = perf_counter()
+		sigma = group.random(ZR)
+		ek_sigma = schemeIBMECH.SKGen(sigma)
+		endTime = perf_counter()
+		timeSKGen = endTime - startTime
+		sizeSKGen = schemeIBMECH.getLengthOf(ek_sigma)
+		
+		# RKGen #
+		startTime = perf_counter()
+		rho = group.random(ZR)
+		dk_rho = schemeIBMECH.RKGen(rho)
+		endTime = perf_counter()
+		timeRKGen = endTime - startTime
+		sizeRKGen = schemeIBMECH.getLengthOf(dk_rho)
+		
+		# Enc #
+		startTime = perf_counter()
+		message = group.random(GT)
+		ct = schemeIBMECH.Enc(ek_sigma, rho, message)
+		endTime = perf_counter()
+		timeEnc = endTime - startTime
+		sizeEnc = schemeIBMECH.getLengthOf(ct)
+		
+		# Dec #
+		startTime = perf_counter()
+		M = schemeIBMECH.Dec(dk_rho, sigma, ct)
+		endTime = perf_counter()
+		isSchemeCorrect = M == message
+		timeDec = endTime - startTime
+		
+		# Destruction #
+		del schemeIBMECH
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Original:", message)
+			print("Decrypted:", M)
+			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc))
+			print()
 	
 	# End #
-	booleans = [True, message == m]
-	spaceRecords = [																																										\
-		schemeIBMECH.getLengthOf(group.random(ZR)), schemeIBMECH.getLengthOf(group.random(G1)), schemeIBMECH.getLengthOf(group.random(G2)), schemeIBMECH.getLengthOf(group.random(GT)), 	\
-		schemeIBMECH.getLengthOf(mpk), schemeIBMECH.getLengthOf(msk), schemeIBMECH.getLengthOf(ek_sigma), schemeIBMECH.getLengthOf(dk_rho), schemeIBMECH.getLengthOf(ct)					\
+	return [														\
+		curveName, securityParameter, runString, 						\
+		isSystemValid, isSchemeCorrect, 		\
+		timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 											\
+		sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc									\
 	]
-	del schemeIBMECH
-	print("Original:", message)
-	print("Decrypted:", m)
-	print("Is the scheme correct (message == m)? {0}. ".format("Yes" if booleans[1] else "No"))
-	print("Time:", timeRecords)
-	print("Space:", spaceRecords)
-	print()
-	return [group.groupType(), group.secparam, run if isinstance(run, int) and run >= 1 else None] + booleans + timeRecords + spaceRecords
-
 
 def main() -> int:
 	parser = Parser(argv)
 	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
+		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None, GaussEliminationinGroups is None)):
 			parser.disableConsoleEchoes()
 			print("The environment of the Python ``charm`` library is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
