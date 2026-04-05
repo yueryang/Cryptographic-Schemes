@@ -788,7 +788,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
 	timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -853,7 +853,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 		sk_ID_k = schemeCANIFPPCT.KGen(ID_k)
 		endTime = perf_counter()
 		timeKGen = endTime - startTime
-		sizeSK = schemeCANIFPPCT.getLengthOf(sk_ID_k)
+		sizeSkIDK = schemeCANIFPPCT.getLengthOf(sk_ID_k)
 		
 		# DerivedKGen #
 		startTime = perf_counter()
@@ -861,7 +861,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 		sk_ID_kDerived = schemeCANIFPPCT.DerivedKGen(sk_ID_kMinus1, ID_k)
 		endTime = perf_counter()
 		timeDerivedKGen = endTime - startTime
-		sizeSKDerived = schemeCANIFPPCT.getLengthOf(sk_ID_kDerived)
+		sizeSkIDKDerived = schemeCANIFPPCT.getLengthOf(sk_ID_kDerived)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -889,16 +889,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 			print("Is the deriver passed (message == M')? {0}. ".format("Yes" if isDeriverPassed else "No"))
 			print("Is the scheme correct (message == M)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT))
 			print()
 	
 	# End #
-	return [
-		curveName, securityParameter, lString, kString, runString, 									\
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 											\
-		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 									\
-		sizeZR, sizeG1, sizeG2, sizeGT, 															\
-		sizeMpk, sizeMsk, sizeSK, sizeSKDerived, sizeCT												\
+	return [														\
+		curveName, securityParameter, lString, kString, runString, 	\
+		isSystemValid, isDeriverPassed, isSchemeCorrect, 			\
+		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 							\
+		sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT		\
 	]
 
 def main() -> int:

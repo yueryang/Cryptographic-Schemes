@@ -804,108 +804,134 @@ class SchemeVLPSICA:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|str, m:int = 10, n:int = 10, d:int = 10, run:int|None = None) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
-	if isinstance(m, int) and isinstance(n, int) and isinstance(d, int) and m >= 1 and n >= 1 and d >= 1:
-		try:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				if curveParameter[1] >= 1:
-					group = PairingGroup(curveParameter[0], secparam = curveParameter[1])
-				else:
-					group = PairingGroup(curveParameter[0])
-			else:
-				group = PairingGroup(curveParameter)
-		except BaseException as e:
-			if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int):
-				print("curveParameter =", curveParameter[0])
-				if curveParameter[1] >= 1:
-					print("secparam =", curveParameter[1])
-			elif isinstance(curveParameter, str):
-				print("curveParameter =", curveParameter)
-			else:
-				print("curveParameter = Unknown")
-			print("m =", m)
-			print("n =", n)
-			print("d =", d)
-			if isinstance(run, int) and run >= 1:
-				print("run =", run)
-			print("Is the system valid? No. \n\t{0}".format(e))
-			return (																																																																			\
-				([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [(curveParameter if isinstance(curveParameter, str) else None), None])		\
-				+ [m, n, d, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																																													\
-			)
+	curveName, securityParameter, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
+	isSystemValid, isSchemePassed = False, False
+	timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify = ("N/A", ) * 6
+	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+	sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec = ("N/A", ) * 8
+	
+	# Checks #
+	if isinstance(curveParameter, (tuple, list)):
+		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
+			curveName = curveParameter[0]
+		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+			securityParameter = curveParameter[1]
+	elif isinstance(curveParameter, dict):
+		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
+			curveName = curveParameter["curveName"]
+		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+			securityParameter = curveParameter["securityParameter"]
+	elif isinstance(curveParameter, str) and curveParameter.isalnum():
+		curveName = curveParameter
+	flag = True
+	if isinstance(m, int) and m >= 1:
+		mString = m
 	else:
-		print("Is the system valid? No. The parameters $m$, $n$, and $d$ should be three positive integers. ")
-		return (																																																																			\
-			([curveParameter[0], curveParameter[1]] if isinstance(curveParameter, (tuple, list)) and len(curveParameter) == 2 and isinstance(curveParameter[0], str) and isinstance(curveParameter[1], int) else [(curveParameter if isinstance(curveParameter, str) else None), None])		\
-			+ [m if isinstance(m, int) else None, n if isinstance(n, int) else None, d if isinstance(d, int) else None, run if isinstance(run, int) and run >= 1 else None] + [False] * 3 + ["N/A"] * 19																					\
-		)
-	print("curveParameter =", group.groupType())
-	print("secparam =", group.secparam)
-	print("m =", m)
-	print("n =", n)
-	print("d =", d)
+		flag = False
+	if isinstance(n, int) and n >= 1:
+		nString = n
+	else:
+		flag = False
+	if isinstance(d, int) and d >= 1:
+		dString = d
+	else:
+		flag = False
 	if isinstance(run, int) and run >= 1:
-		print("run =", run)
-	print("Is the system valid? Yes. ")
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Curve: ({0}, {1})".format(curveName, securityParameter))
+		print("$m$:", mString)
+		print("$n$:", nString)
+		print("$d$:", dString)
+		print("run:", runString)
+	if flag:
+		try:
+			group = PairingGroup(curveName, secparam = securityParameter)
+			pair(group.random(G1), group.random(G2))
+			isSystemValid = True
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? Yes. ")
+		except BaseException as e:
+			if not isinstance(isVerbose, bool) or isVerbose:
+				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+				print()
+	elif not isinstance(isVerbose, bool) or isVerbose:
+		print("Is the system valid? No. The parameters $m$, $n$, and $d$ should be three positive integers. ")
+		print()
 	
-	# Initialization #
-	schemeVLPSICA = SchemeVLPSICA(group)
-	timeRecords = []
-	
-	# Setup #
-	startTime = perf_counter()
-	mpk, msk = schemeVLPSICA.Setup(m, n, d)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Sender #
-	startTime = perf_counter()
-	vVec = tuple(group.random(ZR) for _ in range(d))
-	YVec = tuple(group.random(ZR) for _ in range(n))
-	TTPrime, UUPrime = schemeVLPSICA.Sender(vVec, YVec)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Receiver #
-	startTime = perf_counter()
-	XVec = tuple(group.random(ZR) for _ in range(m))
-	R, RPrimeVec = schemeVLPSICA.Receiver(vVec, XVec)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Cloud1 #
-	startTime = perf_counter()
-	WVec = schemeVLPSICA.Cloud1(TTPrime, R)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Cloud2 #
-	startTime = perf_counter()
-	KVec = schemeVLPSICA.Cloud2(UUPrime, RPrimeVec)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
-	
-	# Verify #
-	startTime = perf_counter()
-	result = schemeVLPSICA.Verify(KVec, WVec)
-	endTime = perf_counter()
-	timeRecords.append(endTime - startTime)
+	# Execution #
+	if isSystemValid:
+		# Initialization #
+		schemeVLPSICA = SchemeVLPSICA(group)
+		sizeZR, sizeG1, sizeG2, sizeGT = (																\
+			schemeVLPSICA.getLengthOf(group.random(ZR)), schemeVLPSICA.getLengthOf(group.random(G1)), 	\
+			schemeVLPSICA.getLengthOf(group.random(G2)), schemeVLPSICA.getLengthOf(group.random(GT))	\
+		)
+		
+		# Setup #
+		startTime = perf_counter()
+		mpk, msk = schemeVLPSICA.Setup(m = m, n = n, d = d)
+		endTime = perf_counter()
+		timeSetup = endTime - startTime
+		sizeMpk, sizeMsk = schemeVLPSICA.getLengthOf(mpk), schemeVLPSICA.getLengthOf(msk)
+		
+		# Sender #
+		startTime = perf_counter()
+		vVec = tuple(group.random(ZR) for _ in range(d))
+		YVec = tuple(group.random(ZR) for _ in range(n))
+		TTPrime, UUPrime = schemeVLPSICA.Sender(vVec, YVec)
+		endTime = perf_counter()
+		timeSender = endTime - startTime
+		sizeTTPrime, sizeUUPrime = schemeVLPSICA.getLengthOf(TTPrime), schemeVLPSICA.getLengthOf(UUPrime)
+		
+		# Receiver #
+		startTime = perf_counter()
+		XVec = tuple(group.random(ZR) for _ in range(m))
+		R, RPrimeVec = schemeVLPSICA.Receiver(vVec, XVec)
+		endTime = perf_counter()
+		timeReceiver = endTime - startTime
+		sizeR, sizeRPrimeVec = schemeVLPSICA.getLengthOf(R), schemeVLPSICA.getLengthOf(RPrimeVec)
+		
+		# Cloud1 #
+		startTime = perf_counter()
+		WVec = schemeVLPSICA.Cloud1(TTPrime, R)
+		endTime = perf_counter()
+		timeCloud1 = endTime - startTime
+		sizeWVec = schemeVLPSICA.getLengthOf(WVec)
+		
+		# Cloud2 #
+		startTime = perf_counter()
+		KVec = schemeVLPSICA.Cloud2(UUPrime, RPrimeVec)
+		endTime = perf_counter()
+		timeCloud2 = endTime - startTime
+		sizeKVec = schemeVLPSICA.getLengthOf(KVec)
+		
+		# Verify #
+		startTime = perf_counter()
+		result = schemeVLPSICA.Verify(KVec, WVec)
+		endTime = perf_counter()
+		isSchemePassed = result is not False
+		timeVerify = endTime - startTime
+		
+		# Destruction #
+		del schemeVLPSICA
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Verify:", result)
+			print("Is the scheme passed (result is not False)? {0}. ".format("Yes" if isSchemePassed else "No"))
+			print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
+			print()
 	
 	# End #
-	booleans = [True, isinstance(result, int)]
-	spaceRecords = [																																											\
-		schemeVLPSICA.getLengthOf(group.random(ZR)), schemeVLPSICA.getLengthOf(group.random(G1)), schemeVLPSICA.getLengthOf(group.random(G2)), schemeVLPSICA.getLengthOf(group.random(GT)), 	\
-		schemeVLPSICA.getLengthOf(mpk), schemeVLPSICA.getLengthOf(msk), schemeVLPSICA.getLengthOf(TTPrime), schemeVLPSICA.getLengthOf(UUPrime), schemeVLPSICA.getLengthOf(R), 					\
-		schemeVLPSICA.getLengthOf(RPrimeVec), schemeVLPSICA.getLengthOf(WVec), schemeVLPSICA.getLengthOf(KVec)																					\
+	return [																					\
+		curveName, securityParameter, mString, nString, dString, runString, 					\
+		isSystemValid, isSchemePassed, 															\
+		timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify, 				\
+		sizeZR, sizeG1, sizeG2, sizeGT, 														\
+		sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec	\
 	]
-	del schemeVLPSICA
-	print("Verify:", result)
-	print("Is the scheme passed (result != False)? {0}. ".format("Yes" if booleans[1] else "No"))
-	print("Time:", timeRecords)
-	print("Space:", spaceRecords)
-	print()
-	return [group.groupType(), group.secparam, m, n, d, run if isinstance(run, int) and run >= 1 else None] + booleans + timeRecords + spaceRecords
 
 def main() -> int:
 	parser = Parser(argv)
@@ -927,7 +953,7 @@ def main() -> int:
 			queries = ("curveParameter", "secparam", "m", "n", "d", "runCount")
 			validators = ("isSystemValid", "isSchemePassed")
 			metrics = (																						\
-				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)",		\
+				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)", 		\
 				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 				\
 				"mpk (B)", "msk (B)", "(T, T') (B)", "(U, U') (B)", "R (B)", "R' (B)", "W (B)", "K (B)"		\
 			)

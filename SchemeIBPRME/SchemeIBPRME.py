@@ -920,7 +920,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isReEKGenPassed, isDec1Passed, isDec2Passed = (False, ) * 4
 	timeSetup, timeDKGen, timeEKGen, timeReEKGen, timeEnc, timeReEnc, timeDec1, timeDec2 = ("N/A", ) * 8
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEKGen1, sizeEKGen2, sizeDKGen2, sizeDKGen3, sizeReEKGen, sizeEnc, sizeReEnc = ("N/A", ) * 9
+	sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeRk, sizeCt, sizeCtPrime = ("N/A", ) * 9
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -974,8 +974,8 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		dk_id_3 = schemeIBPRME.DKGen(id_3)
 		endTime = perf_counter()
 		timeDKGen = (endTime - startTime) / 2
-		sizeDKGen2 = schemeIBPRME.getLengthOf(dk_id_2)
-		sizeDKGen3 = schemeIBPRME.getLengthOf(dk_id_3)
+		sizeDkId2 = schemeIBPRME.getLengthOf(dk_id_2)
+		sizeDkId3 = schemeIBPRME.getLengthOf(dk_id_3)
 		
 		# EKGen #
 		startTime = perf_counter()
@@ -984,15 +984,15 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ek_id_2 = schemeIBPRME.EKGen(id_2)
 		endTime = perf_counter()
 		timeEKGen = (endTime - startTime) / 2
-		sizeEKGen1 = schemeIBPRME.getLengthOf(ek_id_1)
-		sizeEKGen2 = schemeIBPRME.getLengthOf(ek_id_2)
+		sizeEkId1 = schemeIBPRME.getLengthOf(ek_id_1)
+		sizeEkId2 = schemeIBPRME.getLengthOf(ek_id_2)
 		
 		# ReEKGen #
 		startTime = perf_counter()
 		rk = schemeIBPRME.ReEKGen(ek_id_2, dk_id_2, id_1, id_2, id_3)
 		endTime = perf_counter()
 		timeReEKGen = endTime - startTime
-		sizeReEKGen = schemeIBPRME.getLengthOf(rk)
+		sizeRk = schemeIBPRME.getLengthOf(rk)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -1000,7 +1000,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ct = schemeIBPRME.Enc(ek_id_1, id_2, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeIBPRME.getLengthOf(ct)
+		sizeCt = schemeIBPRME.getLengthOf(ct)
 		
 		# ReEnc #
 		startTime = perf_counter()
@@ -1008,7 +1008,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		endTime = perf_counter()
 		timeReEnc = endTime - startTime
 		isReEKGenPassed = not isinstance(ctPrime, bool)
-		sizeReEnc = schemeIBPRME.getLengthOf(ctPrime)
+		sizeCtPrime = schemeIBPRME.getLengthOf(ctPrime)
 		
 		# Dec1 #
 		startTime = perf_counter()
@@ -1034,16 +1034,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Is ``Dec1`` passed (m == message)? {0}. ".format("Yes" if isDec1Passed else "No"))
 			print("Is ``Dec2`` passed (m' == message)? {0}. ".format("Yes" if isDec2Passed else "No"))
 			print("Time:", (timeSetup, timeDKGen, timeEKGen, timeReEKGen, timeEnc, timeReEnc, timeDec1, timeDec2))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen1, sizeEKGen2, sizeDKGen2, sizeDKGen3, sizeReEKGen, sizeEnc, sizeReEnc))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeRk, sizeCt, sizeCtPrime))
 			print()
 	
 	# End #
-	return [																									\
-		curveName, securityParameter, runString, 																\
-		isSystemValid, isReEKGenPassed, isDec1Passed, isDec2Passed, 											\
-		timeSetup, timeDKGen, timeEKGen, timeReEKGen, timeEnc, timeReEnc, timeDec1, timeDec2, 					\
-		sizeZR, sizeG1G2, sizeGT, 																				\
-		sizeMpk, sizeMsk, sizeEKGen1, sizeEKGen2, sizeDKGen2, sizeDKGen3, sizeReEKGen, sizeEnc, sizeReEnc		\
+	return [																							\
+		curveName, securityParameter, runString, 														\
+		isSystemValid, isReEKGenPassed, isDec1Passed, isDec2Passed, 									\
+		timeSetup, timeDKGen, timeEKGen, timeReEKGen, timeEnc, timeReEnc, timeDec1, timeDec2, 			\
+		sizeZR, sizeG1G2, sizeGT, 																		\
+		sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeRk, sizeCt, sizeCtPrime		\
 	]
 
 def main() -> int:

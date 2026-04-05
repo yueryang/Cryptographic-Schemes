@@ -1005,7 +1005,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
 	timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec = ("N/A", ) * 7
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeEKGen, sizeDerivedEKGen, sizeDKGen, sizeDerivedDKGen, sizeEnc = ("N/A", ) * 7
+	sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT = ("N/A", ) * 7
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -1075,7 +1075,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 		ek_ID_S = schemeHIBME.EKGen(ID_Snd)
 		endTime = perf_counter()
 		timeEKGen = endTime - startTime
-		sizeEKGen = schemeHIBME.getLengthOf(ek_ID_S)
+		sizeEkIDS = schemeHIBME.getLengthOf(ek_ID_S)
 		
 		# DerivedEKGen #
 		startTime = perf_counter()
@@ -1083,7 +1083,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 		ek_ID_SDerived = schemeHIBME.DerivedEKGen(ek_ID_SMinus1, ID_Snd)
 		endTime = perf_counter()
 		timeDerivedEKGen = endTime - startTime
-		sizeDerivedEKGen = schemeHIBME.getLengthOf(ek_ID_SDerived)
+		sizeEkIDSDerived = schemeHIBME.getLengthOf(ek_ID_SDerived)
 		
 		# DKGen #
 		startTime = perf_counter()
@@ -1091,7 +1091,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 		dk_ID_R = schemeHIBME.DKGen(ID_Rev)
 		endTime = perf_counter()
 		timeDKGen = endTime - startTime
-		sizeDKGen = schemeHIBME.getLengthOf(dk_ID_R)
+		sizeDkIDR = schemeHIBME.getLengthOf(dk_ID_R)
 		
 		# DerivedDKGen #
 		startTime = perf_counter()
@@ -1099,7 +1099,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 		dk_ID_RDerived = schemeHIBME.DerivedDKGen(dk_ID_RMinus1, ID_Rev)
 		endTime = perf_counter()
 		timeDerivedDKGen = endTime - startTime
-		sizeDerivedDKGen = schemeHIBME.getLengthOf(dk_ID_RDerived)
+		sizeDkIDRDerived = schemeHIBME.getLengthOf(dk_ID_RDerived)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -1108,7 +1108,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 		CTDerived = schemeHIBME.Enc(ek_ID_SDerived, ID_Snd, ID_Rev, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeHIBME.getLengthOf(CT)
+		sizeCT = schemeHIBME.getLengthOf(CT)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -1128,16 +1128,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:
 			print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDerivedEKGen, sizeDKGen, sizeDerivedDKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT))
 			print()
 	
 	# End #
-	return [																									\
-		curveName, securityParameter, lString, mString, nString, runString, 									\
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 														\
-		timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec, 					\
-		sizeZR, sizeG1, sizeG2, sizeGT, 																		\
-		sizeMpk, sizeMsk, sizeEKGen, sizeDerivedEKGen, sizeDKGen, sizeDerivedDKGen, sizeEnc									\
+	return [																					\
+		curveName, securityParameter, lString, mString, nString, runString, 					\
+		isSystemValid, isDeriverPassed, isSchemeCorrect, 										\
+		timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 														\
+		sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT		\
 	]
 
 def main() -> int:

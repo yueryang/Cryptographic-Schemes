@@ -904,7 +904,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed = (False, ) * 4
 	timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2 = ("N/A", ) * 8
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeSKGen1, sizeSKGen2, sizeRKGen2, sizeRKGen3, sizeEnc, sizePKGen, sizeProxyEnc = ("N/A", ) * 9
+	sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT = ("N/A", ) * 9
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -958,8 +958,8 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ek_id_2 = schemePBAC.SKGen(id_2)
 		endTime = perf_counter()
 		timeSKGen = (endTime - startTime) / 2
-		sizeSKGen1 = schemePBAC.getLengthOf(ek_id_1)
-		sizeSKGen2 = schemePBAC.getLengthOf(ek_id_2)
+		sizeEkId1 = schemePBAC.getLengthOf(ek_id_1)
+		sizeEkId2 = schemePBAC.getLengthOf(ek_id_2)
 		
 		# RKGen #
 		startTime = perf_counter()
@@ -968,8 +968,8 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		dk_id_3 = schemePBAC.RKGen(id_3)
 		endTime = perf_counter()
 		timeRKGen = (endTime - startTime) / 2
-		sizeRKGen2 = schemePBAC.getLengthOf(dk_id_2)
-		sizeRKGen3 = schemePBAC.getLengthOf(dk_id_3)
+		sizeDkId2 = schemePBAC.getLengthOf(dk_id_2)
+		sizeDkId3 = schemePBAC.getLengthOf(dk_id_3)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -977,14 +977,14 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		C = schemePBAC.Enc(ek_id_1, id_2, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemePBAC.getLengthOf(C)
+		sizeC = schemePBAC.getLengthOf(C)
 		
 		# PKGen #
 		startTime = perf_counter()
 		rk = schemePBAC.PKGen(ek_id_2, dk_id_2, id_1, id_2, id_3)
 		endTime = perf_counter()
 		timePKGen = endTime - startTime
-		sizePKGen = schemePBAC.getLengthOf(rk)
+		sizeRk = schemePBAC.getLengthOf(rk)
 		
 		# ProxyEnc #
 		startTime = perf_counter()
@@ -992,7 +992,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		endTime = perf_counter()
 		timeProxyEnc = endTime - startTime
 		isProxyEncPassed = not isinstance(CT, bool)
-		sizeProxyEnc = schemePBAC.getLengthOf(CT)
+		sizeCT = schemePBAC.getLengthOf(CT)
 		
 		# Dec1 #
 		startTime = perf_counter()
@@ -1018,16 +1018,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Is ``Dec1`` passed (m == message)? {0}. ".format("Yes" if isDec1Passed else "No"))
 			print("Is ``Dec2`` passed (m' == message)? {0}. ".format("Yes" if isDec2Passed else "No"))
 			print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeSKGen1, sizeSKGen2, sizeRKGen2, sizeRKGen3, sizeEnc, sizePKGen, sizeProxyEnc))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT))
 			print()
 	
 	# End #
 	return [																													\
-		curveName, securityParameter, runString, 																				\
-		isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed, 															\
-		timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2, 									\
-		sizeZR, sizeG1G2, sizeGT, 																								\
-		sizeMpk, sizeMsk, sizeSKGen1, sizeSKGen2, sizeRKGen2, sizeRKGen3, sizeEnc, sizePKGen, sizeProxyEnc						\
+		curveName, securityParameter, runString, 													\
+		isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed, 								\
+		timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2, 		\
+		sizeZR, sizeG1G2, sizeGT, 																	\
+		sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT			\
 	]
 
 def main() -> int:

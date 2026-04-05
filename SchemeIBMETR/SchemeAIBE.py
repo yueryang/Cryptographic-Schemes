@@ -695,7 +695,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isSchemeCorrect = (False, ) * 2
 	timeSetup, timeExtract, timeEncrypt, timeDecrypt = ("N/A", ) * 4
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeExtract, sizeEncrypt = ("N/A", ) * 4
+	sizeMpk, sizeMsk, sizePvkId, sizeCT = ("N/A", ) * 4
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -747,7 +747,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		Pvk_Id = schemeAIBE.Extract(Id)
 		endTime = perf_counter()
 		timeExtract = endTime - startTime
-		sizeExtract = schemeAIBE.getLengthOf(Pvk_Id)
+		sizePvkId = schemeAIBE.getLengthOf(Pvk_Id)
 		
 		# Encrypt #
 		startTime = perf_counter()
@@ -755,7 +755,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		CT = schemeAIBE.Encrypt(Id, message)
 		endTime = perf_counter()
 		timeEncrypt = endTime - startTime
-		sizeEncrypt = schemeAIBE.getLengthOf(CT)
+		sizeCT = schemeAIBE.getLengthOf(CT)
 		
 		# Decrypt #
 		startTime = perf_counter()
@@ -771,16 +771,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Decrypted:", M)
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeExtract, timeEncrypt, timeDecrypt))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeExtract, sizeEncrypt))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizeCT))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, runString, 					\
-		isSystemValid, isSchemeCorrect, 							\
-		timeSetup, timeExtract, timeEncrypt, timeDecrypt, 			\
-		sizeZR, sizeG1G2, sizeGT, 									\
-		sizeMpk, sizeMsk, sizeExtract, sizeEncrypt					\
+	return [												\
+		curveName, securityParameter, runString, 			\
+		isSystemValid, isSchemeCorrect, 					\
+		timeSetup, timeExtract, timeEncrypt, timeDecrypt, 	\
+		sizeZR, sizeG1G2, sizeGT, 							\
+		sizeMpk, sizeMsk, sizePvkId, sizeCT					\
 	]
 
 def main() -> int:
@@ -804,7 +804,7 @@ def main() -> int:
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (														\
 				"Setup (s)", "Extract (s)", "Encrypt (s)", "Decrypt (s)", 	\
-				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)",	\
+				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 	\
 				"mpk (B)", "msk (B)", "Pvk_Id (B)", "CT (B)"				\
 			)
 			

@@ -617,8 +617,8 @@ class SchemeIBMEMR:
 						pass
 		return abcBytes
 	def __computePolynomial(self:object, x:Element|int|float, coefficients:tuple|list) -> Element|int|float|None:
-		if isinstance(coefficients, (tuple, list)) and coefficients and (															\
-			isinstance(x, Element) and all(isinstance(coefficient, Element) and coefficient.type == x.type for coefficient in coefficients)	\
+		if isinstance(coefficients, (tuple, list)) and coefficients and (																		\
+			isinstance(x, Element) and all(isinstance(coefficient, Element) and coefficient.type == x.type for coefficient in coefficients)		\
 			or isinstance(x, (int, float)) and all(isinstance(coefficient, (int, float)) for coefficient in coefficients)						\
 		):
 			n, eleResult = len(coefficients) - 1, coefficients[0]
@@ -784,24 +784,24 @@ class SchemeIBMEMR:
 		ct2 = v1 ** s1 # $\textit{ct}_2 \gets v_1^{s_1}$
 		ct3 = v2 ** s2 # $\textit{ct}_3 \gets v_2^{s_2}$
 		KArray = tuple(pair(H2(S[i]), ek_id_S * ct1) for i in range(self.__d)) # $K_i \gets e(H_2(\textit{id}_i), ek_{\textit{id}_S} \cdot \textit{ct}_1), \forall i \in \{1, 2, \cdots, d\}$
-		aArray = self.__computeCoefficients(					\
+		aArray = self.__computeCoefficients(						\
 			tuple(H4(KArray[i]) for i in range(self.__d)), k = K	\
 		) # Compute $a_0, a_1, a_2, \cdots a_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{i = 1}^d (x - H_4(K_i)) + K = a_0 + \sum\limits_{i = 1}^d a_i x^i$
 		s = s1 + s2 # $s \gets s_1 + s_2$
 		RArray = tuple(pair(v3, (g0 * g1 ** S[i]) ** s) for i in range(self.__d)) # $R_i \gets e(v_3, (g_0 g_1^{\textit{id}_i})^s), \forall i \in \{1, 2, \cdots, d\}$
-		bArray = self.__computeCoefficients(										\
-			tuple(H4(RArray[i] * pair(g, g) ** (w * s)) for i in range(self.__d)), k = R		\
+		bArray = self.__computeCoefficients(												\
+			tuple(H4(RArray[i] * pair(g, g) ** (w * s)) for i in range(self.__d)), k = R	\
 		) # Compute $b_0, b_1, b_2, \cdots, b_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $L(x) = \prod\limits_{i = 1}^d (x - H_4(R_i \cdot e(g, g)^{ws})) + R = b_0 + \sum\limits_{i = 1}^d b_i x^i$
 		ct4 = HHat(K) ^ HHat(R) ^ int.from_bytes(m.to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big") + self.__group.serialize(sigma), byteorder = "big") # $\textit{ct}_4 \gets \hat{H}(K) \oplus \hat{H}(R) \oplus (m || \sigma)$
 		VArray = tuple(pair(v4, (g0 * g1 ** S[i]) ** s) for i in range(self.__d)) # $V_i \gets e(v_4, (g_0 g_1^{\textit{id}_i})^s), \forall i \in \{1, 2, \cdots, d\}$
-		cArray = self.__computeCoefficients(								\
-			tuple(H4(VArray[i] * pair(g, g) ** (-s)) for i in range(self.__d))		\
+		cArray = self.__computeCoefficients(									\
+			tuple(H4(VArray[i] * pair(g, g) ** (-s)) for i in range(self.__d))	\
 		) # Compute $c_0, c_1, c_2, \cdots, c_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $G(x) = \prod\limits_{i = 1}^d (x - H_4(V_i \cdot e(g, g)^{-s})) = c_0 + \sum\limits_{i = 1}^d c_i x^i$
 		ct5 = g ** r # $\textit{ct}_5 \gets g^r$
 		ct6 = H5(																					\
 			self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(		\
-				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(sigma)), byteorder = "big"			\
-			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)							\
+				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(sigma)), byteorder = "big"				\
+			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)										\
 		) ** r # $\textit{ct}_6 \gets H_5(\textit{ct}_1 || \textit{ct}_2 || \cdots || \textit{ct}_5 || a_0 || a_1 || \cdots || a_d || b_0 || b_1 || \cdots || b_d || c_0 || c_1 || \cdots || c_d)^r$
 		ct = (ct1, ct2, ct3, ct4, ct5, ct6, aArray, bArray, cArray) # $\textit{ct} \gets (\textit{ct}_1, \textit{ct}_2, \textit{ct}_3, \textit{ct}_4, \textit{ct}_5, \textit{ct}_6)$
 		
@@ -844,10 +844,10 @@ class SchemeIBMEMR:
 		ct1, ct2, ct3, ct4, ct5, ct6, aArray, bArray, cArray = ct
 		
 		# Scheme #
-		if pair(																								\
-			ct5, H5(self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(			\
-				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(self.__group.random(ZR))), byteorder = "big"		\
-			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)) 										\
+		if pair(																												\
+			ct5, H5(self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(		\
+				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(self.__group.random(ZR))), byteorder = "big"	\
+			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)) 											\
 		) == pair(ct6, g): # \textbf{if} $e(\textit{ct}_5, H_5(\textit{ct}_1 || \textit{ct}_2 || \cdots || \textit{ct}_5 || a_0 || a_1 || \cdots || a_d || b_0 || b_1 || \cdots || b_d || c_0 || c_1 || \cdots c_d)) = e(\textit{ct}_6, g)$ \textbf{then}
 			KPrimePrime = H4(pair(dk1, H1(id_S)) * pair(H2(id_R), ct1)) # \quad$K'' \gets H_4(e(\textit{dk}_1, H_1(\textit{id}_S)) \cdot e(H_2(\textit{id}_R), \textit{ct}_1))$
 			RPrimePrime = H4(pair(dk2, ct2) * pair(dk3, ct3)) # \quad$R'' \gets H_4(e(\textit{dk}_2, \textit{ct}_2) \cdot e(\textit{dk}_3, \textit{ct}_3))$
@@ -889,10 +889,10 @@ class SchemeIBMEMR:
 		td1, td2 = td_id_R
 		
 		# Scheme #
-		if pair(																								\
-			ct5, H5(self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(			\
-				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(self.__group.random(ZR))), byteorder = "big"		\
-			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)) 										\
+		if pair(																												\
+			ct5, H5(self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(		\
+				((self.__group.secparam + 7) >> 3) + len(self.__group.serialize(self.__group.random(ZR))), byteorder = "big"	\
+			) + self.__group.serialize(ct5) + self.__concat(aArray, bArray, cArray)) 											\
 		) == pair(ct6, g): # \textbf{if} $e(\textit{ct}_5, H_5(\textit{ct}_1 || \textit{ct}_2 || \cdots || \textit{ct}_5 || a_0 || a_1 || \cdots || a_d || b_0 || b_1 || \cdots || b_d || c_0 || c_1 || \cdots c_d)) = e(\textit{ct}_6, g)$ \textbf{then}
 			VPrime = H4(pair(td1, ct2) * pair(td2, ct3)) # \quad$V' \gets H_4(e(\textit{td}_1, \textit{ct}_2) \cdot e(\textit{td}_2, \textit{ct}_3))$
 			y = self.__computePolynomial(VPrime, cArray) == self.__group.init(ZR, 0) # \quad$y \gets \sum\limits_{i = 0}^d c_i V'^i = 0$
@@ -925,7 +925,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 	isSystemValid, isSchemeCorrect, isTracingVerified = False, False, False
 	timeSetup, timeEKGen, timeDKGen, timeTDKGen, timeEnc, timeDec, timeReceiverVerify = ("N/A", ) * 7
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeTDKGen, sizeEnc = ("N/A", ) * 6
+	sizeMpk, sizeMsk, sizeEkIdS, sizeDkIdR, sizeTdIdR, sizeCt = ("N/A", ) * 6
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -985,7 +985,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 		ek_id_S = schemeIBMEMR.EKGen(id_S)
 		endTime = perf_counter()
 		timeEKGen = endTime - startTime
-		sizeEKGen = schemeIBMEMR.getLengthOf(ek_id_S)
+		sizeEkIdS = schemeIBMEMR.getLengthOf(ek_id_S)
 		
 		# DKGen #
 		startTime = perf_counter()
@@ -993,14 +993,14 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 		dk_id_R = schemeIBMEMR.DKGen(id_R)
 		endTime = perf_counter()
 		timeDKGen = endTime - startTime
-		sizeDKGen = schemeIBMEMR.getLengthOf(dk_id_R)
+		sizeDkIdR = schemeIBMEMR.getLengthOf(dk_id_R)
 		
 		# TDKGen #
 		startTime = perf_counter()
 		td_id_R = schemeIBMEMR.TDKGen(id_R)
 		endTime = perf_counter()
 		timeTDKGen = endTime - startTime
-		sizeTDKGen = schemeIBMEMR.getLengthOf(td_id_R)
+		sizeTdIdR = schemeIBMEMR.getLengthOf(td_id_R)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -1008,7 +1008,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 		ct = schemeIBMEMR.Enc(ek_id_S, id_R, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeIBMEMR.getLengthOf(ct)
+		sizeCt = schemeIBMEMR.getLengthOf(ct)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -1031,16 +1031,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 			print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
 			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeTDKGen, timeEnc, timeDec, timeReceiverVerify))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeTDKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkIdS, sizeDkIdR, sizeTdIdR, sizeCt))
 			print()
 	
 	# End #
-	return [																									\
-		curveName, securityParameter, dString, runString, 														\
-		isSystemValid, isSchemeCorrect, isTracingVerified, 														\
-		timeSetup, timeEKGen, timeDKGen, timeTDKGen, timeEnc, timeDec, timeReceiverVerify, 						\
-		sizeZR, sizeG1G2, sizeGT, 																				\
-		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeTDKGen, sizeEnc												\
+	return [																				\
+		curveName, securityParameter, dString, runString, 									\
+		isSystemValid, isSchemeCorrect, isTracingVerified, 									\
+		timeSetup, timeEKGen, timeDKGen, timeTDKGen, timeEnc, timeDec, timeReceiverVerify, 	\
+		sizeZR, sizeG1G2, sizeGT, 															\
+		sizeMpk, sizeMsk, sizeEkIdS, sizeDkIdR, sizeTdIdR, sizeCt							\
 	]
 
 def main() -> int:
@@ -1099,7 +1099,7 @@ def main() -> int:
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = EXIT_SUCCESS if results and all(all(																								\
+			errorLevel = EXIT_SUCCESS if results and all(all(																							\
 				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
 			) for result in results) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:

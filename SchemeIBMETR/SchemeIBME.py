@@ -734,7 +734,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isSchemeCorrect = False, False
 	timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec = ("N/A", ) * 5
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeEkS, sizeDkR, sizeC = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -786,7 +786,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ek_S = schemeIBME.SKGen(S)
 		endTime = perf_counter()
 		timeSKGen = endTime - startTime
-		sizeSKGen = schemeIBME.getLengthOf(ek_S)
+		sizeEkS = schemeIBME.getLengthOf(ek_S)
 		
 		# RKGen #
 		startTime = perf_counter()
@@ -794,7 +794,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		dk_R = schemeIBME.RKGen(R)
 		endTime = perf_counter()
 		timeRKGen = endTime - startTime
-		sizeRKGen = schemeIBME.getLengthOf(dk_R)
+		sizeDkR = schemeIBME.getLengthOf(dk_R)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -802,7 +802,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		C = schemeIBME.Enc(ek_S, R, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeIBME.getLengthOf(C)
+		sizeC = schemeIBME.getLengthOf(C)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -818,16 +818,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Decrypted:", M)
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkS, sizeDkR, sizeC))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, runString, 					\
-		isSystemValid, isSchemeCorrect, 							\
-		timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec, 			\
-		sizeZR, sizeG1G2, sizeGT, 									\
-		sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc				\
+	return [													\
+		curveName, securityParameter, runString, 				\
+		isSystemValid, isSchemeCorrect, 						\
+		timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec, 		\
+		sizeZR, sizeG1G2, sizeGT, 								\
+		sizeMpk, sizeMsk, sizeEkS, sizeDkR, sizeC				\
 	]
 
 def main() -> int:
@@ -851,7 +851,7 @@ def main() -> int:
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (															\
 				"Setup (s)", "SKGen (s)", "RKGen (s)", "Enc (s)", "Dec (s)", 	\
-				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)",		\
+				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 		\
 				"mpk (B)", "msk (B)", "ek_S (B)", "dk_R (B)", "C (B)"			\
 			)
 			

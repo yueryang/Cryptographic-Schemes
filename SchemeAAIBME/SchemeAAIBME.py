@@ -1129,7 +1129,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 	isSystemValid, isSchemeCorrect, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified = (False, ) * 6
 	timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2 = ("N/A", ) * 9
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeEkIDAS, sizeDkIDBSPrime, sizeCT = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -1205,7 +1205,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 		ek_ID_A_S = schemeAAIBME.EKGen(ID_A, S)
 		endTime = perf_counter()
 		timeEKGen = endTime - startTime
-		sizeEKGen = schemeAAIBME.getLengthOf(ek_ID_A_S)
+		sizeEkIDAS = schemeAAIBME.getLengthOf(ek_ID_A_S)
 		
 		# DKGen #
 		startTime = perf_counter()
@@ -1216,7 +1216,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 		dk_ID_B_SPrime = schemeAAIBME.DKGen(ID_B, SPrime)
 		endTime = perf_counter()
 		timeDKGen = endTime - startTime
-		sizeDKGen = schemeAAIBME.getLengthOf(dk_ID_B_SPrime)
+		sizeDkIDBSPrime = schemeAAIBME.getLengthOf(dk_ID_B_SPrime)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -1224,7 +1224,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 		CT = schemeAAIBME.Enc(ek_ID_A_S, ID_A, ID_B, SPrimePrime, S, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeAAIBME.getLengthOf(CT)
+		sizeCT = schemeAAIBME.getLengthOf(CT)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -1268,16 +1268,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, k:int = 20, d:
 			print("Is tracing 1 verified (M1 == message1)? {0}. ".format("Yes" if isTracing1Verified else "No"))
 			print("Is tracing 2 verified (M2 == message2)? {0}. ".format("Yes" if isTracing2Verified else "No"))
 			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkIDAS, sizeDkIDBSPrime, sizeCT))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, nString, kString, dString, runString, 						\
+	return [																										\
+		curveName, securityParameter, nString, kString, dString, runString, 										\
 		isSystemValid, isSchemeCorrect, isEKeySanity, isDKeySanity, isTracing1Verified, isTracing2Verified, 		\
 		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, timeEKeySanity, timeDKeySanity, timeTrace1, timeTrace2, 	\
-		sizeZR, sizeG1G2, sizeGT, 											\
-		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc									\
+		sizeZR, sizeG1G2, sizeGT, 																					\
+		sizeMpk, sizeMsk, sizeEkIDAS, sizeDkIDBSPrime, sizeCT														\
 	]
 
 def main() -> int:

@@ -825,7 +825,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 	isSystemValid, isSchemeCorrect = False, False
 	timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec = ("N/A", ) * 5
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt = ("N/A", ) * 5
 	seed = None
 	
 	# Checks #
@@ -877,7 +877,10 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 	if isSystemValid:
 		# Initialization #
 		schemeIBBME = SchemeIBBME(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = schemeIBBME.getLengthOf(group.random(ZR)), schemeIBBME.getLengthOf(group.random(G1)), schemeIBBME.getLengthOf(group.random(G2)), schemeIBBME.getLengthOf(group.random(GT))
+		sizeZR, sizeG1, sizeG2, sizeGT = (															\
+			schemeIBBME.getLengthOf(group.random(ZR)), schemeIBBME.getLengthOf(group.random(G1)), 	\
+			schemeIBBME.getLengthOf(group.random(G2)), schemeIBBME.getLengthOf(group.random(GT))	\
+		)
 		
 		# Setup #
 		startTime = perf_counter()
@@ -892,7 +895,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 		ek_idStar = schemeIBBME.EKGen(idStar)
 		endTime = perf_counter()
 		timeEKGen = endTime - startTime
-		sizeEKGen = schemeIBBME.getLengthOf(ek_idStar)
+		sizeEkIdStar = schemeIBBME.getLengthOf(ek_idStar)
 		
 		# DKGen #
 		startTime = perf_counter()
@@ -900,7 +903,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 		dk_id = schemeIBBME.DKGen(identity)
 		endTime = perf_counter()
 		timeDKGen = endTime - startTime
-		sizeDKGen = schemeIBBME.getLengthOf(dk_id)
+		sizeDkId = schemeIBBME.getLengthOf(dk_id)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -912,7 +915,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 		ct = schemeIBBME.Enc(S, ek_idStar, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeIBBME.getLengthOf(ct)
+		sizeCt = schemeIBBME.getLengthOf(ct)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -928,16 +931,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _s
 			print("Decrypted:", m)
 			print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt))
 			print()
 	
 	# End #
-	return [																	\
-		curveName, securityParameter, lString, nString, runString, 				\
-		isSystemValid, isSchemeCorrect, 										\
-		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, 						\
-		sizeZR, sizeG1, sizeG2, sizeGT, 										\
-		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEnc							\
+	return [														\
+		curveName, securityParameter, lString, nString, runString, 	\
+		isSystemValid, isSchemeCorrect, 							\
+		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, 			\
+		sizeZR, sizeG1, sizeG2, sizeGT, 							\
+		sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt			\
 	]
 
 def main() -> int:

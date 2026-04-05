@@ -747,7 +747,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isSchemeCorrect, isTracingVerified = (False, ) * 3
 	timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify = ("N/A", ) * 6
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeExtract, sizeTSK, sizeEncrypt = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -799,14 +799,14 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		Pvk_Id = schemeARES.Extract(Id)
 		endTime = perf_counter()
 		timeExtract = endTime - startTime
-		sizeExtract = schemeARES.getLengthOf(Pvk_Id)
+		sizePvkId = schemeARES.getLengthOf(Pvk_Id)
 		
 		# TSK #
 		startTime = perf_counter()
 		Pvk_IdTraced = schemeARES.TSK(Id)
 		endTime = perf_counter()
 		timeTSK = endTime - startTime
-		sizeTSK = schemeARES.getLengthOf(Pvk_IdTraced)
+		sizePvkIdTraced = schemeARES.getLengthOf(Pvk_IdTraced)
 		
 		# Encrypt #
 		startTime = perf_counter()
@@ -814,7 +814,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		CT = schemeARES.Encrypt(Id, message)
 		endTime = perf_counter()
 		timeEncrypt = endTime - startTime
-		sizeEncrypt = schemeARES.getLengthOf(CT)
+		sizeCT = schemeARES.getLengthOf(CT)
 		
 		# Decrypt #
 		startTime = perf_counter()
@@ -837,16 +837,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
 			print("Time:", (timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeExtract, sizeTSK, sizeEncrypt))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, runString, 					\
-		isSystemValid, isSchemeCorrect, isTracingVerified, 			\
-		timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify, \
-		sizeZR, sizeG1G2, sizeGT, 									\
-		sizeMpk, sizeMsk, sizeExtract, sizeTSK, sizeEncrypt			\
+	return [																		\
+		curveName, securityParameter, runString, 									\
+		isSystemValid, isSchemeCorrect, isTracingVerified, 							\
+		timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify, 	\
+		sizeZR, sizeG1G2, sizeGT, 													\
+		sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT						\
 	]
 
 def main() -> int:

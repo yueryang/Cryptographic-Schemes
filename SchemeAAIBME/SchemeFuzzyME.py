@@ -887,7 +887,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, ru
 	isSystemValid, isSchemeCorrect = False, False
 	timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption = ("N/A", ) * 5
 	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -952,7 +952,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, ru
 		ek_S_A = schemeFuzzyME.EKGen(S_A)
 		endTime = perf_counter()
 		timeEKGen = endTime - startTime
-		sizeEKGen = schemeFuzzyME.getLengthOf(ek_S_A)
+		sizeEkSA = schemeFuzzyME.getLengthOf(ek_S_A)
 		
 		# DKGen #
 		startTime = perf_counter()
@@ -965,7 +965,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, ru
 		dk_SBPA = schemeFuzzyME.DKGen(S_B, P_A)
 		endTime = perf_counter()
 		timeDKGen = endTime - startTime
-		sizeDKGen = schemeFuzzyME.getLengthOf(dk_SBPA)
+		sizeDkSBPA = schemeFuzzyME.getLengthOf(dk_SBPA)
 		
 		# Encryption #
 		startTime = perf_counter()
@@ -978,7 +978,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, ru
 		CT = schemeFuzzyME.Encryption(ek_S_A, S_A, P_B, message)
 		endTime = perf_counter()
 		timeEncryption = endTime - startTime
-		sizeEncryption = schemeFuzzyME.getLengthOf(CT)
+		sizeCT = schemeFuzzyME.getLengthOf(CT)
 		
 		# Decryption #
 		startTime = perf_counter()
@@ -994,16 +994,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, ru
 			print("Decrypted:", M)
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption))
+			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT))
 			print()
 	
 	# End #
-	return [
-		curveName, securityParameter, nString, dString, runString, 									\
-		isSystemValid, isSchemeCorrect, 															\
-		timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption, 							\
-		sizeZR, sizeG1G2, sizeGT, 																	\
-		sizeMpk, sizeMsk, sizeEKGen, sizeDKGen, sizeEncryption										\
+	return [																\
+		curveName, securityParameter, nString, dString, runString, 			\
+		isSystemValid, isSchemeCorrect, 									\
+		timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption, 	\
+		sizeZR, sizeG1G2, sizeGT, 											\
+		sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT						\
 	]
 
 def main() -> int:

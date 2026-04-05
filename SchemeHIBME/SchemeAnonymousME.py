@@ -781,7 +781,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
 	timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeKGen, sizeDerivedKGen, sizeEnc = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -831,7 +831,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 	if isSystemValid:
 		# Initialization #
 		schemeAnonymousME = SchemeAnonymousME(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (											\
+		sizeZR, sizeG1, sizeG2, sizeGT = (																		\
 			schemeAnonymousME.getLengthOf(group.random(ZR)), schemeAnonymousME.getLengthOf(group.random(G1)), 	\
 			schemeAnonymousME.getLengthOf(group.random(G2)), schemeAnonymousME.getLengthOf(group.random(GT))	\
 		)
@@ -849,7 +849,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 		sk_ID_k = schemeAnonymousME.KGen(ID_k)
 		endTime = perf_counter()
 		timeKGen = endTime - startTime
-		sizeKGen = schemeAnonymousME.getLengthOf(sk_ID_k)
+		sizeSkIDK = schemeAnonymousME.getLengthOf(sk_ID_k)
 		
 		# DerivedKGen #
 		startTime = perf_counter()
@@ -857,7 +857,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 		sk_ID_kDerived = schemeAnonymousME.DerivedKGen(sk_ID_kMinus1, ID_k)
 		endTime = perf_counter()
 		timeDerivedKGen = endTime - startTime
-		sizeDerivedKGen = schemeAnonymousME.getLengthOf(sk_ID_kDerived)
+		sizeSkIDKDerived = schemeAnonymousME.getLengthOf(sk_ID_kDerived)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -865,7 +865,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 		CT = schemeAnonymousME.Enc(ID_k, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeAnonymousME.getLengthOf(CT)
+		sizeCT = schemeAnonymousME.getLengthOf(CT)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -885,16 +885,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 			print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeKGen, sizeDerivedKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT))
 			print()
 	
 	# End #
-	return [																	\
-		curveName, securityParameter, lString, kString, runString, 				\
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 						\
-		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 				\
-		sizeZR, sizeG1, sizeG2, sizeGT, 										\
-		sizeMpk, sizeMsk, sizeKGen, sizeDerivedKGen, sizeEnc							\
+	return [														\
+		curveName, securityParameter, lString, kString, runString, 	\
+		isSystemValid, isDeriverPassed, isSchemeCorrect, 			\
+		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 							\
+		sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT		\
 	]
 
 def main() -> int:

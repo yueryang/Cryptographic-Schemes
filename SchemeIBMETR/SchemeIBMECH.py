@@ -735,7 +735,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	isSystemValid, isSchemeCorrect = False, False
 	timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec = ("N/A", ) * 5
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeEkSigma, sizeDkRho, sizeCt = ("N/A", ) * 5
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -772,7 +772,10 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	if isSystemValid:
 		# Initialization #
 		schemeIBMECH = SchemeIBMECH(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = schemeIBMECH.getLengthOf(group.random(ZR)), schemeIBMECH.getLengthOf(group.random(G1)), schemeIBMECH.getLengthOf(group.random(G2)), schemeIBMECH.getLengthOf(group.random(GT))
+		sizeZR, sizeG1, sizeG2, sizeGT = (																\
+			schemeIBMECH.getLengthOf(group.random(ZR)), schemeIBMECH.getLengthOf(group.random(G1)), 	\
+			schemeIBMECH.getLengthOf(group.random(G2)), schemeIBMECH.getLengthOf(group.random(GT))		\
+		)
 		
 		# Setup #
 		startTime = perf_counter()
@@ -787,7 +790,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ek_sigma = schemeIBMECH.SKGen(sigma)
 		endTime = perf_counter()
 		timeSKGen = endTime - startTime
-		sizeSKGen = schemeIBMECH.getLengthOf(ek_sigma)
+		sizeEkSigma = schemeIBMECH.getLengthOf(ek_sigma)
 		
 		# RKGen #
 		startTime = perf_counter()
@@ -795,7 +798,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		dk_rho = schemeIBMECH.RKGen(rho)
 		endTime = perf_counter()
 		timeRKGen = endTime - startTime
-		sizeRKGen = schemeIBMECH.getLengthOf(dk_rho)
+		sizeDkRho = schemeIBMECH.getLengthOf(dk_rho)
 		
 		# Enc #
 		startTime = perf_counter()
@@ -803,7 +806,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		ct = schemeIBMECH.Enc(ek_sigma, rho, message)
 		endTime = perf_counter()
 		timeEnc = endTime - startTime
-		sizeEnc = schemeIBMECH.getLengthOf(ct)
+		sizeCt = schemeIBMECH.getLengthOf(ct)
 		
 		# Dec #
 		startTime = perf_counter()
@@ -819,16 +822,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 			print("Decrypted:", M)
 			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkSigma, sizeDkRho, sizeCt))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, runString, 						\
-		isSystemValid, isSchemeCorrect, 		\
-		timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec, 	\
-		sizeZR, sizeG1, sizeG2, sizeGT, 											\
-		sizeMpk, sizeMsk, sizeSKGen, sizeRKGen, sizeEnc									\
+	return [													\
+		curveName, securityParameter, runString, 				\
+		isSystemValid, isSchemeCorrect, 						\
+		timeSetup, timeSKGen, timeRKGen, timeEnc, timeDec, 		\
+		sizeZR, sizeG1, sizeG2, sizeGT, 						\
+		sizeMpk, sizeMsk, sizeEkSigma, sizeDkRho, sizeCt		\
 	]
 
 def main() -> int:

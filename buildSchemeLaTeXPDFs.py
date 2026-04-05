@@ -165,18 +165,22 @@ class Builder:
 											+ "which would be reset to the default extension {0}. "
 										), "Parser: The path {0} exists not to be a regular file. ", "Curve: ({0}, {1})", "run:", 
 										"Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ", "Is the system valid? Yes. ", 
-										"Original:", "Decrypted:", "Is the scheme correct (message == M)? {0}. ", "Is EKey Sanity? {0}. ", "Is DKey Sanity? {0}. ", 
-										"Is tracing 1 verified (message1 == M1)? {0}. ", "Is tracing 2 verified (message2 == M2)? {0}. ", 
-										"Time:", "Space:", "The environment of the Python ``charm`` library is not handled correctly. ", 
+										"Original:", "Decrypted:", "Is the scheme correct (M == message)? {0}. ", "Is EKey Sanity? {0}. ", "Is DKey Sanity? {0}. ", 
+										"Is the tracing verified? {0}. ", "Is tracing 1 verified (M1 == message1)? {0}. ", 
+										"Is tracing 2 verified (M2 == message2)? {0}. ", "Time:", "Space:", 
+										"The environment of the Python ``charm`` library is not handled correctly. ", 
 										"Please refer to https://github.com/JHUISI/charm if necessary. ", 
-										"The experiments were interrupted by users. Saved results are retained. ", 
+										"The execution has started. ", "The experiments were interrupted by users. Saved results are retained. ", 
 										"The experiments were interrupted by {0}. Saved results are retained. ", 
 										"The execution has finished ({0}). ", 
 										"Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ", 
 										"\rThe countdown is {0} second(s). ", "", "Please press the enter key to exit ({0}). "
 									) or search((
-										"^This is the official implementation of the .+ cryptographic scheme in "
+										"^This is the official implementation of the [-A-Z_a-z]+ cryptographic scheme in "
 										+ "Python programming language based on the Python charm library\\. $"
+									), string) or search((
+										"This is a possible implementation of the [-A-Z_a-z]+ cryptographic scheme in "
+										+ "Python programming language based on the Python charm library\\. ", 
 									), string) or search("^\\$[a-z]\\$:$", string)
 									or search("^Is the system valid\\? No\\. The parameter.+ should be .+ satisfying \\$.+\\$\\. $", string)
 								):
@@ -200,10 +204,15 @@ class Builder:
 											self.__generationDiagnostics.append("The statement {0} should start with {1}. ".format(
 												repr(string), repr(element.name.value)
 											))
-										elif string[descriptorLength:] not in ("The results are invalid. ", ):
-											self.__generationDiagnostics.append("The statement {0} is not official. ".format(
-												repr(string))
-											)
+										elif string[descriptorLength:] not in (
+											"Failed to save the results to {0} since {1} is one of the protected extension names. ", "{0}", 
+											"Successfully saved the results to {0} in the {1} format. ", 
+											"Failed to save the results to {0} in the {1} format due to the following exception(s). \n\t{2}", 
+											"Successfully saved the results to {0} in the TXT format. ", 
+											"Failed to save the results to {0} due to the following exception(s). \n\t{1}", 
+											"Failed to initialize the directory for the output file path {0}. ", "The results are invalid. "
+										):
+											self.__generationDiagnostics.append("The statement {0} is not official. ".format(repr(string)))
 								elif isinstance(ele, CSTNode):
 									s.extend(reversed(list(ele.children)))
 						elif isinstance(element, ClassDef) and element.name.value.startswith("Scheme"): # search("^class\\s+Scheme[0-9A-Z_a-z]*", line)
@@ -286,6 +295,9 @@ class Builder:
 														(
 															"This scheme is only applicable to symmetric groups of prime orders. "
 															+ "The curve name has been defaulted to \"SS512\". "
+														), (
+															"The securtiy parameter should be a positive integer but it is not, "
+															+ "which has been defaulted to {0}. "
 														), (
 															"The ``Setup`` procedure has not been called yet. The program will "
 															+ "call the ``Setup`` first and finish the ``{0}`` subsequently. "
