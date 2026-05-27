@@ -661,7 +661,7 @@ class SchemeCANIFPPCT:
 		v3 = g2 ** t3 # $v_3 \gets g_2^{t_3}$
 		v4 = g2 ** t4 # $v_4 \gets g_2^{t_4}$
 		self.__mpk = (g1, g2, g3, H1, H2, H3, H4, R, S, T, Omega, v1, v2, v3, v4) # $\textit{mpk} \gets (g_1, g_2, g_3, H_1, H_2, H_3, H_4, R, S, T, \Omega, v_1, v_2, v_3, v_4)$
-		self.__msk = (r, s, t, omega, t1, t2, t3, t4) # \textit{msk} \gets (r, s, t, \omega, t_1, t_2, t_3, t_4)$
+		self.__msk = (r, s, t, omega, t1, t2, t3, t4) # $\textit{msk} \gets (r, s, t, \omega, t_1, t_2, t_3, t_4)$
 		
 		# Return #
 		self.__flag = True
@@ -686,8 +686,8 @@ class SchemeCANIFPPCT:
 		z_i = (r - x_i) * (s * x_i) ** (-1) # $z_i \gets \frac{r - x_i}{s x_i}$
 		Z_i = g1 ** z_i # $Z_i \gets g_1^{z_i}$
 		sk_ID_i = k_i # $\textit{sk}_{\textit{ID}_i} \gets k_i$
-		ek_ID_i = (x_i, Z_i) # \textit{ek}_{\textit{ID}_i} \gets (x_i, Z_i)$
-		tag_i = H4(x_i * Z_i) # \textit{tag}_i \gets H_4(x_i \cdot Z_i)$
+		ek_ID_i = (x_i, Z_i) # $\textit{ek}_{\textit{ID}_i} \gets (x_i, Z_i)$
+		tag_i = H4(x_i * Z_i) # $\textit{tag}_i \gets H_4(x_i \cdot Z_i)$
 		L.append((ID_i, k_i, tag_i)) # $L \gets L || ((\textit{ID}_i, k_i, \textit{tag}_i))$
 		
 		# Return #
@@ -792,7 +792,7 @@ class SchemeCANIFPPCT:
 			s = _s
 		else:
 			s = tuple(self.__group.random(ZR) for _ in range(self.__n))
-			print("Encryption: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
+			print("Query: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
 		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi):
 			CT_TP_i = CTTPi
 		else:
@@ -815,7 +815,7 @@ class SchemeCANIFPPCT:
 		) # $V'_i \gets H_2(e(C_{0_i}, T_{0_i}) e(C_{1_i}, T_{1_i}) e(C_{2_i}, T_{2_i}) e(C_{3_i}, T_{3_i}) e(C_{4_i}, T_{4_i}))$
 		
 		# Return #
-		return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # $\textbf{return} f(x) = a_0 + \sum\limits_{j = 1}^n a_j V'_i^j = 0$
+		return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # $\textbf{return} f(x) = a_0 + \sum\limits_{j = 1}^n a_j {V'_i}^j = 0$
 	def Trace(self:object, CTTPi:tuple, _L:list) -> tuple|bool: # $\textbf{Trace}(\textit{TP}_{\textit{TP}_i}, L) \to \textit{identity}$
 		# Checks #
 		if not self.__flag:

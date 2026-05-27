@@ -165,7 +165,8 @@ class Builder:
 											+ "which would be reset to the default extension {0}. "
 										), "Parser: The path {0} exists not to be a regular file. ", "Curve: ({0}, {1})", "run:", 
 										"Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ", "Is the system valid? Yes. ", 
-										"Original:", "Decrypted:", "Is the scheme correct (M == message)? {0}. ", "Is EKey Sanity? {0}. ", "Is DKey Sanity? {0}. ", 
+										"Is the scheme correct? {0}. ", "Original:", "Decrypted:", "ys:", "identities:", 
+										"Is the scheme correct (M == message)? {0}. ", "Is EKey Sanity? {0}. ", "Is DKey Sanity? {0}. ", 
 										"Is the tracing verified? {0}. ", "Is tracing 1 verified (M1 == message1)? {0}. ", 
 										"Is tracing 2 verified (M2 == message2)? {0}. ", "Time:", "Space:", 
 										"The environment of the Python ``charm`` library is not handled correctly. ", 
