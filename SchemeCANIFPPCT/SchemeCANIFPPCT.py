@@ -1041,7 +1041,7 @@ def main() -> int:
 			try:
 				for curveParameter in curveParameters:
 					for n in range(10, 31, 5):
-						for m in range(5, n + 1, 5):
+						for m in range(5, n, 5):
 							averages = conductScheme(curveParameter, n = n, m = m, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
 								result = conductScheme(curveParameter, n = n, m = m, run = run, isVerbose = isVerbose)
