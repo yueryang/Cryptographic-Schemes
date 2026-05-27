@@ -4,7 +4,7 @@ This is the category of the proposed HIB-ME cryptographic scheme, whose baseline
 
 ### ``SchemeHIBME.py``
 
-This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python charm library. 
+This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
 
 #### Discussion
 
@@ -18,7 +18,7 @@ Consequently, when $n$ grows with the variables $l$ and $m$ fixed, the curve in 
 
 ### ``SchemeAnonymousME.py``
 
-This is the official implementation of the AnonymousME cryptographic scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python charm library. 
+This is the official implementation of the AnonymousME cryptographic scheme (``Anonymous Hierarchical Identity-based Encryption``) in Python programming language based on the Python Charm-Crypto framework. 
 
 #### Discussion
 

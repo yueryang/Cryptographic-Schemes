@@ -6,13 +6,13 @@ This is the category of the proposed IBMETR cryptographic scheme, whose baseline
 
 ### ``SchemeIBMETR.py``
 
-This is the official implementation of the IBMETR cryptographic scheme in Python programming language based on the Python charm library. 
+This is the official implementation of the IBMETR cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
 
 ---
 
 ### ``SchemeAIBE.py``
 
-This is a possible implementation of the AIBE cryptographic scheme (``Anonymous hierarchical identity-based encryption (without random oracles)``) in Python programming language based on the Python charm library. 
+This is a possible implementation of the AIBE cryptographic scheme (``Anonymous hierarchical identity-based encryption (without random oracles)``) in Python programming language based on the Python Charm-Crypto framework. 
 
 ```
 @inproceedings{boyen2006anonymous,
@@ -27,7 +27,7 @@ This is a possible implementation of the AIBE cryptographic scheme (``Anonymous 
 
 ### ``SchemeARES.py``
 
-This is a possible implementation of the ARES cryptographic scheme (``Anonymous identity based encryption with traceable identities``) in Python programming language based on the Python charm library. 
+This is a possible implementation of the ARES cryptographic scheme (``Anonymous identity based encryption with traceable identities``) in Python programming language based on the Python Charm-Crypto framework. 
 
 ```
 @inproceedings{blazy2019anonymous,
@@ -41,7 +41,7 @@ This is a possible implementation of the ARES cryptographic scheme (``Anonymous 
 
 ### ``SchemeIBME.py``
 
-This is a possible implementation of the IBME cryptographic scheme (``Match me if you can: Matchmaking encryption and its applications``) in Python programming language based on the Python charm library, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/04_ibme/04_ibme.py](https://github.com/xuehuan-yang/PSME/blob/main/src/04_ibme/04_ibme.py). 
+This is a possible implementation of the IBME cryptographic scheme (``Match me if you can: Matchmaking encryption and its applications``) in Python programming language based on the Python Charm-Crypto framework, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/04_ibme/04_ibme.py](https://github.com/xuehuan-yang/PSME/blob/main/src/04_ibme/04_ibme.py). 
 
 ```
 @inproceedings{ateniese2019match,
@@ -56,7 +56,7 @@ This is a possible implementation of the IBME cryptographic scheme (``Match me i
 
 ### ``SchemeIBMECH.py``
 
-This is a possible implementation of the IBMECH cryptographic scheme (``Identity-Based Matchmaking Encryption from Standard Assumptions``) in Python programming language based on the Python charm library, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py](https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py). 
+This is a possible implementation of the IBMECH cryptographic scheme (``Identity-Based Matchmaking Encryption from Standard Assumptions``) in Python programming language based on the Python Charm-Crypto framework, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py](https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py). 
 
 ```
 @inproceedings{chen2022identity,

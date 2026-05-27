@@ -4,7 +4,7 @@ This is the category of the proposed AA-IB-ME cryptographic scheme, whose baseli
 
 ### ``SchemeAAIBME.py``
 
-This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python charm library. 
+This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
 
 #### ``SchemeAAIBME.java``
 
@@ -14,15 +14,15 @@ As this is an early implementation, please consider using ``SchemeAAIBME.py`` in
 
 ### ``SchemeFuzzyIBME.py``
 
-This is a possible implementation of the Fuzzy-IB-ME cryptographic scheme in Python programming language based on the Python charm library. 
+This is a possible implementation of the Fuzzy-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
 
 ### ``SchemeFuzzyME.py``
 
-This is a possible implementation of the Fuzzy-ME cryptographic scheme in Python programming language based on the Python charm library. 
+This is a possible implementation of the Fuzzy-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
 
 ### ``SchemeIBMECH.py``
 
-This is a possible implementation of the IBMECH cryptographic scheme (``Identity-Based Matchmaking Encryption from Standard Assumptions``) in Python programming language based on the Python charm library, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py](https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py). 
+This is a possible implementation of the IBMECH cryptographic scheme (``Identity-Based Matchmaking Encryption from Standard Assumptions``) in Python programming language based on the Python Charm-Crypto framework, referring to the official implementation from [https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py](https://github.com/xuehuan-yang/PSME/blob/main/src/02_ibmech/02_ibmech_v2.py). 
 
 ```
 @inproceedings{chen2022identity,

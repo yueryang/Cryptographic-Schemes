@@ -903,7 +903,7 @@ def main() -> int:
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
-			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("The execution environment of the Python Charm-Crypto framework is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:

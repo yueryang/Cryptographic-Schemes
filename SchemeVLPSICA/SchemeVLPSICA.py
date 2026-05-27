@@ -807,7 +807,7 @@ class SchemeVLPSICA:
 def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
 	# Begin #
 	curveName, securityParameter, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
-	isSystemValid, isSchemePassed = False, False
+	isSystemValid, isSchemeCorrect = False, False
 	timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify = ("N/A", ) * 6
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
 	sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec = ("N/A", ) * 8
@@ -912,14 +912,14 @@ def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:
 		startTime = perf_counter()
 		result = schemeVLPSICA.Verify(KVec, WVec)
 		endTime = perf_counter()
-		isSchemePassed = result is not False
+		isSchemeCorrect = result is not False
 		timeVerify = endTime - startTime
 		
 		# Destruction #
 		del schemeVLPSICA
 		if not isinstance(isVerbose, bool) or isVerbose:
 			print("Verify:", result)
-			print("Is the scheme passed (result is not False)? {0}. ".format("Yes" if isSchemePassed else "No"))
+			print("Is the scheme correct (result is not False)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
 			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
 			print()
@@ -927,7 +927,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:
 	# End #
 	return [																					\
 		curveName, securityParameter, mString, nString, dString, runString, 					\
-		isSystemValid, isSchemePassed, 															\
+		isSystemValid, isSchemeCorrect, 															\
 		timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify, 				\
 		sizeZR, sizeG1, sizeG2, sizeGT, 														\
 		sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec	\
@@ -939,7 +939,7 @@ def main() -> int:
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
-			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("The execution environment of the Python Charm-Crypto framework is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:
@@ -951,7 +951,7 @@ def main() -> int:
 			# Parameters #
 			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
 			queries = ("curveParameter", "secparam", "m", "n", "d", "runCount")
-			validators = ("isSystemValid", "isSchemePassed")
+			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (																						\
 				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)", 		\
 				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 				\

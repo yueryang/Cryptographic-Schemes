@@ -568,9 +568,9 @@ class SchemeIBBME:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __computeCoefficients(self:object, roots:tuple|list|set, k:Element|int|float|None = None) -> tuple:
+	def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
 		flag = False
-		if isinstance(roots, (tuple, list, set)) and roots:
+		if isinstance(roots, (tuple, list)) and roots:
 			n = len(roots)
 			if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 				flag, coefficients = True, [None] * (n - 1) + [roots[0], self.__group.init(roots[0].type, 1)]
@@ -949,7 +949,7 @@ def main() -> int:
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
-			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("The execution environment of the Python Charm-Crypto framework is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:

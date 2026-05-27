@@ -5,6 +5,7 @@ try:
 except:
 	PairingGroup, G1, G2, GT, ZR, pair, Element = (None, ) * 7
 from codecs import lookup
+from secrets import randbelow
 from time import perf_counter, sleep
 try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__)))
@@ -27,6 +28,7 @@ class Parser:
 	__OptionPlace = ("p", "/p", "-p", "place", "/place", "--place")
 	__DefaultPlace = 9
 	__PlaceTranslations = {"s":0, "second":0, "ms":3, "millisecond":3, "microsecond":6, "ns":9, "nanosecond":9, "ps":12, "picosecond":12, "fs":15, "femtosecond":15}
+	__OptionQuiet = ("q", "/q", "-q", "quiet", "/quiet", "--quiet")
 	__OptionRun = ("r", "/r", "-r", "run", "/run", "--run")
 	__DefaultRun = 10
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
@@ -57,6 +59,7 @@ class Parser:
 		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(	\
 			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)																							\
 		)
+		print("\t{0}\t\tDisable the verbose console outputs. ".format(self.__formatOption(Parser.__OptionQuiet)))
 		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
 		print(																																							\
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))	\
@@ -135,8 +138,8 @@ class Parser:
 		except:
 			return None
 	def parse(self:object) -> tuple:
-		flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = (																		\
-			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, Parser.__DefaultRun, Parser.__DefaultTime, False	\
+		flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = (																	\
+			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, True, Parser.__DefaultRun, Parser.__DefaultTime, False		\
 		)
 		index, argumentCount, buffers = 1, len(self.__arguments), []
 		while index < argumentCount:
@@ -184,6 +187,8 @@ class Parser:
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionQuiet:
+				isVerbose = False
 			elif argument in Parser.__OptionRun:
 				index += 1
 				if index < argumentCount:
@@ -225,7 +230,7 @@ class Parser:
 		if EOF == flag:
 			for buffer in buffers:
 				print(buffer)
-		return (flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed)
+		return (flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed)
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
 			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
@@ -558,15 +563,42 @@ class Saver:
 			return False
 
 class SchemeCANIFPPCT:
+	__DefaultN, __DefaultM = 10, 5
 	def __init__(self, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
-		self.__n = 30
+		self.__n = SchemeCANIFPPCT.__DefaultN
+		self.__m = SchemeCANIFPPCT.__DefaultM
 		self.__mpk = None
 		self.__msk = None
-		self.__flag = False # to indicate whether it has already set up
+		self.__flag = False 
+	def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+		flag = False
+		if isinstance(roots, (tuple, list)) and roots:
+			n = len(roots)
+			if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+				flag, coefficients = True, [None] * (n - 1) + [roots[0], self.__group.init(roots[0].type, 1)]
+				offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+			elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+				flag, coefficients = True, [None] * (n - 1) + [roots[0], 1]
+				offset = k if isinstance(k, (int, float)) else None
+		if flag:
+			cnt = n - 2
+			for r in roots[1:]:
+				coefficients[cnt] = r * coefficients[cnt + 1]
+				for i in range(cnt + 1, n - 1):
+					coefficients[i] += r * coefficients[i + 1]
+				coefficients[n - 1] += r
+				cnt -= 1
+			for i in range(n - 1, -1, -2):
+				coefficients[i] = -coefficients[i]
+			if offset is not None:
+				coefficients[0] += offset
+			return tuple(coefficients)
+		else:
+			return (k, )
 	def __product(self:object, elements:object) -> Element:
 		try:
 			if isinstance(elements, (tuple, list)):
@@ -581,24 +613,40 @@ class SchemeCANIFPPCT:
 			return result if isinstance(result, Element) else self.__group.init(ZR, result)
 		except Exception:
 			return self.__group.init(ZR, 1)
-	def Setup(self:object, n:int = 30) -> tuple: # $\textbf{Setup}(n) \to (\textit{mpk}, \textit{msk})$
+	def __computePolynomial(self:object, x:Element|int|float, coefficients:tuple|list) -> Element|int|float|None:
+		if isinstance(coefficients, (tuple, list)) and coefficients and (																		\
+			isinstance(x, Element) and all(isinstance(coefficient, Element) and coefficient.type == x.type for coefficient in coefficients)		\
+			or isinstance(x, (int, float)) and all(isinstance(coefficient, (int, float)) for coefficient in coefficients)						\
+		):
+			n, eleResult = len(coefficients) - 1, coefficients[0]
+			for i in range(1, n):
+				eResult = x
+				for _ in range(i - 1):
+					eResult *= x
+				eleResult += coefficients[i] * eResult
+			eResult = x
+			for _ in range(n - 1):
+				eResult *= x
+			eleResult += eResult
+			return eleResult
+		else:
+			return None
+	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM) -> tuple: # $\textbf{Setup}(n, m) \to (\textit{mpk}, \textit{msk})$
 		# Checks #
 		self.__flag = False
-		if isinstance(n, int) and n >= 1:
-			self.__n = n
+		if isinstance(n, int) and isinstance(m, int) and n >= 1 and m >= 1:
+			self.__n, self.__m = n, m
 		else:
-			self.__n = 30
-			print("Setup: The variable $n$ should be a positive integer but it is not, which has been defaulted to $30$. ")
+			self.__n, self.__m = SchemeCANIFPPCT.__DefaultN, SchemeCANIFPPCT.__DefaultM
 		
 		# Scheme #
-		p = self.__group.order() # $p \gets \|\mathbb{G}\|$
 		g1 = self.__group.init(G1, 1) # $g_1 \gets 1_{\mathbb{G}_1}$
 		g2 = self.__group.init(G2, 1) # $g_2 \gets 1_{\mathbb{G}_2}$
-		g3 = self.__group.random(G1) # generate $g_3 \in \mathbb{G}_1$ randomly
-		H1 = lambda x:self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
-		H2 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_2: \mathbb{G}_T \to \mathbb{Z}_r$
-		H3 = lambda x:self.__group.hash(x, ZR) # $H_3: \{0, 1\}^* \to \mathbb{Z}_r$
-		H4 = lambda x:self.__group.hash(self.__group.serialize(x), ZR) # $H_4: \mathbb{G}_1 \to \mathbb{Z}_r$
+		g3 = self.__group.random(G1) # generate $g_3 \in \mathbb{G}_1$
+		H1 = lambda x: self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
+		H2 = lambda x: self.__group.hash(self.__group.serialize(x), ZR) # $H_2: \mathbb{G}_T \to \mathbb{Z}_r$
+		H3 = lambda x: self.__group.hash(x, ZR) # $H_3: \{0, 1\}^* \to \mathbb{Z}_r$
+		H4 = lambda x: self.__group.hash(self.__group.serialize(x), ZR) # $H_4: \mathbb{G}_1 \to \mathbb{Z}_r$
 		r, s, t, omega, t1, t2, t3, t4 = self.__group.random(ZR, 8) # generate $r, s, t, \omega, t_1, t_2, t_3, t_4 \in \mathbb{Z}_r$ randomly
 		R = g1 ** r # $R \gets g_1^r$
 		S = g2 ** s # $S \gets g_2^s$
@@ -608,168 +656,198 @@ class SchemeCANIFPPCT:
 		v2 = g2 ** t2 # $v_2 \gets g_2^{t_2}$
 		v3 = g2 ** t3 # $v_3 \gets g_2^{t_3}$
 		v4 = g2 ** t4 # $v_4 \gets g_2^{t_4}$
-		self.__mpk = (g1, g2, p, g3, H1, H2, H3, H4, R, S, T, Omega, v1, v2, v3, v4) # $ \textit{mpk} \gets (g_1, g_2, p, g_3, H_1, H_2, H_3, H_4, R, S, T, \Omega, v_1, v_2, v_3, v_4)$
-		self.__msk = (r, s, t, omega, t1, t2, t3, t4) # $\textit{msk} \gets (r, s, t, \omega, t_1, t_2, t_3, t_4)$
+		self.__mpk = (g1, g2, g3, H1, H2, H3, H4, R, S, T, Omega, v1, v2, v3, v4) # \textit{mpk} \gets (g_1, g_2, g_3, H_1, H_2, H_3, H_4, R, S, T, \Omega, v_1, v_2, v_3, v_4)$
+		self.__msk = (r, s, t, omega, t1, t2, t3, t4) # \textit{msk} \gets (r, s, t, \omega, t_1, t_2, t_3, t_4)$
 		
-		# Flag #
+		# Return #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def KGen(self:object, IDi:tuple) -> tuple: # $\textbf{KGen}(\textit{ID}_i) \to (\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
+	def KGen(self:object, ID_i:object = None, _L:list = []) -> tuple: # $\textbf{KGen}(\textit{ID}_i, L) \to (\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
 		# Checks #
 		if not self.__flag:
 			print("KGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``KGen`` subsequently. ")
 			self.Setup()
-		if isinstance(IDi, tuple) and 2 <= len(IDk) < self.__l and all([isinstance(ele, Element) and ele.type == ZR for ele in IDk]): # hybrid check
-			ID_k = IDk
+		if isinstance(_L, list):
+			L = _L
 		else:
-			ID_k = tuple(self.__group.random(ZR) for i in range(self.__l - 1))
-			print(																																															\
-				(																																															\
-					"KGen: The variable $\\textit{{ID}}_k$ should be a tuple containing $k = \\|\\textit{{ID}}_k\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $k \\in [2, {0}]$ but it is not, "		\
-					+ "which has been generated randomly with a length of ${1} - 1 = {0}$. "																												\
-				).format(self.__l - 1, self.__l)																																							\
-			)
+			L = []
+			print("KGen: The variable $L$ should be a list but it is not, which has been initialized as an empty list. ")
 		
 		# Unpack #
-		g1 = self.__mpk[0]
+		g1, H4 = self.__mpk[0], self.__mpk[6]
+		r, s = self.__msk[0], self.__msk[1]
 		
 		# Scheme #
-		k_i, x_i = self.__group.random(ZR), self.__group.random(ZR) # generate $k_i, x_i \in \mathbb{Z}_r$ randomly
-		z_i = (r - x_i) * (s * x_i) ** (-1) # $z_i \gets (r - x_i)(s x_i)^{-1} \in \mathbb{Z}_r$
-		Z_i = g1 ** z_i # $Z_i \gets g_1^{z_i} \in \mathbb{G}_1$
+		k_i, x_i = self.__group.random(ZR), self.__group.random(ZR) # generate $k_i, x_i \in \mathbb{Z}_r$
+		z_i = (r - x_i) * (s * x_i) ** (-1) # $z_i \gets \frac{r - x_i}{s x_i}$
+		Z_i = g1 ** z_i # $Z_i \gets g_1^{z_i}$
 		sk_ID_i = k_i # $\textit{sk}_{\textit{ID}_i} \gets k_i$
-		ek_ID_i = (x_i, Z_i) # $\textit{ek}_{\textit{ID}_i} \gets (x_i, Z_i)$
-		tag_i = H4(x_i * Z_i) # $\textit{tag}_i \gets H_4(x_i \cdot Z_i)$
+		ek_ID_i = (x_i, Z_i) # \textit{ek}_{\textit{ID}_i} \gets (x_i, Z_i)$
+		tag_i = H4(x_i * Z_i) # \textit{tag}_i \gets H_4(x_i \cdot Z_i)$
+		L.append((ID_i, k_i, tag_i)) # $L \gets L || ((\textit{ID}_i, k_i, \textit{tag}_i))$
 		
 		# Return #
-		return (sk_ID_i, ek_ID_i) # \textbf{return} $(\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i}$
-	def Encryption(self:object, TPS:tuple, ekIDi:Element) -> object: # $\textbf{Encryption}(\textit{TP}_S, \textit{ek}_{\textit{ID}_i}) \to \textit{CT}_{\textit{TP}_S})$
+		return (sk_ID_i, ek_ID_i) # \textbf{return} $(\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
+	def Encryption(self:object, TPsi:bytes, skIDi:Element, ekIDi:tuple, _s:tuple|list, si:Element) -> tuple: # $\textbf{Encryption}(\textit{TPs}_i, \textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i}, s, s_i) \to \textit{CT}_{\textit{TP}_i}$
 		# Checks #
 		if not self.__flag:
 			print("Encryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encryption`` subsequently. ")
 			self.Setup()
-		if isinstance(IDk, tuple) and 2 <= len(IDk) < self.__l and all([isinstance(ele, Element) and ele.type == ZR for ele in IDk]): # hybrid check
-			ID_k = IDk
+		if isinstance(TPsi, bytes):
+			TPs_i = TPsi
 		else:
-			ID_k = tuple(self.__group.random(ZR) for i in range(self.__l - 1))
-			print(																																																\
-				(																																																\
-					"Encryption: The variable $\\textit{{ID}}_k$ should be a tuple containing $k = \\|\\textit{{ID}}_k\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $k \\in [2, {0}]$ but it is not, "	\
-					+ "which has been generated randomly with a length of ${1} - 1 = {0}$. "																													\
-				).format(self.__l - 1, self.__l)																																								\
-			)
-		if isinstance(message, Element) and message.type == GT: # type check
-			M = message
+			TPs_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
+			print("Encryption: The variable $\\textit{TPs}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(skIDi, Element) and skIDi.type == ZR:
+			sk_ID_i = skIDi
 		else:
-			M = self.__group.random(GT)
-			print("Encryption: The variable $M$ should be an element of $\\mathbb{G}_T$ but it is not, which has been generated randomly. ")
-		
-		# Unpack #
-		g1, g2, g3, gBar, gTilde, h = self.__mpk[1], self.__mpk[2], self.__mpk[3], self.__mpk[4], self.__mpk[5], self.__mpk[8:]
-		k = len(ID_k)
-		
-		# Scheme #
-		sVec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s} = (s_1, s_2, \cdots, s_n) \in \mathbb{Z}_r^n$ randomly
-		s1Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_1 = (s_{1_1}, s_{1_2}, \cdots, s_{1, n}) \in mathbb{Z}_r^n$ randomly
-		s2Vec = tuple(self.__group.random(ZR) for _ in range(self.__n)) # generate $\vec{s}_2 = (s_{2_1}, s_{2_2}, \cdots, s_{2, n}) \in mathbb{Z}_r^n$ randomly
-		V = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
-		C0Vec = tuple((g3 * H1(TP_S[i])) ** s[i] for i in range(self.__n)) # $\vec{C}_{i, 0} \gets (g_3 H_1(\textit{TP}_S))^{s_i}, \forall i \in \{1, 2, \cdots, n\}$
-		C1Vec = tuple(v1 ** (s[i] - s1[i]) for i in range(self.__n)) # $\vec{C}_{i, 1} \gets v_1^{s_i - s_{i, 1}}$
-		C2Vec = tuple(v2 ** s1[i] for i in range(self.__n)) # $\vec{C}_{i, 2} \gets v_2^{s_{i, 1}}$
-		C3Vec = tuple(v3 ** (s[i] - s2[i]) for i in range(self.__n)) # $\vec{C}_{i, 3} \gets v_3^{s_i - s_{i, 2}}$
-		C4Vec = tuple(v4 ** s2[i] for i in range(self.__n)) # $\vec{C}_{i, 4} \gets v_4^{s_{i, 2}}$
-		f = lambda x:self.__product(tuple(x - V[i] for i in range(self.__n))) # $f(x) := \prod\limits_{i = 1}^n (x - V_i)$
-		alpha = self.__group.random(ZR) # generate $\alpha \in \mathbb{Z}_r$ randomly
-		C1 = g1 ** alpha # $C_1 \gets g_1^\alpha$
-		C2 = Zi ** xi + T ** alpha # $C_2 \gets Z_i^{x_i} + T^\alpha$
-		C3 = pair(T, S) ** alpha # $C_3 \gets e(T, S)^\alpha$
-		C4 = H3()
-		C5 = kc + x_i
-		
-		# Return #
-		return CT # \textbf{return} $\textit{CT}$
-	def DerivedKGen(self:object, skIDkMinus1:tuple, IDk:tuple) -> tuple: # $\textbf{DerivedKGen}(\textit{sk}_{\textit{ID}_\textit{k - 1}}, \textit{ID}_k) \to \textit{sk}_{\textit{ID}_k}$
-		# Checks #
-		if not self.__flag:
-			print("DerivedKGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``DerivedKGen`` subsequently. ")
-			self.Setup()
-		if isinstance(IDk, tuple) and 2 <= len(IDk) < self.__l and all([isinstance(ele, Element) and ele.type == ZR for ele in IDk]): # hybrid check
-			ID_k = IDk
-			if isinstance(skIDkMinus1, tuple) and len(skIDkMinus1) == ((self.__l - len(ID_k) + 1) << 2) + 5 and all([isinstance(ele, Element) for ele in skIDkMinus1]): # hybrid check
-				sk_ID_kMinus1 = skIDkMinus1
+			sk_ID_i = self.KGen(self.__group.random(ZR), [])
+			print("Encryption: The variable $\\textit{sk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+		if isinstance(ekIDi, tuple) and len(ekIDi) == 2 and all(isinstance(ele, Element) for ele in ekIDi):
+			ek_ID_i = ekIDi
+		else:
+			print("Encryption: The variable $\\textit{ek}_{\\textit{ID}_i}$ should be a tuple containing 2 elements but it is not, which has been generated randomly. ")
+		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s):
+			s = _s
+			if si in s:
+				s_i = si
 			else:
-				sk_ID_kMinus1 = self.KGen(ID_k[:-1])
-				print(
-					(
-						"DerivedKGen: The variable $\\textit{{sk}}_{{\\textit{{ID}}_{{k - 1}}}}$ should be a tuple containing $(l - k + 1) \\times 4 + 5 = {0}$ elements but it is not, "
-						+ "which has been generated accordingly. "
-					).format(((self.__l - len(ID_k) + 1) << 2) + 5)
-				)
+				s_i = s[randbelow(self.__n)]
+				print("Encryption: The variable $s_i$ should be an element in $s$ but it is not, which has been generate randomly. ")
 		else:
-			ID_k = tuple(self.__group.random(ZR) for i in range(self.__l - 1))
-			print(																																																\
-				(																																																\
-					"DerivedKGen: The variable $\\textit{{ID}}_k$ should be a tuple containing $k = \\|\\textit{{ID}}_k\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $k \\in [2, {0}]$ but it is not, "	\
-					+ "which has been generated randomly with a length of ${1} - 1 = {0}$. "																													\
-				).format(self.__l - 1, self.__l)																																								\
-			)
-			sk_ID_kMinus1 = self.KGen(ID_k[:-1])
-			print("DerivedKGen: The variable $\\textit{sk}_{\\textit{ID}_{k - 1}}$ has been generated accordingly. ")
+			s = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("Encryption: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
+			s_i = s[randbelow(self.__n)]
+			print("Encryption: The variable $s_i$ has been generated accordingly. ")
 		
 		# Unpack #
-		g, g3Bar, g3Tilde, h = self.__mpk[0], self.__mpk[6], self.__mpk[7], self.__mpk[8:]
-		k = len(ID_k)
-		a0, a1, b, f0, f1 = sk_ID_kMinus1[0], sk_ID_kMinus1[1], sk_ID_kMinus1[2], sk_ID_kMinus1[-2], sk_ID_kMinus1[-1] # first 3 and last 2
-		lengthPerToken = self.__l - k + 1
-		c0, c1, d0, d1 = sk_ID_kMinus1[3:3 + lengthPerToken], sk_ID_kMinus1[3 + lengthPerToken:3 + (lengthPerToken << 1)], sk_ID_kMinus1[-2 - (lengthPerToken << 1):-2 - lengthPerToken], sk_ID_kMinus1[-2 - lengthPerToken:-2]
+		g1, g3, H1, H2, H3, S, T, Omega, v1, v2, v3, v4 = (													\
+			self.__mpk[0], self.__mpk[2], self.__mpk[3], self.__mpk[4], self.__mpk[5], self.__mpk[8], 		\
+			self.__mpk[9], self.__mpk[10], self.__mpk[11], self.__mpk[12], self.__mpk[13], self.__mpk[14]	\
+		)
+		x_i, Z_i = ek_ID_i
 		
 		# Scheme #
-		t = self.__group.random(ZR) # generate $t \in \mathbb{Z}_r$ randomly
-		sk_ID_k = ( # $\textit{sk}_{\textit{ID}_k} \gets (
-			(
-				a0 * c0[0] ** ID_k[k - 1] * (f0 * d0[0] ** ID_k[k - 1] * g3Bar) ** t, # a_0 \cdot c_{0, k}^{I_k} \cdot (f_0 \cdot d_{0, k}^{I_k} \cdot \bar{g}_3)^t, 
-				a1 * c1[0] ** ID_k[k - 1] * (f1 * d1[0] ** ID_k[k - 1] * g3Tilde) ** t, # a_1 \cdot c_{1, k}^{I_k} \cdot (f_1 \cdot d_{1, k}^{I_k} \cdot \tilde{g}_3)^t, 
-				b * g ** t, # b \cdot g^t, 
-			)
-			+ tuple(c0[i] * d0[i] ** t for i in range(1, lengthPerToken)) # c_{0, k + 1} \cdot d_{0, k + 1}^t, c_{0, k + 2} \cdot d_{0, k + 2}^t, \cdots, c_{0, l} \cdot d_{0, l}^t, 
-			+ tuple(c1[i] * d1[i] ** t for i in range(1, lengthPerToken)) # c_{1, k + 1} \cdot d_{1, k + 1}^t, c_{1, k + 2} \cdot d_{1, k + 2}^t, \cdots, c_{1, l} \cdot d_{1, l}^t, 
-			+ tuple(d0[i] for i in range(1, lengthPerToken)) # d_{0, k + 1}, d_{0, k + 2}, \cdots, d_{0, l}, 
-			+ tuple(d1[i] for i in range(1, lengthPerToken)) # d_{1, k + 1}, d_{1, k + 2}, \cdots, d_{1, l}, 
-			+ (f0 * c0[0] ** ID_k[k - 1], f1 * c1[0] ** ID_k[k - 1]) # f_0 \cdot c_{0, k}^{I_k}, f_1 \cdot c_{1, k}^{I_k}
-		) # )$
+		s1_i, s2_i = self.__group.random(ZR), self.__group.random(ZR) # generate $s_{1_i}, s_{2_i} \in \mathbb{Z}_r$ randomly
+		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
+		C0_i = (g3 * H1(TPs_i)) ** s_i # $C_{0_i} \gets (g_3 H_1(t_i || p_i))^{s_i}$
+		C1_i = v1 ** (s_i - s1_i) # $C_{1_i} \gets v_1^{s_i - s_{1_i}}$
+		C2_i = v2 ** s1_i # $C_{2_i} \gets v_2^{s_{1_i}}$
+		C3_i = v3 ** (s_i - s2_i) # $C_{3_i} \gets v_2^{s_i - s_{2_i}}$
+		C4_i = v4 ** s2_i # $C_{4_i} \gets v_2^{s_{1_i}}$
+		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		alpha = self.__group.random(ZR) # generate $\alpha \in \mathbb{Z}_r$
+		C1 = g1 ** alpha # $C_1 \gets g_1^\alpha$
+		C2 = Z_i ** x_i + T ** alpha # $C_2 \gets Z_i^{x_i} + T^\alpha$
+		C3 = pair(T, S) ** alpha # $C_3 \gets e(T, S)^\alpha$
+		C4 = H3(
+			b"".join(self.__group.serialize(ele) for ele in (C0_i, C1_i, C2_i, C3_i, C4_i) + aVec[:-1] + (C1, C2, C3))
+		) # $C_4 \gets H_3(C_{0_1} || C_{0_2} || \cdots || C_{0_n} || C_{1_1} || C_{1_2} || \cdots || C_{1_n} || \cdots || C_{4_1} || C_{4_2} || \cdots || C_{4_n} || a_0 || a_1 || \cdots || a_{n - 1} || C_1 || C_2 || C_3)$
+		C5 = sk_ID_i * C4 + x_i # $C_5 \gets \textit{sk}_{\textit{ID}_i} C_4 + x_i$
+		CT_TP_i = (C0_i, C1_i, C2_i, C3_i, C4_i, C1, C2, C3, C4, C5) # $\textit{CT}_{\textit{TPs}} \gets (\vec{C}_0, \vec{C}_1, \vec{C}_2, \vec{C}_3, \vec{C}_4, C_1, C_2, C_3, C_4, C_5)$
 		
 		# Return #
-		return sk_ID_k # \textbf{return} $\textit{sk}_{\textit{ID}_k}$
-	def Dec(self:object, skIDk:tuple, cipherText:tuple) -> bytes: # $\textbf{Dec}(\textit{sk}_{\textit{ID}_k}, \textit{CT}) \to M$
+		return CT_TP_i # \textbf{return} $\textit{CT}_{\textit{TP}_i}$
+	def TokenGen(self:object, QTPi:tuple, skIDi:Element) -> tuple: # $\textbf{TokenGen}(\textit{QTP}_i, \textit{sk}_{\textit{ID}_i}) \to \textit{token}_i$
 		# Checks #
 		if not self.__flag:
-			print("Dec: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Dec`` subsequently. ")
+			print("TokenGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TokenGen`` subsequently. ")
 			self.Setup()
-		if isinstance(skIDk, tuple) and 9 <= len(skIDk) <= ((self.__l - 1) << 2) + 5 and all([isinstance(ele, Element) for ele in skIDk]): # hybrid check
-			sk_ID_k = skIDk
+		if isinstance(QTPi, bytes):
+			QTP_i = QTPi
 		else:
-			sk_ID_k = self.KGen(tuple(self.__group.random(ZR) for i in range(self.__l - 1)))
-			print("Dec: The variable $\\textit{{ID}}_k$ should be a tuple containing $k = \\|\\textit{{ID}}_k\\|$ elements where the integer $k \\in [9, {0}]$ but it is not, which has been generated randomly with a length of $9$. ".format(5 + ((self.__l - 1) << 2)))
-		if isinstance(cipherText, tuple) and len(cipherText) == 4 and all([isinstance(ele, Element) for ele in cipherText]):# hybrid check
-			CT = cipherText
+			QTP_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
+			print("TokenGen: The variable $\\textit{QTP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(skIDi, Element) and skIDi.type == ZR:
+			sk_ID_i = skIDi
 		else:
-			CT = self.Encryption(tuple(self.__group.random(ZR) for i in range(self.__l - 1)), self.__group.random(GT))
-			print("Dec: The variable $\\textit{CT}$ should be a tuple containing 4 elements but it is not, which has been generated with $M \\in \\mathbb{G}_T$ generated randomly. ")
+			sk_ID_i = self.KGen(self.__group.random(ZR), [])
+			print("TokenGen: The variable $\\textit{sk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
-		A, B, C, D = CT
-		a0, a1, b = sk_ID_k[0], sk_ID_k[1], sk_ID_k[2]
+		g1, g2, g3, H1 = self.__mpk[0], self.__mpk[1], self.__mpk[2], self.__mpk[3]
+		omega, t1, t2, t3, t4 = self.__msk[3], self.__msk[4], self.__msk[5], self.__msk[6], self.__msk[7]
 		
 		# Scheme #
-		M = pair(b, D) * A / (pair(B, a0) * pair(C, a1)) # $M \gets \cfrac{e(b, D) \cdot A}{e(B, a_0) \cdot e(C, a_1)}$
+		r1_i , r2_i = self.__group.random(ZR), self.__group.random(ZR) # generate $r_{1_i}, r_{2_i} \in \mathbb{Z}_r$ randomly
+		T0_i = g2 ** (r1_i * t1 * t2 + r2_i * t3 * t4) # $T_{0_i} \gets g_2^{r_{1_i} t_1 t_2 + r_{2_i} t_3 t_4}$
+		T1_i = g1 ** (omega * t2) * ((g3 * H1(QTP_i)) ** (-r1_i * t2)) # $T_{1_i} \gets g_1^{\omega t_2} (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{1_i} t_2}$
+		T2_i = g1 ** (omega * t1) * ((g3 * H1(QTP_i)) ** (-r1_i * t1)) # $T_{2_i} \gets g_1^{\omega t_1} (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{1_i} t_1}$
+		T3_i = (g3 * H1(QTP_i)) ** (-r2_i * t4) # $T_{3_i} \gets (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_4}$
+		T4_i = (g3 * H1(QTP_i)) ** (-r2_i * t3) # $T_{4_i} \gets (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_3}$
+		token_i = (T0_i, T1_i, T2_i, T3_i, T4_i) # $\textit{token} \gets (T_{0_i}, T_{1_i}, T_{2_i}, T_{3_i}, T_{4_i})$
 		
 		# Return #
-		return M # \textbf{return} $M$
-	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
+		return token_i # \textbf{return} $\textit{token}_i$
+	def Query(self:object, CTTPi:tuple, token_i:tuple, _s:tuple|list) -> bool: # $\textbf{Query}(\textit{CT}_{\textit{TP}_i}, \textit{token}_i, s) \to y, y \in \{0, 1\}$
+		# Checks #
+		if not self.__flag:
+			print("Query: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Query`` subsequently. ")
+			self.Setup()
+		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi):
+			CT_TP_i = CTTPi
+		else:
+			CT_TP_i = None#####
+			print("Query: The variable $\textit{CT}_{\textit{TP}_i}$ should be a tuple containing 10 elements but it is not, which has been generated randomly. ")
+		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s):
+			s = _s
+		else:
+			s = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("Encryption: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
+		
+		# Unpack #
+		H2, Omega = self.__mpk[4], self.__mpk[10]
+		C0_i, C1_i, C2_i, C3_i, C4_i = CT_TP_i[0], CT_TP_i[1], CT_TP_i[2], CT_TP_i[3], CT_TP_i[4]
+		T0_i, T1_i, T2_i, T3_i, T4_i = token_i
+		
+		# Scheme #
+		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
+		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		VPrime_i = H2(																						\
+			pair(C0_i, T0_i) * pair(C1_i, T1_i) * pair(C2_i, T2_i) * pair(C3_i, T3_i) * pair(C4_i, T4_i)	\
+		) # $V'_i \gets H_2(e(C_{0_i}, T_{0_i}) e(C_{1_i}, T_{1_i}) e(C_{2_i}, T_{2_i}) e(C_{3_i}, T_{3_i}) e(C_{4_i}, T_{4_i}))$
+		
+		# Return #
+		return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # $\textbf{return} f(x) = a_0 + \sum\limits_{j = 1}^n a_j V'_i^j = 0$
+	def Trace(self:object, CTTPi:tuple, _L:list) -> tuple|bool: # $\textbf{Trace}(\textit{TP}_{\textit{TP}_i}, L) \to \textit{identity}$
+		# Checks #
+		if not self.__flag:
+			print("Trace: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Trace`` subsequently. ")
+			self.Setup()
+		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi):
+			CT_TP_i = CTTPi
+		else:
+			CT_TP_i = None#####
+			print("Trace: The variable $\textit{CT}_{\textit{TP}_i}$ should be a tuple containing 10 elements but it is not, which has been generated randomly. ")
+		if isinstance(_L, list):
+			L = _L
+		else:
+			L = []
+			print("KGen: The variable $L$ should be a list but it is not, which has been initialized as an empty list. ")
+		
+		# Unpack #
+		H4 = self.__mpk[6]
+		t = self.__msk[2]
+		C1, C2 = CT_TP_i[5], CT_TP_i[6]
+		
+		# Scheme #
+		tag_i = H4(C2 - t * C1)
+		identity = False # $\textit{identity} \gets \perp$
+		for element in L: # \textbf{for} $\textit{element} \in L$ \textbf{do}
+			if tag_i == element[2]: # \quad\textbf{if} $\textit{tag}_i = \textit{element}_2$ \textbf{then}
+				identity = element # \quad\quad$\textit{identity} \gets \textit{element}$
+		# \quad\textbf{end if}
+		# \textbf{end for}
+		
+		# Return #
+		return identity # \textbf{return} $\textit{identity}$
+	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict|str) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))
 		elif isinstance(obj, int) or callable(obj):
 			return (self.__group.secparam + 7) >> 3
+		elif isinstance(obj, str):
+			return len(obj.encode('utf-8'))
 		elif isinstance(obj, bytes):
 			return len(obj)
 		elif isinstance(obj, (tuple, list, set)):
@@ -782,13 +860,13 @@ class SchemeCANIFPPCT:
 			return "N/A"
 
 
-def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
+def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, run:int|None = None, isVerbose:bool = False) -> list:
 	# Begin #
-	curveName, securityParameter, lString, kString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python charm library is 512
-	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
-	timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
+	curveName, securityParameter, runString = "N/A", 512, "N/A"
+	isSystemValid, isSchemeCorrect = False, False
+	timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace = ("N/A", ) * 6
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeSk, sizeC, sizeCT, sizeCPrime, sizeCTPrime = ("N/A", ) * 7
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -804,25 +882,25 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 	elif isinstance(curveParameter, str) and curveParameter.isalnum():
 		curveName = curveParameter
 	flag = True
-	if isinstance(l, int):
-		lString = l
+	if isinstance(n, int):
+		nString = n
 	else:
 		flag = False
-	if isinstance(k, int):
-		kString = k
+	if isinstance(m, int):
+		mString = m
 	else:
 		flag = False
 	if isinstance(run, int) and run >= 1:
 		runString = run
 	if not isinstance(isVerbose, bool) or isVerbose:
 		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$l$:", lString)
-		print("$k$:", kString)
+		print("$n$:", nString)
+		print("$m$:", mString)
 		print("run:", runString)
-	if flag and 2 <= k < l:
+	if flag and 1 <= m <= n:
 		try:
 			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2)) # The scheme uses both G1 and G2
+			pair(group.random(G1), group.random(G2))
 			isSystemValid = True
 			if not isinstance(isVerbose, bool) or isVerbose:
 				print("Is the system valid? Yes. ")
@@ -831,83 +909,103 @@ def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, ru
 				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 				print()
 	elif not isinstance(isVerbose, bool) or isVerbose:
-		print("Is the system valid? No. The parameters $l$ and $k$ should be two positive integers satisfying $2 \\leqslant k < l$. ")
+		print("Is the system valid? No. The parameters $m$ and $n$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$. ")
 		print()
 	
 	# Execution #
 	if isSystemValid:
 		# Initialization #
-		schemeCANIFPPCT = SchemeCANIFPPCT(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = schemeCANIFPPCT.getLengthOf(group.random(ZR)), schemeCANIFPPCT.getLengthOf(group.random(G1)), schemeCANIFPPCT.getLengthOf(group.random(G2)), schemeCANIFPPCT.getLengthOf(group.random(GT))
+		scheme = SchemeCANIFPPCT(group)
+		sizeZR, sizeG1, sizeG2, sizeGT = (													\
+			scheme.getLengthOf(group.random(ZR)), scheme.getLengthOf(group.random(G1)), 	\
+			scheme.getLengthOf(group.random(G2)), scheme.getLengthOf(group.random(GT))		\
+		)
 		
 		# Setup #
 		startTime = perf_counter()
-		mpk, msk = schemeCANIFPPCT.Setup(l)
+		mpk, msk = scheme.Setup(n, m)
 		endTime = perf_counter()
 		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeCANIFPPCT.getLengthOf(mpk), schemeCANIFPPCT.getLengthOf(msk)
+		sizeMpk, sizeMsk = scheme.getLengthOf(mpk), scheme.getLengthOf(msk)
 		
 		# KGen #
 		startTime = perf_counter()
-		ID_k = tuple(group.random(ZR) for i in range(k))
-		sk_ID_k = schemeCANIFPPCT.KGen(ID_k)
+		IDVec, L, sk_IDs, ek_IDs = tuple(group.random(ZR) for _ in range(n)), [], [], []
+		for i in range(n):
+			sk_ID_i, ek_ID_i = scheme.KGen(IDVec[i], L)
+			sk_IDs.append(sk_ID_i)
+			ek_IDs.append(ek_ID_i)
 		endTime = perf_counter()
-		timeKGen = endTime - startTime
-		sizeSkIDK = schemeCANIFPPCT.getLengthOf(sk_ID_k)
+		timeKGen = (endTime - startTime) / n
+		sizeSkIDs = scheme.getLengthOf(sk_IDs)
+		sizeEkIDs = scheme.getLengthOf(ek_IDs)
 		
-		# DerivedKGen #
+		# Encryption #
 		startTime = perf_counter()
-		sk_ID_kMinus1 = schemeCANIFPPCT.KGen(ID_k[:-1]) # remove the last one to generate the sk_ID_kMinus1
-		sk_ID_kDerived = schemeCANIFPPCT.DerivedKGen(sk_ID_kMinus1, ID_k)
+		TPs = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n))
+		s = tuple(group.random(ZR) for _ in range(n))
+		CT_TPs = []
+		for i in range(n):
+			CT_TPs.append(scheme.Encryption(TPs[i], sk_IDs[i], ek_IDs[i], s, s[i]))
 		endTime = perf_counter()
-		timeDerivedKGen = endTime - startTime
-		sizeSkIDKDerived = schemeCANIFPPCT.getLengthOf(sk_ID_kDerived)
+		timeEncryption = (endTime - startTime) / n
+		sizeCTTPs = scheme.getLengthOf(CT_TPs)
 		
-		# Enc #
+		# TokenGen #
 		startTime = perf_counter()
-		message = group.random(GT)
-		CT = schemeCANIFPPCT.Enc(ID_k, message)
+		QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
+		Tokens = []
+		for i in range(m):
+			Tokens.append(scheme.TokenGen(QTP[i], sk_IDs[i]))
 		endTime = perf_counter()
-		timeEnc = endTime - startTime
-		sizeCT = schemeCANIFPPCT.getLengthOf(CT)
+		timeTokenGen = endTime - startTime
+		sizeTokens = scheme.getLengthOf(Tokens)
 		
-		# Dec #
+		# Query #
 		startTime = perf_counter()
-		M = schemeCANIFPPCT.Dec(sk_ID_k, CT)
-		MDerived = schemeCANIFPPCT.Dec(sk_ID_kDerived, CT)
+		ys = []
+		for i in range(m):
+			ys.append(scheme.Query(CT_TPs[i], Tokens[i], s))
 		endTime = perf_counter()
-		isDeriverPassed = message == MDerived
-		isSchemeCorrect = message == M
-		timeDec = endTime - startTime
+		isSchemeCorrect = ys and all(ys)
+		timeQuery = (endTime - startTime) / m
+		
+		# Trace #
+		startTime = perf_counter()
+		identities = []
+		for i in range(m):
+			identities.append(scheme.Trace(CT_TPs[i], L))
+		endTime = perf_counter()
+		isTracingVerified = identities and all(identity is not False for identity in identities)
+		timeTrace = (endTime - startTime) / m
 		
 		# Destruction #
-		del schemeCANIFPPCT
+		del scheme
 		if not isinstance(isVerbose, bool) or isVerbose:
-			print("Original:", message)
-			print("Derived:", MDerived)
-			print("Decrypted:", M)
-			print("Is the deriver passed (message == M')? {0}. ".format("Yes" if isDeriverPassed else "No"))
-			print("Is the scheme correct (message == M)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT))
+			print("ys:", ys)
+			print("identities:", identities)
+			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
+			print("Time:", (timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTokens))
 			print()
 	
 	# End #
-	return [														\
-		curveName, securityParameter, lString, kString, runString, 	\
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 			\
-		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 	\
-		sizeZR, sizeG1, sizeG2, sizeGT, 							\
-		sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT		\
+	return [																		\
+		curveName, securityParameter, nString, mString, runString, 					\
+		isSystemValid, isSchemeCorrect, isTracingVerified, 							\
+		timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 											\
+		sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTokens				\
 	]
 
 def main() -> int:
 	parser = Parser(argv)
-	flag, encoding, outputFilePath, decimalPlace, runCount, waitingTime, overwritingConfirmed = parser.parse()
+	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = parser.parse()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
-			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("The execution environment of the Python Charm-Crypto framework is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:
@@ -918,12 +1016,12 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("curveParameter", "secparam", "l", "k", "runCount")
+			queries = ("curveParameter", "secparam", "n", "m", "runCount")
 			validators = ("isSystemValid", "isDeriverPassed", "isSchemeCorrect")
-			metrics = (																			\
-				"Setup (s)", "KGen (s)", "DerivedKGen (s)", "Enc (s)", "Dec (s)", 				\
-				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 	\
-				"mpk (B)", "msk (B)", "SK (B)", "SK' (B)", "CT (B)"								\
+			metrics = (																					\
+				"Setup (s)", "KGen (s)", "Encryption (s)", "TokenGen (s)", "Query (s)", "Trace (s)", 	\
+				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 			\
+				"mpk (B)", "msk (B)", "sk_IDs (B)", "ek_IDs (B)", "CT_TPs (B)", "Tokens (B)"			\
 			)
 			
 			# Scheme #
@@ -932,11 +1030,11 @@ def main() -> int:
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
-					for l in range(10, 31, 5):
-						for k in range(5, l, 5):
-							averages = conductScheme(curveParameter, l = l, k = k, run = 1)
+					for n in range(10, 31, 5):
+						for m in range(5, n + 1, 5):
+							averages = conductScheme(curveParameter, n = n, m = m, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, l = l, k = k, run = run)
+								result = conductScheme(curveParameter, n = n, m = m, run = run, isVerbose = isVerbose)
 								for idx in range(qLength, qvLength):
 									averages[idx] += result[idx]
 								for idx in range(qvLength, length):
@@ -951,7 +1049,12 @@ def main() -> int:
 									averages[idx] = "N/A"
 							results.append(averages)
 							saver.save(results)
-							print()
+							if isVerbose:
+								print()
+				if not results:
+					print("No experiments were conducted. ")
+				elif not isVerbose:
+					print()
 			except KeyboardInterrupt:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")

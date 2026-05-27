@@ -575,9 +575,9 @@ class SchemeIBMEMR:
 		self.__mpk = None
 		self.__msk = None
 		self.__flag = False # to indicate whether it has already set up
-	def __computeCoefficients(self:object, roots:tuple|list|set, k:Element|int|float|None = None) -> tuple:
+	def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
 		flag = False
-		if isinstance(roots, (tuple, list, set)) and roots:
+		if isinstance(roots, (tuple, list)) and roots:
 			n = len(roots)
 			if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 				flag, coefficients = True, [None] * (n - 1) + [roots[0], self.__group.init(roots[0].type, 1)]
@@ -786,7 +786,7 @@ class SchemeIBMEMR:
 		KArray = tuple(pair(H2(S[i]), ek_id_S * ct1) for i in range(self.__d)) # $K_i \gets e(H_2(\textit{id}_i), ek_{\textit{id}_S} \cdot \textit{ct}_1), \forall i \in \{1, 2, \cdots, d\}$
 		aArray = self.__computeCoefficients(						\
 			tuple(H4(KArray[i]) for i in range(self.__d)), k = K	\
-		) # Compute $a_0, a_1, a_2, \cdots a_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{i = 1}^d (x - H_4(K_i)) + K = a_0 + \sum\limits_{i = 1}^d a_i x^i$
+		) # Compute $a_0, a_1, a_2, \cdots a_d$ s.t. $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{i = 1}^d (x - H_4(K_i)) + K = a_0 + \sum\limits_{i = 1}^d a_i x^i$
 		s = s1 + s2 # $s \gets s_1 + s_2$
 		RArray = tuple(pair(v3, (g0 * g1 ** S[i]) ** s) for i in range(self.__d)) # $R_i \gets e(v_3, (g_0 g_1^{\textit{id}_i})^s), \forall i \in \{1, 2, \cdots, d\}$
 		bArray = self.__computeCoefficients(												\
@@ -1049,7 +1049,7 @@ def main() -> int:
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, GT is None, ZR is None, pair is None, Element is None)):
 			parser.disableConsoleEchoes()
-			print("The environment of the Python ``charm`` library is not handled correctly. ")
+			print("The execution environment of the Python Charm-Crypto framework is not handled correctly. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:

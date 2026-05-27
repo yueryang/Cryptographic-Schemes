@@ -21,10 +21,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
     
-    - name: Deploy Java
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y default-jre
+    - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
     
     - name: Run Java
       run: |

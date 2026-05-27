@@ -209,32 +209,32 @@ This can cause large time consumption when the number of roots is large. That is
 
 To begin with, we need to look at a simple example with $k = 0$ first. For $n = 3$ and $X = \lbrace 2, 3, 5\rbrace$, we have the following calculation process to iterate to avoid combinatorial multiplication, where performing negation means taking the negation of every other coefficient from the second-highest-degree term to the constant term. 
 
-| Coefficients ($\uparrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ | | Coefficients ($\downarrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ |
+| Coefficients ($\uparrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ | | Coefficients ($\downarrow$) | $c'_0$ | $c'_1$ | $c'_2$ | $c'_3$ |
 | - | - | - | - | - | - | - | - | - | - | - |
-| Initial $\vec{c} \gets (1, 0, 0, 0)$ | $1$ | $0$ | $0$ | $0$ | | Initial $\vec{c} \gets (0, 0, 0, 1)$ | $0$ | $0$ | $0$ | $1$ |
-| $c_1 \gets c_1 + x_1 c_0$ | $1$ | $2$ | $0$ | $0$ | | $c_2 \gets c_3 + x_1 c_3$ | $0$ | $0$ | $2$ | $1$ |
-| $c_2 \gets c_2 + x_2 c_1$ | $1$ | $2$ | $6$ | $0$ | | $c_1 \gets c_1 + x_2 c_2$ | $0$ | $6$ | $2$ | $1$ |
-| $c_1 \gets c_1 + x_2 c_0$ | $1$ | $5$ | $6$ | $0$ | | $c_2 \gets c_2 + x_2 c_3$ | $0$ | $6$ | $5$ | $1$ |
-| $c_3 \gets c_3 + x_3 c_2$ | $1$ | $5$ | $6$ | $30$ | | $c_0 \gets c_0 + x_3 c_1$ | $30$ | $6$ | $5$ | $1$ |
-| $c_2 \gets c_2 + x_3 c_1$ | $1$ | $5$ | $31$ | $30$ | | $c_1 \gets c_1 + x_3 c_2$ | $30$ | $31$ | $5$ | $1$ |
-| $c_1 \gets c_1 + x_3 c_0$ | $1$ | $10$ | $31$ | $30$ | | $c_2 \gets c_2 + x_3 c_3$ | $30$ | $31$ | $10$ | $1$ |
-| Perform negation ($\rightarrow$) | $1$ | $-10$ | $31$ | $-30$ | | Perform negation ($\leftarrow$) | $-30$ | $31$ | $-10$ | $1$ |
+| Initial $\vec{c} \gets (0, 0, 0, 1)$ | $0$ | $0$ | $0$ | $1$ | | Initial $\vec{c}' \gets (1, 0, 0, 0)$ | $1$ | $0$ | $0$ | $0$ |
+| $c_2 \gets c_2 + x_1 c_3$ | $0$ | $0$ | $2$ | $1$ | | $c'_1 \gets c'_1 + x_1 c'_0$ | $1$ | $2$ | $0$ | $0$ |
+| $c_1 \gets c_1 + x_2 c_2$ | $0$ | $6$ | $2$ | $1$ | | $c'_2 \gets c'_2 + x_2 c'_1$ | $1$ | $2$ | $6$ | $0$ |
+| $c_2 \gets c_2 + x_2 c_3$ | $0$ | $6$ | $5$ | $1$ | | $c'_1 \gets c'_1 + x_2 c'_0$ | $1$ | $5$ | $6$ | $0$ |
+| $c_0 \gets c_0 + x_3 c_1$ | $30$ | $6$ | $5$ | $1$ | | $c'_3 \gets c'_3 + x_3 c'_2$ | $1$ | $5$ | $6$ | $30$ |
+| $c_1 \gets c_1 + x_3 c_2$ | $30$ | $31$ | $5$ | $1$ | | $c'_2 \gets c'_2 + x_3 c'_1$ | $1$ | $5$ | $31$ | $30$ |
+| $c_2 \gets c_2 + x_3 c_3$ | $30$ | $31$ | $10$ | $1$ | | $c'_1 \gets c'_1 + x_3 c'_0$ | $1$ | $10$ | $31$ | $30$ |
+| Perform negation ($\leftarrow$) | $-30$ | $31$ | $-10$ | $1$ | | Perform negation ($\rightarrow$) | $1$ | $-10$ | $31$ | $-30$ |
 
 Now, we get $(x - 2)(x - 3)(x - 5) = x^3 -10x^2 + 31x - 30$, which is correct. We can also note that the order in which the roots are processed can be random, as long as each root (not the value of the root) is processed and processed only once. 
 
 More generally, according to the feature of the cyclic polynomial, let $\lbrace x_1, x_2, x_3\rbrace = \lbrace 2, 3, 5\rbrace$ denote the roots. As the equation still holds after adding $k$ to both sides of the equation, adding $k$ directly after performing negation should be correct. No need to consider whether the $k$ should be negated or not. The principle behind this can be shown as follows. 
 
-| Coefficients ($\uparrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ | | Coefficients ($\downarrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ |
+| Coefficients ($\uparrow$) | $c_0$ | $c_1$ | $c_2$ | $c_3$ | | Coefficients ($\downarrow$) | $c'_0$ | $c'_1$ | $c'_2$ | $c'_3$ |
 | - | - | - | - | - | - | - | - | - | - | - |
-| Initial $\vec{c} \gets (1, 0, 0, 0)$ | $1$ | $0$ | $0$ | $0$ | | Initial $\vec{c} \gets (0, 0, 0, 1)$ | $0$ | $0$ | $0$ | $1$ |
-| $c_1 \gets c_1 + x_1 c_0$ | $1$ | $x_1$ | $0$ | $0$ | | $c_2 \gets c_3 + x_1 c_3$ | $0$ | $0$ | $x1$ | $1$ |
-| $c_2 \gets c_2 + x_2 c_1$ | $1$ | $x_1$ | $x_1 x_2$ | $0$ | | $c_1 \gets c_1 + x_2 c_2$ | $0$ | $x_1 x_2$ | $x_1$ | $1$ |
-| $c_1 \gets c_1 + x_2 c_0$ | $1$ | $x_1 + x_2$ | $x_1 x_2$ | $0$ | | $c_2 \gets c_2 + x_2 c_3$ | $0$ | $x_1 x_2$ | $x_1 + x_2$ | $1$ |
-| $c_3 \gets c_3 + x_3 c_2$ | $1$ | $x_1 + x_2$ | $x_1 x_2$ | $x_1 x_2 x_3$ | | $c_0 \gets c_0 + x_3 c_1$ | $x_1 x_2 x_3$ | $x_1 x_2$ | $x1 + x_2$ | $1$ |
-| $c_2 \gets c_2 + x_3 c_1$ | $1$ | $x_1 + x_2$ | $x_1 x_2 + x_3(x_1 + x_2)$ | $x_1 x_2 x_3$ | | $c_1 \gets c_1 + x_3 c_2$ | $x_1 x_2 x_3$ | $x_1 x_2 + x_3(x_1 + x_2)$ | $x_1 + x_2$ | $1$ |
-| | $1$ | $x_1 + x_2$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 x_2 x_3$ | | | $x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 + x_2$ | $1$ |
-| $c_1 \gets c_1 + x_3 c_0$ | $1$ | $x_1 + x_2 + x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 x_2 x_3$ | | $c_2 \gets c_2 + x_3 c_3$ | $x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 + x_2 + x_3$ | $1$ |
-| Perform negation ($\rightarrow$) | $1$ | $-(x_1 + x_2 + x_3)$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $-x_1 x_2 x_3$ | | Perform negation ($\leftarrow$) | $-x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $-(x_1 + x_2 + x_3)$ | $1$ |
+| Initial $\vec{c} \gets (0, 0, 0, 1)$ | $0$ | $0$ | $0$ | $1$ | | Initial $\vec{c}' \gets (1, 0, 0, 0)$ | $1$ | $0$ | $0$ | $0$ |
+| $c_2 \gets c_2 + x_1 c_3$ | $0$ | $0$ | $x1$ | $1$ | | $c'_1 \gets c'_1 + x_1 c'_0$ | $1$ | $x_1$ | $0$ | $0$ |
+| $c_1 \gets c_1 + x_2 c_2$ | $0$ | $x_1 x_2$ | $x_1$ | $1$ | | $c'_2 \gets c'_2 + x_2 c'_1$ | $1$ | $x_1$ | $x_1 x_2$ | $0$ |
+| $c_2 \gets c_2 + x_2 c_3$ | $0$ | $x_1 x_2$ | $x_1 + x_2$ | $1$ | | $c'_1 \gets c'_1 + x_2 c'_0$ | $1$ | $x_1 + x_2$ | $x_1 x_2$ | $0$ |
+| $c_0 \gets c_0 + x_3 c_1$ | $x_1 x_2 x_3$ | $x_1 x_2$ | $x1 + x_2$ | $1$ | | $c'_3 \gets c'_3 + x_3 c'_2$ | $1$ | $x_1 + x_2$ | $x_1 x_2$ | $x_1 x_2 x_3$ |
+| $c_1 \gets c_1 + x_3 c_2$ | $x_1 x_2 x_3$ | $x_1 x_2 + x_3(x_1 + x_2)$ | $x_1 + x_2$ | $1$ | | $c'_2 \gets c'_2 + x_3 c'_1$ | $1$ | $x_1 + x_2$ | $x_1 x_2 + x_3(x_1 + x_2)$ | $x_1 x_2 x_3$ |
+| | $x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 + x_2$ | $1$ | | | $1$ | $x_1 + x_2$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 x_2 x_3$ |
+| $c_2 \gets c_2 + x_3 c_3$ | $x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 + x_2 + x_3$ | $1$ | | $c'_1 \gets c'_1 + x_3 c'_0$ | $1$ | $x_1 + x_2 + x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $x_1 x_2 x_3$ |
+| Perform negation ($\leftarrow$) | $-x_1 x_2 x_3$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $-(x_1 + x_2 + x_3)$ | $1$ | | Perform negation ($\rightarrow$) | $1$ | $-(x_1 + x_2 + x_3)$ | $x_1 x_2 + x_1 x_3 + x_2 x_3$ | $-x_1 x_2 x_3$ |
 
 The coefficients here satisfy the coefficients expressed using the cyclic polynomial at the beginning of this subsubsection. The key point is that the result of multiplying the new root by the low-order sum happens to make up for the lack of the cyclic polynomial of the new root in the high-order sum, without duplication or omission. Thus, we have the following method. The method takes the roots $X$ and the translation factor $k$ as input and outputs the coefficients $\vec{c}$. 
 
@@ -327,9 +327,9 @@ Meanwhile, it is found that While ``self.__group.init(ZR, 1)`` is not the real `
 
 ```
 # This function outputs the coefficients from the constant term to the highest-order term (from $c_0$ to $c_n$), which is used in the official implementations. 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:Element|int|float|None = None) -> tuple:
+def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
 	flag = False
-	if isinstance(roots, (tuple, list, set)) and roots:
+	if isinstance(roots, (tuple, list)) and roots:
 		n = len(roots)
 		if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 			flag, coefficients = True, [None] * (n - 1) + [roots[0], self.__group.init(roots[0].type, 1)]
@@ -354,9 +354,9 @@ def __computeCoefficients(self:object, roots:tuple|list|set, k:Element|int|float
 		return (k, )
 
 # This function outputs the coefficients from the highest-order term to the constant term (from $c_n$ to $c_0$). 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:Element|int|float|None = None) -> tuple:
+def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
 	flag = False
-	if isinstance(roots, (tuple, list, set)) and roots:
+	if isinstance(roots, (tuple, list)) and roots:
 		n = len(roots)
 		if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 			flag, coefficients = True, [self.__group.init(roots[0].type, 1), roots[0]] + [None] * (n - 1)
@@ -705,7 +705,7 @@ Here is a link to my other implemented cryptography scheme, which is in the Java
 
 ### 9.3 Python
 
-Here are some links to my other implemented cryptography schemes, which are in the Python programming language but not based on the Python charm library. 
+Here are some links to my other implemented cryptography schemes, which are in the Python programming language but not based on the Python Charm-Crypto framework. 
 
 1) LB-PEAKS: [https://github.com/BatchClayderman/LB-PEAKS](https://github.com/BatchClayderman/LB-PEAKS)
 2) LLRS: [https://github.com/BatchClayderman/LLRS](https://github.com/BatchClayderman/LLRS)

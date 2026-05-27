@@ -180,7 +180,7 @@ class Builder:
 										+ "Python programming language based on the Python charm library\\. $"
 									), string) or search((
 										"This is a possible implementation of the [-A-Z_a-z]+ cryptographic scheme in "
-										+ "Python programming language based on the Python charm library\\. ", 
+										+ "Python programming language based on the Python charm library\\. "
 									), string) or search("^\\$[a-z]\\$:$", string)
 									or search("^Is the system valid\\? No\\. The parameter.+ should be .+ satisfying \\$.+\\$\\. $", string)
 								):

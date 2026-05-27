@@ -13,7 +13,7 @@ on:
       runSchemeCANIFPPCT:
         description: 'SchemeCANIFPPCT'
         required: false
-        default: false
+        default: true
         type: boolean
       runSchemeHIBME:
         description: 'SchemeHIBME'
@@ -187,151 +187,151 @@ jobs:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-      with:
-        sparse-checkout: |
-          ${{ matrix.cryptographicScheme }}
-          buildSchemeLaTeXPDFs.py
-          requirements.txt
-    
-    - name: Get ready
-      id: ready
-      run: |
-        cd "${{ github.workspace }}"
-        if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=0
-        elif [[ "ms" == "${decimalPlaceString}" || "millisecond" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=3
-        elif [[ "microsecond" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=6
-        elif [[ "ns" == "${decimalPlaceString}" || "nanosecond" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=9
-        elif [[ "ps" == "${decimalPlaceString}" || "picosecond" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=12
-        elif [[ "fs" == "${decimalPlaceString}" || "femtosecond" == "${decimalPlaceString}" ]];
-        then
-          decimalPlace=15
-        else
-          decimalPlace=${decimalPlaceString}
-        fi
-        folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
-        mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
-        timeString="HKT$(date '+%Y%m%d%H%M%S')"
-        outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-${timeString}${outputFormat}"
-        outputFileName="$(basename "${outputFilePath}")"
-        schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
-        schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
-        echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
-        echo "Output format: ${outputFormat}"
-        echo "Time string: ${timeString}"
-        echo "Output file path: ${outputFilePath}"
-        echo "Output file name: ${outputFileName}"
-        echo "Python version: ${pythonVersion}"
-        echo "Run count: ${runCount}"
-        echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
-        echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
-        echo "Scheme PDF file path: ${schemePDFFilePath}"
-        echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
-        echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
-        echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
-        echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
-        echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
-        echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
-        echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
-        echo "schemePDFFilePath=${schemePDFFilePath}" >> "${GITHUB_OUTPUT}"
-      env:
-        outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
-        pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
-        runCount: ${{ github.event.inputs.runCount || 10 }}
-        decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
-        TZ: 'Asia/Hong_Kong'
-    
-    - name: Install system dependencies
-      run: |
-        cd "${{ github.workspace }}"
-        sudo apt-get update
-        sudo apt-get install -y flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
-    
-    - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ steps.ready.outputs.pythonVersion }}
-    
-    - name: Install Python dependencies
-      run: |
-        cd "${{ github.workspace }}"
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-    
-    - name: Build LaTeX and the PDF for the cryptographic scheme
-      run: |
-        cd "${{ github.workspace }}"
-        echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
-        python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
-      env:
-        FORMATTER: '%p%s%mLaTeX%s%m-${{ steps.ready.outputs.timeString }}'
-        WAITING_TIME: 0
-    
-    - name: Upload the LaTeX source code for the cryptographic scheme
-      uses: actions/upload-artifact@v7
-      with:
-        path: ${{ github.workspace }}/${{ steps.ready.outputs.schemeLaTeXFilePath }}
-        archive: false
-        if-no-files-found: warn
-    
-    - name: Upload the PDF for the cryptographic scheme
-      uses: actions/upload-artifact@v7
-      with:
-        path: ${{ github.workspace }}/${{ steps.ready.outputs.schemePDFFilePath }}
-        archive: false
-        if-no-files-found: warn
-    
-    - name: Build and install the PBC library
-      run: |
-        cd "${{ github.workspace }}"
-        wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
-        tar -xzf pbc-1.0.0.tar.gz
-        cd pbc-1.0.0
-        ./configure LDFLAGS="-lgmp"
-        make -j$(nproc)
-        sudo make install
-        sudo ldconfig
-    
-    - name: Build and install the Python charm library
-      run: |
-        cd "${{ github.workspace }}"
-        git clone https://github.com/JHUISI/charm
-        cd charm
-        chmod +x ./configure.sh
-        ./configure.sh
-        make -j$(nproc)
-        sudo make install
-    
-    - name: Run the cryptographic scheme
-      run: |
-        cd "${{ github.workspace }}"
-        echo "The current working directory is \"$(pwd)\". "
-        if [[ -f "${{ matrix.cryptographicScheme }}" ]];
-        then
-          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
-          python "${{ matrix.cryptographicScheme }}" -t 0 -h
-          echo ""
-          echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
-          python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y
-        else
-          echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
-          tree
-        fi
-    
-    - name: Upload the result
-      uses: actions/upload-artifact@v7
-      with:
-        path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
-        archive: false
-        if-no-files-found: error
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+            buildSchemeLaTeXPDFs.py
+            requirements.txt
+      
+      - name: Get ready
+        id: ready
+        run: |
+          cd "${{ github.workspace }}"
+          if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=0
+          elif [[ "ms" == "${decimalPlaceString}" || "millisecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=3
+          elif [[ "microsecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=6
+          elif [[ "ns" == "${decimalPlaceString}" || "nanosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=9
+          elif [[ "ps" == "${decimalPlaceString}" || "picosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=12
+          elif [[ "fs" == "${decimalPlaceString}" || "femtosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=15
+          else
+            decimalPlace=${decimalPlaceString}
+          fi
+          folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
+          mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
+          timeString="HKT$(date '+%Y%m%d%H%M%S')"
+          outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-${timeString}${outputFormat}"
+          outputFileName="$(basename "${outputFilePath}")"
+          schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
+          schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
+          echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
+          echo "Output format: ${outputFormat}"
+          echo "Time string: ${timeString}"
+          echo "Output file path: ${outputFilePath}"
+          echo "Output file name: ${outputFileName}"
+          echo "Python version: ${pythonVersion}"
+          echo "Run count: ${runCount}"
+          echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
+          echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
+          echo "Scheme PDF file path: ${schemePDFFilePath}"
+          echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
+          echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
+          echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
+          echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
+          echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
+          echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
+          echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
+          echo "schemePDFFilePath=${schemePDFFilePath}" >> "${GITHUB_OUTPUT}"
+        env:
+          outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
+          pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
+          runCount: ${{ github.event.inputs.runCount || 10 }}
+          decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
+          TZ: 'Asia/Hong_Kong'
+      
+      - name: Install system dependencies
+        run: |
+          cd "${{ github.workspace }}"
+          sudo apt-get update
+          sudo apt-get install -y flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
+      
+      - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ steps.ready.outputs.pythonVersion }}
+      
+      - name: Install Python dependencies
+        run: |
+          cd "${{ github.workspace }}"
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      
+      - name: Build LaTeX and the PDF for the cryptographic scheme
+        run: |
+          cd "${{ github.workspace }}"
+          echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
+          python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
+        env:
+          FORMATTER: '%p%s%mLaTeX%s%m-${{ steps.ready.outputs.timeString }}'
+          WAITING_TIME: 0
+      
+      - name: Upload the LaTeX source code for the cryptographic scheme
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/${{ steps.ready.outputs.schemeLaTeXFilePath }}
+          archive: false
+          if-no-files-found: warn
+      
+      - name: Upload the PDF for the cryptographic scheme
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/${{ steps.ready.outputs.schemePDFFilePath }}
+          archive: false
+          if-no-files-found: warn
+      
+      - name: Build and install the PBC library
+        run: |
+          cd "${{ github.workspace }}"
+          wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
+          tar -xzf pbc-1.0.0.tar.gz
+          cd pbc-1.0.0
+          ./configure LDFLAGS="-lgmp"
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+      
+      - name: Build and install the Python charm library
+        run: |
+          cd "${{ github.workspace }}"
+          git clone https://github.com/JHUISI/charm
+          cd charm
+          chmod +x ./configure.sh
+          ./configure.sh
+          make -j$(nproc)
+          sudo make install
+      
+      - name: Run the cryptographic scheme
+        run: |
+          cd "${{ github.workspace }}"
+          echo "The current working directory is \"$(pwd)\". "
+          if [[ -f "${{ matrix.cryptographicScheme }}" ]];
+          then
+            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
+            python "${{ matrix.cryptographicScheme }}" -t 0 -h
+            echo ""
+            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
+            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y
+          else
+            echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
+            tree
+          fi
+      
+      - name: Upload the result
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
+          archive: false
+          if-no-files-found: error
