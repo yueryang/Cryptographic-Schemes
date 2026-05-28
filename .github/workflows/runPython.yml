@@ -38,7 +38,7 @@ on:
       runSchemeVLPSICA:
         description: 'SchemeVLPSICA'
         required: false
-        default: false
+        default: true
         type: boolean
       outputFormat:
         description: 'Output format'
@@ -139,7 +139,7 @@ jobs:
             runSchemeIBMEMR="true"
             runSchemeIBMETR="true"
             runSchemeIBPRME="true"
-            runSchemeVLPSICA="false"
+            runSchemeVLPSICA="true"
           fi
           matrix=()
           if [[ "true" == "${runSchemeAAIBME}" ]];

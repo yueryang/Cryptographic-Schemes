@@ -698,7 +698,7 @@ class SchemeAAIBME:
 		else:
 			ID_B = tuple(self.__group.random(ZR) for _ in range(self.__n))
 			print("DKGen: The variable $\\textit{ID}_B$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
-		if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime):
+		if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime): # hybrid check
 			SPrime = _SPrime
 		else:
 			SPrime = list(range(self.__n))
@@ -734,9 +734,9 @@ class SchemeAAIBME:
 		if not self.__flag:
 			print("Enc: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Enc`` subsequently. ")
 			self.Setup()
-		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime):
+		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime): # hybrid check
 			SPrimePrime = _SPrimePrime
-			if isinstance(_S, set) and len(_S) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _S):
+			if isinstance(_S, set) and len(_S) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _S): # hybrid check
 				S = _S
 			else:
 				S = list(SPrimePrime)
@@ -824,9 +824,9 @@ class SchemeAAIBME:
 		return CT # \textbf{return} $\textit{CT}$
 	def Dec(self:object, dkIDBSPrime:dict, IDB:tuple, IDA:tuple, _SPrimePrime:set, _SPrime:set, cipherText:tuple) -> Element|bool: # $\textbf{Dec}(\textit{dk}_{\textit{ID}_B}(S'), \textit{ID}_B, \textit{ID}_A, S'', S', \textit{CT}) \to M$
 		# Checks #
-		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime):
+		if isinstance(_SPrimePrime, set) and len(_SPrimePrime) == self.__k and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrimePrime): # hybrid check
 			SPrimePrime = _SPrimePrime
-			if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime):
+			if isinstance(_SPrime, set) and len(_SPrime) == self.__d and all(isinstance(ele, int) and 0 <= ele < self.__n for ele in _SPrime): # hybrid check
 				SPrime = _SPrime
 			else:
 				SPrime = list(SPrimePrime)

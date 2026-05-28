@@ -571,9 +571,12 @@ class SchemeCANIFPPCT:
 			print("Init: The securtiy parameter should be a positive integer but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
 		self.__n = SchemeCANIFPPCT.__DefaultN
 		self.__m = SchemeCANIFPPCT.__DefaultM
+		self.__bpk = None
+		self.__bsk = None
+		self.__bFlag = False
 		self.__mpk = None
 		self.__msk = None
-		self.__flag = False 
+		self.__flag = False
 	def __computeCoefficients(self:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
 		flag = False
 		if isinstance(roots, (tuple, list)) and roots:
@@ -631,6 +634,159 @@ class SchemeCANIFPPCT:
 			return eleResult
 		else:
 			return None
+	def BSetup(self:object, n:int = __DefaultN, m:int = __DefaultM) -> tuple: # $\textbf{BSetup}(n, m) \to (\textit{bpk}, \textit{bsk})$
+		# Checks #
+		self.__bFlag = False
+		if isinstance(n, int) and isinstance(m, int) and 1 <= m <= n: # boundary check
+			self.__n, self.__m = n, m
+		else:
+			self.__n, self.__m = SchemeCANIFPPCT.__DefaultN, SchemeCANIFPPCT.__DefaultM
+			print(																																	\
+				"BSetup: The variables $n$ and $m$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$ but they are not, "		\
+				+ "which have been defaulted to ${0}$ and ${1}$, respectively. ".format(SchemeCANIFPPCT.__DefaultN, SchemeCANIFPPCT.__DefaultM)		\
+			)
+		
+		# Scheme #
+		g = self.__group.init(G1, 1) # $g \gets 1_{\mathbb{G}_1}$
+		g1 = self.__group.random(G1) # generate $g_1 \in \mathbb{G}_1$ randomly
+		H1 = lambda x: self.__group.hash(x, G1) # $H_1: \{0, 1\}^* \to \mathbb{G}_1$
+		H2 = lambda x: self.__group.hash(self.__group.serialize(x), ZR) # $H_2: \mathbb{G}_1 \to \mathbb{Z}_r$
+		omega, t1, t2, t3, t4 = self.__group.random(ZR, 5) # generate $\omega, t_1, t_2, t_3, t_4 \in \mathbb{Z}_r$ randomly
+		Omega = pair(g, g) ** (t1 * t2 * omega) # $\Omega \gets e(g, g)^{t_1 t_2 \omega}$
+		v1 = g ** t1 # $v_1 \gets g^{t_1}$
+		v2 = g ** t2 # $v_2 \gets g^{t_2}$
+		v3 = g ** t3 # $v_3 \gets g^{t_3}$
+		v4 = g ** t4 # $v_4 \gets g^{t_4}$
+		self.__bpk = (g1, H1, H2, Omega, v1, v2, v3, v4) # $\textit{bpk} \gets (g_1, H_1, H_2, \Omega, v_1, v_2, v_3, v_4)$
+		self.__bsk = (omega, t1, t2, t3, t4) # $\textit{bsk} \gets (\omega, t_1, t_2, t_3, t_4)$
+		
+		# Return #
+		self.__bFlag = True
+		return (self.__bpk, self.__bsk) # \textbf{return} $(\textit{bpk}, \textit{bsk})$
+	def BKGen(self:object, ID_i:object) -> tuple: # $\textbf{BKGen}(\textit{ID}_i) \to \textit{bsk}_{\textit{ID}_i}$
+		# Checks #
+		if not self.__bFlag:
+			print("BKGen: The ``BSetup`` procedure has not been called yet. The program will call the ``BSetup`` first and finish the ``BKGen`` subsequently. ")
+			self.BSetup()
+		
+		# Unpack #
+		pass
+		
+		# Scheme #
+		k_i = self.__group.random(ZR) # generate $k_i \in \mathbb{Z}_r$ randomly
+		bsk_ID_i = k_i # $\textit{bsk}_{\textit{ID}_i} \gets k_i$
+		
+		# Return #
+		return bsk_ID_i # \textbf{return} $\textit{bsk}_{\textit{ID}_i}$
+	def BEncryption(self:object, TPi:bytes, _s:tuple|list, si:Element) -> tuple: # $\textbf{BEncryption}(\textit{TP}_i) \to \textit{BCT}_{\textit{TP}_i}$
+		# Checks #
+		if not self.__bFlag:
+			print("BEncryption: The ``BSetup`` procedure has not been called yet. The program will call the ``BSetup`` first and finish the ``BEncryption`` subsequently. ")
+			self.BSetup()
+		if isinstance(TPi, bytes): # type check
+			TP_i = TPi
+		else:
+			TP_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
+			print("BEncryption: The variable $\\textit{TP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s): # hybrid check
+			s = _s
+			if si in s:
+				s_i = si
+			else:
+				s_i = s[randbelow(self.__n)]
+				print("BEncryption: The variable $s_i$ should be an element in $s$ but it is not, which has been generate randomly. ")
+		else:
+			s = tuple(self.__group.random(ZR) for _ in range(self.__n))
+			print("BEncryption: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
+			s_i = s[randbelow(self.__n)]
+			print("BEncryption: The variable $s_i$ has been generated accordingly. ")
+		
+		# Unpack #
+		g1, H1, H2, Omega, v1, v2, v3, v4 = self.__bpk
+		
+		# Scheme #
+		s1_i, s2_i = self.__group.random(ZR), self.__group.random(ZR) # generate $s_{1_i}, s_{2_i} \in \mathbb{Z}_r$ randomly
+		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
+		C0_i = (g1 * H1(TP_i)) ** s_i # $C_{0_i} \gets (g_1 H_1(t_i || p_i))^{s_i}$
+		C1_i = v1 ** (s_i - s1_i) # $C_{1_i} \gets v_1^{s_i - s_{1_i}}$
+		C2_i = v2 ** s1_i # $C_{2_i} \gets v_2^{s_{1_i}}$
+		C3_i = v3 ** (s_i - s2_i) # $C_{3_i} \gets v_2^{s_i - s_{2_i}}$
+		C4_i = v4 ** s2_i # $C_{4_i} \gets v_2^{s_{1_i}}$
+		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots, a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		BCT_TP_i = ((C0_i, C1_i, C2_i, C3_i, C4_i), aVec) # $\textit{BCT}_{\textit{TPs}} \gets ((C_{0_i}, C_{1_i}, C_{2_i}, C_{3_i}, C_{4_i}), \vec{a})$
+		
+		# Return #
+		return BCT_TP_i # \textbf{return} $\textit{BCT}_{\textit{TP}_i}$
+	def BTrapdoorGen(self:object, QTPi:tuple, bskIDi:Element) -> tuple: # $\textbf{BTrapdoorGen}(\textit{QTP}_i, \textit{bsk}_{\textit{ID}_i}) \to \textit{btrapdoor}_i$
+		# Checks #
+		if not self.__bFlag:
+			print("BTrapdoorGen: The ``BSetup`` procedure has not been called yet. The program will call the ``BSetup`` first and finish the ``BTrapdoorGen`` subsequently. ")
+			self.BSetup()
+		if isinstance(QTPi, bytes): # type check
+			QTP_i = QTPi
+		else:
+			QTP_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
+			print("BTrapdoorGen: The variable $\\textit{QTP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(bskIDi, Element) and bskIDi.type == ZR: # type check
+			bsk_ID_i = bskIDi
+		else:
+			bsk_ID_i = self.BKGen(self.__group.random(ZR))
+			print("BTrapdoorGen: The variable $\\textit{bsk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+		
+		# Unpack #
+		g1, H1, v1, v2 = self.__bpk[0], self.__bpk[1], self.__bpk[4], self.__bpk[5]
+		omega, t1, t2, t3, t4 = self.__bsk
+		
+		# Scheme #
+		r1_i , r2_i = self.__group.random(ZR), self.__group.random(ZR) # generate $r_{1_i}, r_{2_i} \in \mathbb{Z}_r$ randomly
+		T0_i = self.__group.init(G1, 1) ** (r1_i * t1 * t2 + r2_i * t3 * t4) # $T_{0_i} \gets 1_{\mathbb{G}_1}^{r_{1_i} t_1 t_2 + r_{2_i} t_3 t_4}$
+		T1_i = v2 ** omega * ((g1 * H1(QTP_i)) ** (-r1_i * t2)) # $T_{1_i} \gets v_2^\omega (g_1 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{1_i} t_2}$
+		T2_i = v1 ** omega * ((g1 * H1(QTP_i)) ** (-r1_i * t1)) # $T_{2_i} \gets v_1^\omega (g_1 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{1_i} t_1}$
+		T3_i = (g1 * H1(QTP_i)) ** (-r2_i * t4) # $T_{3_i} \gets (g_1 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_4}$
+		T4_i = (g1 * H1(QTP_i)) ** (-r2_i * t3) # $T_{4_i} \gets (g_1 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_3}$
+		btrapdoor_i = (T0_i, T1_i, T2_i, T3_i, T4_i) # $\textit{btrapdoor} \gets (T_{0_i}, T_{1_i}, T_{2_i}, T_{3_i}, T_{4_i})$
+		
+		# Return #
+		return btrapdoor_i # \textbf{return} $\textit{btrapdoor}_i$
+	def BQuery(self:object, BCTTPi:tuple, btrapdoori:tuple) -> bool: # $\textbf{BQuery}(\textit{BCT}_{\textit{TP}_i}, \textit{btrapdoor}_i) \to y, y \in \{0, 1\}$
+		# Checks #
+		if not self.__bFlag:
+			print("BQuery: The ``BSetup`` procedure has not been called yet. The program will call the ``BSetup`` first and finish the ``BQuery`` subsequently. ")
+			self.BSetup()
+		sk_ID_i = None
+		if isinstance(BCTTPi, tuple) and len(BCTTPi) == 2 and all(isinstance(ele, tuple) for ele in BCTTPi) and len(BCTTPi[0]) == 5: # hybrid check
+			BCT_TP_i = BCTTPi
+		else:
+			sk_ID_i, ek_ID_i = self.KGen(self.__group.random(ZR))
+			BCT_TP_i = self.BEncryption(																					\
+				randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big"), 	\
+				sk_ID_i, ek_ID_i, s, s[randbelow(self.__n)]																\
+			)
+			del ek_ID_i
+			print("BQuery: The variable $\textit{BCT}_{\textit{TP}_i}$ should be a tuple containing 2 tuples but it is not, which has been generated randomly. ")
+		if isinstance(btrapdoori, tuple) and len(btrapdoori) == 5 and all(isinstance(ele, Element) for ele in btrapdoori): # hybrid check
+			btrapdoor_i = btrapdoori
+		else:
+			btrapdoor_i = self.BTrapdoorGen(																					\
+				randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big"), 	\
+				self.BKGen(self.__group.random(ZR))[0] if sk_ID_i is None else sk_ID_i								\
+			)
+			print("BQuery: The variable $\textit{btrapdoor}_i$ should be a tuple containing 5 elements but it is not, which has been generated randomly. ")
+		del sk_ID_i
+		
+		# Unpack #
+		H2 = self.__bpk[2]
+		CVec_i, aVec = BCT_TP_i
+		C0_i, C1_i, C2_i, C3_i, C4_i = CVec_i
+		T0_i, T1_i, T2_i, T3_i, T4_i = btrapdoor_i
+		
+		# Scheme #
+		VPrime_i = H2(																						\
+			pair(T0_i, C0_i) * pair(T1_i, C1_i) * pair(T2_i, C2_i) * pair(T3_i, C3_i) * pair(T4_i, C4_i)	\
+		) # $V'_i \gets H_2(e(T_{0_i}, C_{0_i}) e(T_{1_i}, C_{1_i}) e(T_{2_i}, C_{2_i}) e(T_{3_i}, C_{3_i}) e(T_{4_i}, C_{4_i}))$
+		
+		# Return #
+		return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # $\textbf{return} f(x) = a_0 + \sum\limits_{j = 1}^n a_j {V'_i}^j = 0$
 	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM) -> tuple: # $\textbf{Setup}(n, m) \to (\textit{mpk}, \textit{msk})$
 		# Checks #
 		self.__flag = False
@@ -666,12 +822,12 @@ class SchemeCANIFPPCT:
 		# Return #
 		self.__flag = True
 		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def KGen(self:object, ID_i:object = None, _L:list = []) -> tuple: # $\textbf{KGen}(\textit{ID}_i, L) \to (\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
+	def KGen(self:object, ID_i:object, _L:list = []) -> tuple: # $\textbf{KGen}(\textit{ID}_i, L) \to (\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
 		# Checks #
 		if not self.__flag:
 			print("KGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``KGen`` subsequently. ")
 			self.Setup()
-		if isinstance(_L, list):
+		if isinstance(_L, list): # type check
 			L = _L
 		else:
 			L = []
@@ -692,26 +848,26 @@ class SchemeCANIFPPCT:
 		
 		# Return #
 		return (sk_ID_i, ek_ID_i) # \textbf{return} $(\textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i})$
-	def Encryption(self:object, TPsi:bytes, skIDi:Element, ekIDi:tuple, _s:tuple|list, si:Element) -> tuple: # $\textbf{Encryption}(\textit{TPs}_i, \textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i}, s, s_i) \to \textit{CT}_{\textit{TP}_i}$
+	def Encryption(self:object, TPi:bytes, skIDi:Element, ekIDi:tuple, _s:tuple|list, si:Element) -> tuple: # $\textbf{Encryption}(\textit{TP}_i, \textit{sk}_{\textit{ID}_i}, \textit{ek}_{\textit{ID}_i}, s, s_i) \to \textit{CT}_{\textit{TP}_i}$
 		# Checks #
 		if not self.__flag:
 			print("Encryption: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Encryption`` subsequently. ")
 			self.Setup()
-		if isinstance(TPsi, bytes):
-			TPs_i = TPsi
+		if isinstance(TPi, bytes): # type check
+			TP_i = TPi
 		else:
-			TPs_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
-			print("Encryption: The variable $\\textit{TPs}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
-		if isinstance(skIDi, Element) and skIDi.type == ZR:
+			TP_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
+			print("Encryption: The variable $\\textit{TP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(skIDi, Element) and skIDi.type == ZR: # type check
 			sk_ID_i = skIDi
 		else:
 			sk_ID_i = self.KGen(self.__group.random(ZR), [])[0]
 			print("Encryption: The variable $\\textit{sk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
-		if isinstance(ekIDi, tuple) and len(ekIDi) == 2 and all(isinstance(ele, Element) for ele in ekIDi):
+		if isinstance(ekIDi, tuple) and len(ekIDi) == 2 and all(isinstance(ele, Element) for ele in ekIDi): # hybrid check
 			ek_ID_i = ekIDi
 		else:
 			print("Encryption: The variable $\\textit{ek}_{\\textit{ID}_i}$ should be a tuple containing 2 elements but it is not, which has been generated randomly. ")
-		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s):
+		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s): # hybrid check
 			s = _s
 			if si in s:
 				s_i = si
@@ -734,7 +890,7 @@ class SchemeCANIFPPCT:
 		# Scheme #
 		s1_i, s2_i = self.__group.random(ZR), self.__group.random(ZR) # generate $s_{1_i}, s_{2_i} \in \mathbb{Z}_r$ randomly
 		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
-		C0_i = (g3 * H1(TPs_i)) ** s_i # $C_{0_i} \gets (g_3 H_1(t_i || p_i))^{s_i}$
+		C0_i = (g3 * H1(TP_i)) ** s_i # $C_{0_i} \gets (g_3 H_1(t_i || p_i))^{s_i}$
 		C1_i = v1 ** (s_i - s1_i) # $C_{1_i} \gets v_1^{s_i - s_{1_i}}$
 		C2_i = v2 ** s1_i # $C_{2_i} \gets v_2^{s_{1_i}}$
 		C3_i = v3 ** (s_i - s2_i) # $C_{3_i} \gets v_2^{s_i - s_{2_i}}$
@@ -748,25 +904,25 @@ class SchemeCANIFPPCT:
 			b"".join(self.__group.serialize(ele) for ele in (C0_i, C1_i, C2_i, C3_i, C4_i) + aVec[:-1] + (C1, C2, C3))
 		) # $C_4 \gets H_3(C_{0_1} || C_{0_2} || \cdots || C_{0_n} || C_{1_1} || C_{1_2} || \cdots || C_{1_n} || \cdots || C_{4_1} || C_{4_2} || \cdots || C_{4_n} || a_0 || a_1 || \cdots || a_{n - 1} || C_1 || C_2 || C_3)$
 		C5 = sk_ID_i * C4 + x_i # $C_5 \gets \textit{sk}_{\textit{ID}_i} C_4 + x_i$
-		CT_TP_i = (C0_i, C1_i, C2_i, C3_i, C4_i, C1, C2, C3, C4, C5) # $\textit{CT}_{\textit{TPs}} \gets (\vec{C}_0, \vec{C}_1, \vec{C}_2, \vec{C}_3, \vec{C}_4, C_1, C_2, C_3, C_4, C_5)$
+		CT_TP_i = (C0_i, C1_i, C2_i, C3_i, C4_i, C1, C2, C3, C4, C5) # $\textit{CT}_{\textit{TPs}} \gets (C_{0_i}, C_{1_i}, C_{2_i}, C_{3_i}, C_{4_i}, C_1, C_2, C_3, C_4, C_5)$
 		
 		# Return #
 		return CT_TP_i # \textbf{return} $\textit{CT}_{\textit{TP}_i}$
-	def TokenGen(self:object, QTPi:tuple, skIDi:Element) -> tuple: # $\textbf{TokenGen}(\textit{QTP}_i, \textit{sk}_{\textit{ID}_i}) \to \textit{token}_i$
+	def TrapdoorGen(self:object, QTPi:tuple, skIDi:Element) -> tuple: # $\textbf{TrapdoorGen}(\textit{QTP}_i, \textit{sk}_{\textit{ID}_i}) \to \textit{trapdoor}_i$
 		# Checks #
 		if not self.__flag:
-			print("TokenGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TokenGen`` subsequently. ")
+			print("TrapdoorGen: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``TrapdoorGen`` subsequently. ")
 			self.Setup()
-		if isinstance(QTPi, bytes):
+		if isinstance(QTPi, bytes): # type check
 			QTP_i = QTPi
 		else:
 			QTP_i = randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big")
-			print("TokenGen: The variable $\\textit{QTP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
-		if isinstance(skIDi, Element) and skIDi.type == ZR:
+			print("TrapdoorGen: The variable $\\textit{QTP}_i$ should be a ``bytes`` object but it is not, which has been generated randomly. ")
+		if isinstance(skIDi, Element) and skIDi.type == ZR: # type check
 			sk_ID_i = skIDi
 		else:
 			sk_ID_i = self.KGen(self.__group.random(ZR), [])
-			print("TokenGen: The variable $\\textit{sk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
+			print("TrapdoorGen: The variable $\\textit{sk}_{\\textit{ID}_i}$ should be an element of $\\mathbb{Z}_r$ but it is not, which has been generated randomly. ")
 		
 		# Unpack #
 		g1, g2, g3, H1 = self.__mpk[0], self.__mpk[1], self.__mpk[2], self.__mpk[3]
@@ -779,33 +935,45 @@ class SchemeCANIFPPCT:
 		T2_i = g1 ** (omega * t1) * ((g3 * H1(QTP_i)) ** (-r1_i * t1)) # $T_{2_i} \gets g_1^{\omega t_1} (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{1_i} t_1}$
 		T3_i = (g3 * H1(QTP_i)) ** (-r2_i * t4) # $T_{3_i} \gets (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_4}$
 		T4_i = (g3 * H1(QTP_i)) ** (-r2_i * t3) # $T_{4_i} \gets (g_3 H_1(\textit{qt}_i || \textit{qp}_i))^{-r_{2_i} t_3}$
-		token_i = (T0_i, T1_i, T2_i, T3_i, T4_i) # $\textit{token} \gets (T_{0_i}, T_{1_i}, T_{2_i}, T_{3_i}, T_{4_i})$
+		trapdoor_i = (T0_i, T1_i, T2_i, T3_i, T4_i) # $\textit{trapdoor} \gets (T_{0_i}, T_{1_i}, T_{2_i}, T_{3_i}, T_{4_i})$
 		
 		# Return #
-		return token_i # \textbf{return} $\textit{token}_i$
-	def Query(self:object, CTTPi:tuple, token_i:tuple, _s:tuple|list) -> bool: # $\textbf{Query}(\textit{CT}_{\textit{TP}_i}, \textit{token}_i, s) \to y, y \in \{0, 1\}$
+		return trapdoor_i # \textbf{return} $\textit{trapdoor}_i$
+	def Query(self:object, CTTPi:tuple, trapdoori:tuple, _s:tuple|list) -> bool: # $\textbf{Query}(\textit{CT}_{\textit{TP}_i}, \textit{trapdoor}_i, s) \to y, y \in \{0, 1\}$
 		# Checks #
 		if not self.__flag:
 			print("Query: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Query`` subsequently. ")
 			self.Setup()
-		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s):
+		if isinstance(_s, (tuple, list)) and len(_s) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _s): # hybrid check
 			s = _s
 		else:
 			s = tuple(self.__group.random(ZR) for _ in range(self.__n))
 			print("Query: The variable $s$ should be a tuple or a list containing $n$ elements of \\mathbb{Z}_r but it is not, which has been generated randomly. ")
-		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi):
+		sk_ID_i = None
+		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi): # hybrid check
 			CT_TP_i = CTTPi
 		else:
+			sk_ID_i, ek_ID_i = self.KGen(self.__group.random(ZR), [])
 			CT_TP_i = self.Encryption(																					\
 				randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big"), 	\
-				*self.KGen(self.__group.random(ZR), []), s, s[randbelow(self.__n)]										\
+				sk_ID_i, ek_ID_i, s, s[randbelow(self.__n)]																\
 			)
+			del ek_ID_i
 			print("Query: The variable $\textit{CT}_{\textit{TP}_i}$ should be a tuple containing 10 elements but it is not, which has been generated randomly. ")
+		if isinstance(trapdoori, tuple) and len(trapdoori) == 5 and all(isinstance(ele, Element) for ele in trapdoori):
+			trapdoor_i = trapdoori
+		else:
+			trapdoor_i = self.TrapdoorGen(																					\
+				randbelow(1 << self.__group.secparam).to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big"), 	\
+				self.KGen(self.__group.random(ZR), [])[0] if sk_ID_i is None else sk_ID_i								\
+			)
+			print("Query: The variable $\textit{trapdoor}_i$ should be a tuple containing 5 elements but it is not, which has been generated randomly. ")
+		del sk_ID_i
 		
 		# Unpack #
 		H2, Omega = self.__mpk[4], self.__mpk[10]
 		C0_i, C1_i, C2_i, C3_i, C4_i = CT_TP_i[0], CT_TP_i[1], CT_TP_i[2], CT_TP_i[3], CT_TP_i[4]
-		T0_i, T1_i, T2_i, T3_i, T4_i = token_i
+		T0_i, T1_i, T2_i, T3_i, T4_i = trapdoor_i
 		
 		# Scheme #
 		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
@@ -821,7 +989,7 @@ class SchemeCANIFPPCT:
 		if not self.__flag:
 			print("Trace: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Trace`` subsequently. ")
 			self.Setup()
-		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi):
+		if isinstance(CTTPi, tuple) and len(CTTPi) == 10 and all(isinstance(ele, Element) for ele in CTTPi): # hybrid check
 			CT_TP_i = CTTPi
 		else:
 			CT_TP_i = self.Encryption(																					\
@@ -829,11 +997,11 @@ class SchemeCANIFPPCT:
 				*self.KGen(self.__group.random(ZR), []), s, s[randbelow(self.__n)]										\
 			)
 			print("Trace: The variable $\textit{CT}_{\textit{TP}_i}$ should be a tuple containing 10 elements but it is not, which has been generated randomly. ")
-		if isinstance(_L, list):
+		if isinstance(_L, list): # type check
 			L = _L
 		else:
 			L = []
-			print("KGen: The variable $L$ should be a list but it is not, which has been initialized as an empty list. ")
+			print("Trace: The variable $L$ should be a list but it is not, which has been initialized as an empty list. ")
 		
 		# Unpack #
 		H4 = self.__mpk[6]
@@ -873,10 +1041,12 @@ class SchemeCANIFPPCT:
 def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, run:int|None = None, isVerbose:bool = False) -> list:
 	# Begin #
 	curveName, securityParameter, runString = "N/A", 512, "N/A"
-	isSystemValid, isSchemeCorrect = False, False
-	timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace = ("N/A", ) * 6
+	isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified = (False, ) * 4
+	timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery = ("N/A", ) * 5
+	timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace = ("N/A", ) * 6
 	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeSk, sizeC, sizeCT, sizeCPrime, sizeCTPrime = ("N/A", ) * 7
+	sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors = ("N/A", ) * 5
+	sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors = ("N/A", ) * 6
 	
 	# Checks #
 	if isinstance(curveParameter, (tuple, list)):
@@ -931,6 +1101,61 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 			scheme.getLengthOf(group.random(G2)), scheme.getLengthOf(group.random(GT))		\
 		)
 		
+		try:
+			pair(group.random(G1), group.random(G1))
+			isAsymmetric = False
+		except:
+			isAsymmetric = True
+		
+		if isAsymmetric:
+			isBSchemeCorrect = "N/A"
+		else:
+			# BSetup #
+			startTime = perf_counter()
+			bpk, bsk = scheme.BSetup(n, m)
+			endTime = perf_counter()
+			timeBSetup = endTime - startTime
+			sizeBpk, sizeBsk = scheme.getLengthOf(bpk), scheme.getLengthOf(bsk)
+			
+			# BKGen #
+			startTime = perf_counter()
+			IDVec, bsk_IDs = tuple(group.random(ZR) for _ in range(n)), []
+			for i in range(n):
+				bsk_IDs.append(scheme.BKGen(IDVec[i]))
+			endTime = perf_counter()
+			timeBKGen = (endTime - startTime) / n
+			sizeBskIDs = scheme.getLengthOf(bsk_IDs)
+			
+			# BEncryption #
+			startTime = perf_counter()
+			TPs = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n))
+			s = tuple(group.random(ZR) for _ in range(n))
+			BCT_TPs = []
+			for i in range(n):
+				BCT_TPs.append(scheme.BEncryption(TPs[i], s, s[i]))
+			endTime = perf_counter()
+			timeBEncryption = (endTime - startTime) / n
+			sizeBCTTPs = scheme.getLengthOf(BCT_TPs)
+			
+			# BTrapdoorGen #
+			startTime = perf_counter()
+			QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
+			BTrapdoors = []
+			for i in range(m):
+				BTrapdoors.append(scheme.BTrapdoorGen(QTP[i], bsk_IDs[i]))
+			endTime = perf_counter()
+			timeBTrapdoorGen = (endTime - startTime) / m
+			sizeBTrapdoors = scheme.getLengthOf(BTrapdoors)
+			
+			# BQuery #
+			startTime = perf_counter()
+			bys = []
+			for i in range(m):
+				bys.append(scheme.BQuery(BCT_TPs[i], BTrapdoors[i]))
+			endTime = perf_counter()
+			isBSchemeCorrect = bys and all(bys)
+			timeBQuery = (endTime - startTime) / m
+		
 		# Setup #
 		startTime = perf_counter()
 		mpk, msk = scheme.Setup(n, m)
@@ -961,21 +1186,21 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 		timeEncryption = (endTime - startTime) / n
 		sizeCTTPs = scheme.getLengthOf(CT_TPs)
 		
-		# TokenGen #
+		# TrapdoorGen #
 		startTime = perf_counter()
 		QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
-		Tokens = []
+		Trapdoors = []
 		for i in range(m):
-			Tokens.append(scheme.TokenGen(QTP[i], sk_IDs[i]))
+			Trapdoors.append(scheme.TrapdoorGen(QTP[i], sk_IDs[i]))
 		endTime = perf_counter()
-		timeTokenGen = endTime - startTime
-		sizeTokens = scheme.getLengthOf(Tokens)
+		timeTrapdoorGen = (endTime - startTime) / m
+		sizeTrapdoors = scheme.getLengthOf(Trapdoors)
 		
 		# Query #
 		startTime = perf_counter()
 		ys = []
 		for i in range(m):
-			ys.append(scheme.Query(CT_TPs[i], Tokens[i], s))
+			ys.append(scheme.Query(CT_TPs[i], Trapdoors[i], s))
 		endTime = perf_counter()
 		isSchemeCorrect = ys and all(ys)
 		timeQuery = (endTime - startTime) / m
@@ -992,21 +1217,31 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 		# Destruction #
 		del scheme
 		if not isinstance(isVerbose, bool) or isVerbose:
+			print("bys:", "N/A" if isAsymmetric else bys)
 			print("ys:", ys)
 			print("identities:", identities)
+			print("Is the basic scheme correct? {0}. ".format("Yes" if isBSchemeCorrect else "No"))
 			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
-			print("Time:", (timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTokens))
+			print("Time:", (																	\
+				(timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery),			\
+				(timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace)	\
+			))
+			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT,						\
+				(sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors),			\
+				(sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors)	\
+			))
 			print()
 	
 	# End #
-	return [																		\
-		curveName, securityParameter, nString, mString, runString, 					\
-		isSystemValid, isSchemeCorrect, isTracingVerified, 							\
-		timeSetup, timeKGen, timeEncryption, timeTokenGen, timeQuery, timeTrace, 	\
-		sizeZR, sizeG1, sizeG2, sizeGT, 											\
-		sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTokens				\
+	return [																			\
+		curveName, securityParameter, nString, mString, runString, 						\
+		isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified, 			\
+		timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery, 			\
+		timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace, 	\
+		sizeZR, sizeG1, sizeG2, sizeGT, 												\
+		sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors, 						\
+		sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors				\
 	]
 
 def main() -> int:
@@ -1025,14 +1260,18 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", ("SS512", 512), ("SS1024", 1024))
 			queries = ("curveParameter", "secparam", "n", "m", "runCount")
-			validators = ("isSystemValid", "isDeriverPassed", "isSchemeCorrect")
-			metrics = (																					\
-				"Setup (s)", "KGen (s)", "Encryption (s)", "TokenGen (s)", "Query (s)", "Trace (s)", 	\
-				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 			\
-				"mpk (B)", "msk (B)", "sk_IDs (B)", "ek_IDs (B)", "CT_TPs (B)", "Tokens (B)"			\
+			validators = ("isSystemValid", "isBSchemeCorrect", "isSchemeCorrect", "isTracingVerified")
+			metrics = (																						\
+				"BSetup (s)", "BKGen (s)", "BEncryption (s)", "BTrapdoorGen (s)", "BQuery (s)", 			\
+				"Setup (s)", "KGen (s)", "Encryption (s)", "TrapdoorGen (s)", "Query (s)", "Trace (s)", 	\
+				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 				\
+				"bpk (B)", "bsk (B)", "bsk_IDs (B)", "BCT_TPs (B)", "BTrapdoors (B)",						\
+				"mpk (B)", "msk (B)", "sk_IDs (B)", "ek_IDs (B)", "CT_TPs (B)", "Trapdoors (B)"				\
 			)
+			getValidatorJudges = lambda x:(x[qLength + validatorIndex] for validatorIndex in (0, 2, 3))
+			getMetricJudges = lambda x:(x[qvLength + metricIndex] for metricIndex in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22, 23, 24, 25))
 			
 			# Scheme #
 			columns, qLength, results = queries + validators + metrics, len(queries), []
@@ -1071,9 +1310,11 @@ def main() -> int:
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = EXIT_SUCCESS if results and all(all(																							\
-				tuple(r == runCount for r in result[qLength:qvLength]) + tuple(isinstance(r, (float, int)) and r > 0 for r in result[qvLength:length])	\
-			) for result in results) else EXIT_FAILURE
+			errorLevel = EXIT_SUCCESS if results and all(											\
+				all(r == runCount for r in getValidatorJudges(result))								\
+				and all(isinstance(r, (float, int)) and r > 0 for r in getMetricJudges(result))		\
+				for result in results																\
+			) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		parser.disableConsoleEchoes()
