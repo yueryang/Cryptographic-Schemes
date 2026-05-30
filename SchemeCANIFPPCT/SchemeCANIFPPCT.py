@@ -1270,12 +1270,12 @@ def main() -> int:
 				"bpk (B)", "bsk (B)", "bsk_IDs (B)", "BCT_TPs (B)", "BTrapdoors (B)",						\
 				"mpk (B)", "msk (B)", "sk_IDs (B)", "ek_IDs (B)", "CT_TPs (B)", "Trapdoors (B)"				\
 			)
-			getValidatorJudges = lambda x:(x[qLength + validatorIndex] for validatorIndex in (0, 2, 3))
-			getMetricJudges = lambda x:(x[qvLength + metricIndex] for metricIndex in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22, 23, 24, 25))
+			getValidatorJudges = lambda x:(x[queryLength + validatorIndex] for validatorIndex in (0, 2, 3))
+			getMetricJudges = lambda x:(x[queryValidatorLength + metricIndex] for metricIndex in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22, 23, 24, 25))
 			
 			# Scheme #
-			columns, qLength, results = queries + validators + metrics, len(queries), []
-			length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
+			columns, queryLength, results = queries + validators + metrics, len(queries), []
+			length, queryValidatorLength, runCountIndex = len(columns), queryLength + len(validators), queryLength - 1
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
@@ -1284,12 +1284,12 @@ def main() -> int:
 							averages = conductScheme(curveParameter, n = n, m = m, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
 								result = conductScheme(curveParameter, n = n, m = m, run = run, isVerbose = isVerbose)
-								for idx in range(qLength, qvLength):
+								for idx in range(queryLength, queryValidatorLength):
 									averages[idx] += result[idx]
-								for idx in range(qvLength, length):
+								for idx in range(queryValidatorLength, length):
 									averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
-							averages[avgIndex] = runCount
-							for idx in range(qvLength, length):
+							averages[runCountIndex] = runCount
+							for idx in range(queryValidatorLength, length):
 								if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
 									averages[idx] /= runCount
 									if averages[idx].is_integer():

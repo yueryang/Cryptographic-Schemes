@@ -877,24 +877,24 @@ def main() -> int:
 				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 								\
 				"mpk (B)", "msk (B)", "Pvk_Id (B)", "Pvk_IdTraced (B)", "CT (B)"						\
 			)
-			getValidatorJudges = lambda x:x
-			getMetricJudges = lambda x:x
+			getValidatorJudges = lambda x:x[queryLength:queryValidatorLength]
+			getMetricJudges = lambda x:x[queryValidatorLength:]
 			
 			# Scheme #
-			columns, qLength, results = queries + validators + metrics, len(queries), []
-			length, qvLength, avgIndex = len(columns), qLength + len(validators), qLength - 1
+			columns, queryLength, results = queries + validators + metrics, len(queries), []
+			length, queryValidatorLength, runCountIndex = len(columns), queryLength + len(validators), queryLength - 1
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
 					averages = conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
 					for run in range(2, runCount + 1):
 						result = conductScheme(curveParameter, run = run, isVerbose = isVerbose)
-						for idx in range(qLength, qvLength):
+						for idx in range(queryLength, queryValidatorLength):
 							averages[idx] += result[idx]
-						for idx in range(qvLength, length):
+						for idx in range(queryValidatorLength, length):
 							averages[idx] = averages[idx] + result[idx] if isinstance(averages[idx], (float, int)) and averages[idx] > 0 and result[idx] > 0 else "N/A"
-					averages[avgIndex] = runCount
-					for idx in range(qvLength, length):
+					averages[runCountIndex] = runCount
+					for idx in range(queryValidatorLength, length):
 						if isinstance(averages[idx], (float, int)) and averages[idx] > 0:
 							averages[idx] /= runCount
 							if averages[idx].is_integer():
