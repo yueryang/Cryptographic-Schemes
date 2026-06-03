@@ -66,11 +66,12 @@ Eventually, other relevant implementation issues are presented.
 
 To start with, the Python environments must be resolved. As installing Python directly via the system's package manager 
 (e.g., ``sudo apt install python3``, ``sudo apt-get install python3``, ``sudo yum install python3``, ``sudo dnf install python3``, and ``pkg install python3``) 
-will cause the management of Python libraries from the Python pip to be taken over by the system's package manager, we strongly recommend manually installing the latest Python. 
+will cause the management of Python libraries from the Python pip to be taken over by the system's package manager, which is quite anonying and inconvenient 
+(especially when executing ``pip install`` and ``python -m pip install --upgrade pip``) we strongly recommend manually installing the latest Python. 
 Taking the installation of the latest Python on the latest Ubuntu as an example, here is a possible set of shell commands to finish the manual installation, 
 where ``apt-get update`` can be executed as ``apt-get update && apt-get upgrade -y`` if on a fresh operating system. 
 If it is suspected that the system already includes a system-wide Python and it is highly desirable to remove it entirely, 
-please be aware of the risks and execute ``apt purge --auto-remove python3`` before proceeding with the following shell commands. 
+please be aware of the risks and execute ``apt purge --auto-remove python3`` as ``root`` before proceeding with the following shell commands. 
 
 ```shell
 apt-get update
