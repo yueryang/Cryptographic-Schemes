@@ -9,6 +9,11 @@ from hashlib import md5, sha1, sha3_224, sha3_256, sha3_384, sha3_512
 from math import ceil, log
 from secrets import randbelow
 from time import perf_counter, sleep
+from warnings import filterwarnings
+filterwarnings(																																												\
+	"ignore", category = DeprecationWarning, 																																				\
+	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"	\
+)
 try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__)))
 except:
@@ -84,7 +89,7 @@ class Parser:
 	def __parseRealNumber(self:object, string:str) -> int|float|None:
 		try:
 			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
-			if "e" in realNumberString and not realNumberString.endswith("e"):
+			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
 				minusSign = False
@@ -95,18 +100,17 @@ class Parser:
 						minusSign, realNumberString = not minusSign, realNumberString[1:]
 					else:
 						break
-				while realNumberString.startswith("00"):
-					realNumberString = realNumberString[1:]
-				if realNumberString.startswith("0b"):
-					base, digits, realNumberString = 2, "01", realNumberString[2:]
-				elif realNumberString.startswith("0q"):
-					base, digits, realNumberString = 4, "0123", realNumberString[2:]
-				elif realNumberString.startswith("0o"):
-					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
-				elif realNumberString.startswith(("0d", "0l")):
-					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
-				elif realNumberString.startswith(("0h", "0x")):
-					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				realNumberString = realNumberString.lstrip("0")
+				if realNumberString.startswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[1:]
+				elif realNumberString.startswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[1:]
+				elif realNumberString.startswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[1:]
+				elif realNumberString.startswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[1:]
+				elif realNumberString.startswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[1:]
 				elif realNumberString.endswith("b"):
 					base, digits, realNumberString = 2, "01", realNumberString[:-1]
 				elif realNumberString.endswith("q"):
@@ -124,7 +128,7 @@ class Parser:
 				elif "nan" == realNumberString:
 					realNumber = float("nan")
 				else:
-					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					integerPartString, decimalPartString = realNumberString.split(".")[:2] if "." in realNumberString else (realNumberString, "")
 					realNumber = 0
 					for ch in decimalPartString.rstrip("0")[::-1]:
 						realNumber += digits.index(ch)

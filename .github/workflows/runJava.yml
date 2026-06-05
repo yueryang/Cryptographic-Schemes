@@ -1,54 +1,292 @@
 name: Run Java
 
-# Thanks to [https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml](https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml). 
-
 on:
-  workflow_dispatch:
-    inputs:
-      cryptographicScheme:
-        description: 'Cryptographic scheme'
-        required: true
-        default: './SchemeAAIBME/SchemeAAIBME.java'
-        type: choice
-        options:
-          - './SchemeAAIBME/SchemeAAIBME.java'
-  push:
-    branches:
-      - main
-    paths:
-      - '**/*.java'
-      - '.github/workflows/runJava.yml'
   pull_request:
     branches:
       - main
     paths:
       - '**/*.java'
       - '.github/workflows/runJava.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.java'
+      - '.github/workflows/runJava.yml'
+  workflow_dispatch:
+    inputs:
+      runSchemeAAIBME:
+        description: 'SchemeAAIBME'
+        required: true
+        default: true
+        type: boolean
+      javaVersion:
+        description: 'Java Version'
+        required: true
+        default: 25
+        type: choice
+        options:
+          - 11
+          - 12
+          - 13
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
+          - 19
+          - 20
+          - 21
+          - 22
+          - 23
+          - 24
+          - 25
+          - 26
+      outputFormat:
+        description: 'Output format'
+        required: true
+        default: '.xlsx'
+        type: choice
+        options:
+          - '.csv'
+          - '.htm'
+          - '.html'
+          - '.json'
+          - '.tex'
+          - '.tsv'
+          - '.txt'
+          - '.xls'
+          - '.xlsx'
+          - '.xml'
+          - '.yaml'
+          - '.yml'
+      decimalPlace:
+        description: 'Decimal place'
+        required: true
+        default: 9
+        type: choice
+        options:
+          - 0
+          - 's'
+          - 'second'
+          - 3
+          - 'ms'
+          - 'millisecond'
+          - 6
+          - 'microsecond'
+          - 9
+          - 'ns'
+          - 'nanosecond'
+          - 12
+          - 'ps'
+          - 'picosecond'
+          - 15
+          - 'fs'
+          - 'femtosecond'
+      runCount:
+        description: 'Run count'
+        required: true
+        default: '10'
+        type: string
 
 jobs:
-  runJava:
+  prepare:
     runs-on: ubuntu-latest
-    
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Prepare the matrix
+        id: matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]];
+          then
+            runSchemeAAIBME="${{ github.event.inputs.runSchemeAAIBME }}"
+          else
+            runSchemeAAIBME="true"
+          fi
+          matrix=()
+          if [[ "true" == "${runSchemeAAIBME}" ]];
+          then
+            matrix+=("SchemeAAIBME/SchemeAAIBME.java")
+          fi
+          if [[ ${#matrix[@]} -ge 1 ]];
+          then
+            echo "matrix=$(printf '%s\n' "${matrix[@]}" | jq -R . | jq -s -c 'unique')" >> "${GITHUB_OUTPUT}"
+          else
+            echo "matrix=[]" >> "${GITHUB_OUTPUT}"
+          fi
+  
+  runJava:
+    if: needs.prepare.outputs.matrix != '[]'
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          sparse-checkout:
+            - '${{ matrix.cryptographicScheme }}'
+            - 'lib/'
       
-      - name: Set up JDK
+      - name: Prepare environment
+        id: ready
+        run: |
+          cd "${{ github.workspace }}"
+          
+          # Decimal place #
+          if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=0
+          elif [[ "ms" == "${decimalPlaceString}" || "millisecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=3
+          elif [[ "microsecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=6
+          elif [[ "ns" == "${decimalPlaceString}" || "nanosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=9
+          elif [[ "ps" == "${decimalPlaceString}" || "picosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=12
+          elif [[ "fs" == "${decimalPlaceString}" || "femtosecond" == "${decimalPlaceString}" ]];
+          then
+            decimalPlace=15
+          else
+            decimalPlace=${decimalPlaceString}
+          fi
+          
+          # Run count #
+          strippedRunCountString="$(echo -n "${runCountString}" | tr -d '\t _')"
+          leadingSigns="${strippedRunCountString%%[!+-]*}"
+          minusCount=$(echo -n "${leadingSigns}" | tr -cd '-' | wc -c)
+          strippedRunCountString="${strippedRunCountString#$leadingSigns}"
+          if [[ "${strippedRunCountString:0:1}" =~ [0-9] ]];
+          then
+            case "${strippedRunCountString: -1}" in
+              'B'|'b')
+                base=2
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'Q'|'q')
+                base=4
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'O'|'o')
+                base=8
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'D'|'d')
+                base=10
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'X'|'x')
+                base=16
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              *)
+                base=10
+                ;;
+            esac
+          else
+            case "${strippedRunCountString:0:1}" in
+              'B'|'b')
+                base=2
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'Q'|'q')
+                base=4
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'O'|'o')
+                base=8
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'D'|'d')
+                base=10
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'X'|'x')
+                base=16
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              *)
+                base=10
+                ;;
+            esac
+          fi
+          strippedRunCountString="$(echo "${strippedRunCountString}" | sed 's/^0*//')"
+          strippedRunCountString="${strippedRunCountString%%.*}"
+          runCount=10
+          { runCount=$((${base}#$strippedRunCountString)); } 2>/dev/null
+          if (( minusCount % 2 == 1 ));
+          then
+            runCount=$(( -runCount ))
+          fi
+          if [[ ${runCount} -lt 1 ]];
+          then
+            runCount=10
+          fi
+          
+          folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
+          mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
+          timeString="HKT$(date '+%Y%m%d%H%M%S')"
+          outputFilePath="${folderPath}/${mainFileName}-Java${javaVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
+          outputFileName="$(basename "${outputFilePath}")"
+          schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
+          schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
+          echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
+          echo "Output format: ${outputFormat}"
+          echo "Time string: ${timeString}"
+          echo "Output file path: ${outputFilePath}"
+          echo "Output file name: ${outputFileName}"
+          echo "Java version: ${javaVersion}"
+          echo "Run count: ${runCount}"
+          echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
+          echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
+          echo "Scheme PDF file path: ${schemePDFFilePath}"
+          echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
+          echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
+          echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
+          echo "javaVersion=${javaVersion}" >> "${GITHUB_OUTPUT}"
+          echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
+          echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
+          echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
+          echo "schemePDFFilePath=${schemePDFFilePath}" >> "${GITHUB_OUTPUT}"
+        env:
+          javaVersion: ${{ github.event.inputs.javaVersion || 25 }}
+          outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
+          decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
+          runCountString: ${{ github.event.inputs.runCount || '10' }}
+          TZ: 'Asia/Hong_Kong'
+      
+      - name: Set up JDK ${{ steps.ready.outputs.javaVersion }}
         uses: actions/setup-java@v5
         with:
-          java-version: '25'
+          java-version: ${{ steps.ready.outputs.javaVersion }}
           distribution: 'temurin'
       
-      - name: Run Java
+      - name: Run the cryptographic scheme
         run: |
           cd "${{ github.workspace }}"
           echo "The current working directory is \"$(pwd)\". "
-          if [[ -f "${{ github.event.inputs.cryptographicScheme }}" ]];
+          if [[ -f "${{ matrix.cryptographicScheme }}" ]];
           then
-            echo "\$ java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar \"${{ github.event.inputs.cryptographicScheme }}\""
-            java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar "${{ github.event.inputs.cryptographicScheme }}"
+            echo "\$ java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }}"
+            java -cp lib/jpbc-api-2.0.0.jar:lib/jpbc-plaf-2.0.0.jar "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }}
           else
-            echo "Could not execute the cryptographic scheme file \"${{ github.event.inputs.cryptographicScheme }}\" via Java. "
+            echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Java. "
             tree
             exit 1
           fi
+      
+      - name: Upload result
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
+          archive: false
+          if-no-files-found: error

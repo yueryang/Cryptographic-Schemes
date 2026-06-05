@@ -194,48 +194,74 @@ public class SchemeAAIBME
 		return sb.toString();
 	}
 	
-	public static boolean dump(String str, boolean isAlert, String encoding)
+	private static String getJavaDirectoryPath(String encoding)
 	{
-		File newFile = null;
 		try
 		{
 			final String baseFilePath = System.getProperty("sun.java.command");
-			String outputFilePath = null;
 			if (baseFilePath != null && baseFilePath.startsWith("jdk.compiler/com.sun.tools.javac.launcher.SourceLauncher "))
-				outputFilePath = baseFilePath.substring(57, baseFilePath.length() - 5) + ".txt";
+				return new File(new File(baseFilePath.substring(57)).getParent()).getAbsolutePath();
 			else
-				outputFilePath = URLDecoder.decode(ClassLoader.getSystemResource("").getPath(), encoding) + "SchemeAAIBME.java";
-			System.out.println(outputFilePath);
+				return new File(URLDecoder.decode(ClassLoader.getSystemResource("").getPath(), encoding)).getAbsolutePath();
+		}
+		catch (Throwable e)
+		{
+			return ".";
+		}
+	}
+	public static boolean dump(String str, String outputFilePath, boolean isAlert, String encoding)
+	{
+        	File newFile = null;
+		try
+		{
 			newFile = new File(outputFilePath);
 			if (!newFile.exists())
+			{
+				File parent = newFile.getParentFile();
+				if (parent != null && !parent.exists())
+					parent.mkdirs();
 				newFile.createNewFile();
+			}
 		}
 		catch (Throwable e)
 		{
 			if (isAlert)
-				System.out.println("Error creating file(s): \n" + e);
+				System.out.println("Failed to save the results due to \"" + e + "\". ");
 			return false;
 		}
-		try
+		try (FileOutputStream out = new FileOutputStream(newFile, false))
 		{
-			FileOutputStream out = new FileOutputStream(newFile, false);
-			out.write(str.toString().getBytes(encoding));
-			out.close();
+			out.write(str.getBytes(encoding));
 			return true;
 		}
 		catch (Throwable e)
 		{
 			if (isAlert)
-				System.out.println("Error writing file(s): \n" + e);
+				System.out.println("Failed to save the results due to \"" + e + "\". ");
 			return false;
 		}
 	}
-	public static boolean dump(String str, boolean isAlert) { return dump(str, isAlert, "UTF-8"); }
-	public static boolean dump(String str) { return dump(str, true, "UTF-8"); }
-	
+	public static boolean dump(String str, String outputFilePath, boolean isAlert) { return dump(str, outputFilePath, isAlert, "UTF-8"); }
+	public static boolean dump(String str, String outputFilePath) { return dump(str, outputFilePath, true, "UTF-8"); }
 	
 	public static void main(String[] args)
 	{
+		/* Get the Java directory */
+		final String javaDirectoryPath = getJavaDirectoryPath("UTF-8"), defaultFileName = "SchemeAAIBME.xlsx";
+		
+		/* Command-line argument parsing */
+		String outputFilePath = defaultFileName;
+		for (int i = 0; i < args.length; ++i)
+			if (("o".equals(args[i]) || "/o".equals(args[i]) || "-o".equals(args[i])) && i + 1 < args.length)
+			{
+				outputFilePath = args[i + 1];
+				break;
+			}
+		if (!new File(outputFilePath).isAbsolute())
+			outputFilePath = new File(javaDirectoryPath, outputFilePath).getPath();
+		System.out.println("The Java source directory is \"" + javaDirectoryPath + "\". ");
+		System.out.println("The result file path is \"" + outputFilePath + "\". ");
+		
 		/* initial what to figure out */
 		ArrayList<HashMap<String, Long>> results = new ArrayList<>();
 		
@@ -246,7 +272,7 @@ public class SchemeAAIBME
 			results.add(test(n, k, d));
 			toDump = Java2Python(results);
 			System.out.println(toDump);
-			dump(toDump);
+			dump(toDump, outputFilePath);
 		}
 		
 		n = UB;
@@ -255,7 +281,7 @@ public class SchemeAAIBME
 			results.add(test(n, k, d));
 			toDump = Java2Python(results);
 			System.out.println(toDump);
-			dump(toDump);
+			dump(toDump, outputFilePath);
 		}
 		
 		k = UB;
@@ -264,7 +290,7 @@ public class SchemeAAIBME
 			results.add(test(n, k, d));
 			toDump = Java2Python(results);
 			System.out.println(toDump);
-			dump(toDump);
+			dump(toDump, outputFilePath);
 		}
 		
 		return;

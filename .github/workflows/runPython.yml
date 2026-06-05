@@ -3,61 +3,57 @@ name: Run Python
 # Thanks to [https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml](https://github.com/JHUISI/charm/blob/dev/.github/workflows/ci.yml). 
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**/*.py'
+      - '.github/workflows/runPython.yml'
+      - 'requirements.txt'
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.py'
+      - '.github/workflows/runPython.yml'
+      - 'requirements.txt'
   workflow_dispatch:
     inputs:
       runSchemeAAIBME:
         description: 'SchemeAAIBME'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeCANIFPPCT:
         description: 'SchemeCANIFPPCT'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeHIBME:
         description: 'SchemeHIBME'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeIBMEMR:
         description: 'SchemeIBMEMR'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeIBMETR:
         description: 'SchemeIBMETR'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeIBPRME:
         description: 'SchemeIBPRME'
-        required: false
+        required: true
         default: true
         type: boolean
       runSchemeVLPSICA:
         description: 'SchemeVLPSICA'
-        required: false
+        required: true
         default: false
         type: boolean
-      outputFormat:
-        description: 'Output format'
-        required: true
-        default: '.xlsx'
-        type: choice
-        options:
-          - .csv
-          - .htm
-          - .html
-          - .json
-          - .tex
-          - .tsv
-          - .txt
-          - .xls
-          - .xlsx
-          - .xml
-          - .yaml
-          - .yml
       pythonVersion:
         description: 'Python version'
         required: true
@@ -69,55 +65,58 @@ on:
           - '3.13'
           - '3.14'
           - '3.15'
-      runCount:
-        description: 'Run count'
+      outputFormat:
+        description: 'Output format'
         required: true
-        default: 10
-        type: number
+        default: '.xlsx'
+        type: choice
+        options:
+          - '.csv'
+          - '.htm'
+          - '.html'
+          - '.json'
+          - '.tex'
+          - '.tsv'
+          - '.txt'
+          - '.xls'
+          - '.xlsx'
+          - '.xml'
+          - '.yaml'
+          - '.yml'
       decimalPlace:
         description: 'Decimal Place'
         required: true
-        default: '9'
+        default: 9
         type: choice
         options:
           - 0
-          - s
-          - second
+          - 's'
+          - 'second'
           - 3
-          - ms
-          - millisecond
+          - 'ms'
+          - 'millisecond'
           - 6
-          - microsecond
+          - 'microsecond'
           - 9
-          - ns
-          - nanosecond
+          - 'ns'
+          - 'nanosecond'
           - 12
-          - ps
-          - picosecond
+          - 'ps'
+          - 'picosecond'
           - 15
-          - fs
-          - femtosecond
-  push:
-    branches:
-      - main
-    paths:
-      - '**/*.py'
-      - '.github/workflows/runPython.yml'
-      - 'requirements.txt'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - '**/*.py'
-      - '.github/workflows/runPython.yml'
-      - 'requirements.txt'
+          - 'fs'
+          - 'femtosecond'
+      runCount:
+        description: 'Run count'
+        required: true
+        default: '10'
+        type: string
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-    
     steps:
       - name: Prepare the matrix
         id: matrix
@@ -184,20 +183,21 @@ jobs:
       fail-fast: false
       matrix:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          sparse-checkout: |
-            ${{ matrix.cryptographicScheme }}
-            buildSchemeLaTeXPDFs.py
-            requirements.txt
+          sparse-checkout:
+            - '${{ matrix.cryptographicScheme }}'
+            - 'buildSchemeLaTeXPDFs.py'
+            - 'requirements.txt'
       
       - name: Get ready
         id: ready
         run: |
           cd "${{ github.workspace }}"
+          
+          # Decimal place #
           if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
           then
             decimalPlace=0
@@ -219,10 +219,83 @@ jobs:
           else
             decimalPlace=${decimalPlaceString}
           fi
+          
+          # Run count #
+          strippedRunCountString="$(echo -n "${runCountString}" | tr -d '\t _')"
+          leadingSigns="${strippedRunCountString%%[!+-]*}"
+          minusCount=$(echo -n "${leadingSigns}" | tr -cd '-' | wc -c)
+          strippedRunCountString="${strippedRunCountString#$leadingSigns}"
+          if [[ "${strippedRunCountString:0:1}" =~ [0-9] ]];
+          then
+            case "${strippedRunCountString: -1}" in
+              'B'|'b')
+                base=2
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'Q'|'q')
+                base=4
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'O'|'o')
+                base=8
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'D'|'d')
+                base=10
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              'X'|'x')
+                base=16
+                strippedRunCountString="${strippedRunCountString:0:-1}"
+                ;;
+              *)
+                base=10
+                ;;
+            esac
+          else
+            case "${strippedRunCountString:0:1}" in
+              'B'|'b')
+                base=2
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'Q'|'q')
+                base=4
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'O'|'o')
+                base=8
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'D'|'d')
+                base=10
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              'X'|'x')
+                base=16
+                strippedRunCountString="${strippedRunCountString:1}"
+                ;;
+              *)
+                base=10
+                ;;
+            esac
+          fi
+          strippedRunCountString="$(echo "${strippedRunCountString}" | sed 's/^0*//')"
+          strippedRunCountString="${strippedRunCountString%%.*}"
+          runCount=10
+          { runCount=$((${base}#$strippedRunCountString)); } 2>/dev/null
+          if (( minusCount % 2 == 1 ));
+          then
+            runCount=$(( -runCount ))
+          fi
+          if [[ ${runCount} -lt 1 ]];
+          then
+            runCount=10
+          fi
+          
           folderPath="$(dirname "${{ matrix.cryptographicScheme }}")"
           mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
           timeString="HKT$(date '+%Y%m%d%H%M%S')"
-          outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-r${runCount}-p${decimalPlace}-${timeString}${outputFormat}"
+          outputFilePath="${folderPath}/${mainFileName}-Python${pythonVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
           outputFileName="$(basename "${outputFilePath}")"
           schemeLaTeXFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
           schemePDFFilePath="${folderPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
@@ -245,10 +318,10 @@ jobs:
           echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
           echo "schemePDFFilePath=${schemePDFFilePath}" >> "${GITHUB_OUTPUT}"
         env:
-          outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
           pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
-          runCount: ${{ github.event.inputs.runCount || 10 }}
+          outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
           decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
+          runCountString: ${{ github.event.inputs.runCount || '10' }}
           TZ: 'Asia/Hong_Kong'
       
       - name: Install system dependencies
@@ -321,8 +394,8 @@ jobs:
             echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
             python "${{ matrix.cryptographicScheme }}" -t 0 -h
             echo ""
-            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y"
-            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -r ${{ steps.ready.outputs.runCount }} -p ${{ steps.ready.outputs.decimalPlace }} -t 0 -y
+            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }} -t 0 -y"
+            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }} -t 0 -y
           else
             echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
             tree
