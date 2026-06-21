@@ -132,35 +132,34 @@ For more information about the output, as well as supported file types, please v
 
 The parsers are designed to recognize the command-line arguments as robustly as possible. 
 For example, regarding the parsing of a number, if both the prefix base descriptor and the suffix base descriptor are specified at the same time, the former will take effect. 
-Literals like "----000x0052_eF.33__44" can still be recognized as 21231.200256347656 $\left(\cfrac{347851985}{16384} = 21231.20025634765625\right)$. Detailed parsing procedures are as follows. 
+Literals like "----000x0052_eF.33__44 *" can still be recognized as 21231.200256347656 $\left(\cfrac{347851985}{16384} = 21231.20025634765625\right)$. Detailed parsing procedures are as follows. 
 
-1) Initially, remove all the whitespace characters and underscores from the string. 
-2) Define the sign part by scanning the '+' and '-' characters at the beginning of the string obtained in Step 1). 
-3) Compute the count of the leading '-' in the sign part defined in Step 2) and remove the sign part from the string obtained in Step 1). 
-4) Remove the leading zeros from the string obtained in Step 3). 
-5) Check the first character of the string obtained in Step 4). If it is a digit (``[0-9]``), proceed to Step 6). Otherwise, proceed to Step 7). 
-6) Check the last character of the string obtained in Step 4). If it matches any of the following itemized rules, proceed to Step 8). Otherwise, proceed to Step 10). 
-7) If the first character of the string obtained in Step 4) matches any of the following itemized rules, proceed to Step 9). Otherwise, proceed to Step 10). 
-8) Set ``base`` accordingly and define the numeric part as the string obtained in Step 4) without the last character. Proceed to Step 11). 
-9) Set ``base`` accordingly and define the numeric part as the string obtained in Step 4) without the first character. Proceed to Step 11). 
-10) Set ``base`` to ``10`` and define the numeric part as the string obtained in Step 4). Proceed to Step 11). 
-11) If the parsing is limited to an integer, proceed to Step 12). Otherwise, proceed to Step 13). 
-12) If one or more radix points are in the numeric part, proceed to Step 14). Otherwise, proceed to Step 16). 
-13) If two or more radix points are in the numeric part, proceed to Step 15). Otherwise, proceed to Step 16). 
-14) Convert all the characters before the first radix point in the numeric part defined to an integer according to the ``base`` and mark the conversion result as ``value``. Proceed to Step 17). 
-15) Convert all the characters before the second radix point in the numeric part defined to a decimal according to the ``base`` and mark the conversion result as ``value``. Proceed to Step 17). 
-16) Convert all the characters in the numeric part defined to a value according to the ``base`` and mark the conversion result as ``value``. Proceed to Step 17). 
-17) If the count of the leading '-' in 3) is odd, return the negative value of ``value``. Otherwise, return ``value``. 
+1) Remove all characters except '+', '-', '.', digits (``[0-9]``), and letters (``[A-Za-z]``) from the string, and convert the remaining string to lowercase. 
+2) Define the sign part by scanning the '+' and '-' characters at the beginning of the string obtained in **Step 1**. 
+3) Compute the count of the leading '-' in the sign part defined in **Step 2** and remove the sign part from the string obtained in **Step 1**. 
+4) Remove the leading zeros from the string obtained in **Step 3**. 
+5) Check the first character of the string obtained in **Step 4**. If it is a digit (``[0-9]``), proceed to **Step 6**. Otherwise, proceed to **Step 7**. 
+6) Check the last character of the string obtained in **Step 4**. If it matches any of the following itemized rules, proceed to **Step 8**. Otherwise, proceed to **Step 10**. 
+7) If the first character of the string obtained in **Step 4** matches any of the following itemized rules, proceed to Step 9). Otherwise, proceed to **Step 10**. 
+8) Define radix accordingly and define the numeric part as the string obtained in **Step 4** without the last character. Proceed to **Step 11**. 
+9) Define radix accordingly and define the numeric part as the string obtained in **Step 4** without the first character. Proceed to **Step 11**. 
+10) Define radix as 10 and define the numeric part as the string obtained in **Step 4**. Proceed to **Step 11**. 
+11) If the parsing is limited to an integer, proceed to **Step 12**. Otherwise, proceed to **Step 13**. 
+12) If one or more radix points are in the numeric part defined, redefine the numeric part as the string before the first radix point in the original numeric part. Proceed to **Step 14**. 
+13) If two or more radix points are in the numeric part defined, redefine the numeric part as the string before the second radix point in the original numeric part. Proceed to **Step 14**. 
+14) Convert all the characters in the numeric part defined to a value according to the radix defined and define the value as the conversion result. Proceed to **Step 15**. 
+15) If the count of the leading '-' in **Step 3** is odd, return the negative value of the value defined. Otherwise, return the value defined. 
 
-- 'B'|'b': Set ``base`` to ``2`` (binary)
-- 'Q'|'q': Set ``base`` to ``4`` (quaternary)
-- 'O'|'o': Set ``base`` to ``8`` (octal)
-- 'D'|'d': Set ``base`` to ``10`` (decimal)
-- 'X'|'x': Set ``base`` to ``16`` (hexadecimal)
+- 'b': Set ``base`` to ``2`` (binary)
+- 'q': Set ``base`` to ``4`` (quaternary)
+- 'o': Set ``base`` to ``8`` (octal)
+- 'd': Set ``base`` to ``10`` (decimal)
+- 'x': Set ``base`` to ``16`` (hexadecimal)
 
 Regarding the conversion subprocedure, the conversion should first judge whether the numeric part is an "inf" or a "nan" case-insensitively. 
 If the numeric part, compared case-insensitively, equals "inf" or "nan", return the corresponding special value (e.g., ``float("inf")`` or ``float("nan")`` in Python). 
-Otherwise, convert the integer and decimal parts, respectively, by using [Horner's Method](https://en.wikipedia.org/wiki/Horner%27s_method). 
+Otherwise, convert the integer part and the decimal part (if specified and there is one), respectively, by using [Horner's Method](https://en.wikipedia.org/wiki/Horner%27s_method). 
+Letter and digit characters that do not meet the radix can be skipped with warnings, or raise an error directly (current action). 
 
 Most of the Python scripts here include a similar parser class with a difference in describing the scheme name. 
 For more details regarding the command-line arguments, please pass the argument ``-h`` to the Python scripts to view. 
