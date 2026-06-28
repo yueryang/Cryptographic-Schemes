@@ -1,4 +1,5 @@
-import os
+from os import chdir, makedirs, name, sep
+from os.path import abspath, dirname, exists, isdir, join, split, splitext
 from sys import argv, exit
 try:
 	from charm.toolbox.pairinggroup import PairingGroup, G1, GT, ZR, pair, pc_element as Element
@@ -13,7 +14,7 @@ filterwarnings(																																												\
 	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"	\
 )
 try:
-	os.chdir(os.path.abspath(os.path.dirname(__file__)))
+	chdir(abspath(dirname(__file__)))
 except:
 	pass
 EXIT_SUCCESS = 0
@@ -22,7 +23,7 @@ EOF = (-1)
 
 
 class Parser:
-	__SchemeName = "SchemeIBME" # os.path.splitext(os.path.basename(__file__))[0]
+	__SchemeName = "SchemeIBME" # splitext(basename(__file__))[0]
 	__OptionEncoding = ("e", "/e", "-e", "encoding", "/encoding", "--encoding")
 	__DefaultEncoding = "utf-8"
 	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
@@ -74,12 +75,12 @@ class Parser:
 		print()
 	def __handlePath(self:object, filePath:str) -> str:
 		if isinstance(filePath, str):
-			if os.path.isdir(filePath) or filePath.endswith((os.sep, "/")):
+			if isdir(filePath) or filePath.endswith((sep, "/")):
 				print("Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ".format(repr(Parser.__DefaultOutputFileName)))
-				return self.__handlePath(os.path.join(filePath, Parser.__DefaultOutputFileName))
-			elif os.path.splitext(os.path.split(filePath)[1])[1][1:].upper() in Parser.__ProtectedExtensionNames:
+				return self.__handlePath(join(filePath, Parser.__DefaultOutputFileName))
+			elif splitext(split(filePath)[1])[1][1:].upper() in Parser.__ProtectedExtensionNames:
 				print("Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ".format(repr(self.__DefaultExtension)))
-				return self.__handlePath(os.path.splitext(filePath)[0] + Parser.__DefaultExtension)
+				return self.__handlePath(splitext(filePath)[0] + Parser.__DefaultExtension)
 			else:
 				return filePath
 		else:
@@ -238,8 +239,8 @@ class Parser:
 	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
 			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
-			while outputFilePath and os.path.exists(outputFilePath):
-				if os.path.isfile(outputFilePath):
+			while outputFilePath and exists(outputFilePath):
+				if isfile(outputFilePath):
 					if not overwritingConfirmed:
 						flag = True
 						try:
@@ -263,7 +264,7 @@ class Parser:
 		else:
 			return (outputFP, overwriting)
 	def disableConsoleEchoes(self:object) -> bool:
-		if "posix" == os.name:
+		if "posix" == name:
 			try:
 				if self.__originalConsoleAttributes is None:
 					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
@@ -277,7 +278,7 @@ class Parser:
 				return False
 		return True
 	def restoreConsoleEchoes(self:object) -> bool:
-		if "posix" == os.name:
+		if "posix" == name:
 			try:
 				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
 			except:
@@ -305,8 +306,8 @@ class Saver:
 		self.__columns = tuple(column for column in columns if isinstance(column, str)) if isinstance(columns, (tuple, list)) else tuple()
 		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
-		self.__folderPath = os.path.dirname(self.__outputFilePath)
-		self.__extensionName = os.path.splitext(os.path.split(self.__outputFilePath)[1])[1][1:].upper()
+		self.__folderPath = dirname(self.__outputFilePath)
+		self.__extensionName = splitext(split(self.__outputFilePath)[1])[1][1:].upper()
 		self.__Writer = None # CSV/TSV
 		self.__escapeHTML = None # HTM/HTML
 		self.__dumpsJSON = None # JSON/YAML/YML
@@ -321,21 +322,21 @@ class Saver:
 		self.__fontXLSXValues = None # XLSX
 		self.__escapeXLSX = None # XLSX
 		self.__escapeXML = None # XML
-	def __handleFolder(self:object) -> bool:
+	def __handleDirectory(self:object) -> bool:
 		if not self.__folderPath:
 			return True
-		elif os.path.exists(self.__folderPath):
-			return os.path.isdir(self.__folderPath)
+		elif exists(self.__folderPath):
+			return isdir(self.__folderPath)
 		else:
 			try:
-				os.makedirs(self.__folderPath)
+				makedirs(self.__folderPath)
 				return True
 			except:
 				return False
 	def save(self:object, results:tuple|list) -> bool:
 		if isinstance(results, (tuple, list)) and all(isinstance(result, (tuple, list)) and all(r is None or isinstance(r, (bool, float, int, str)) for r in result) for result in results):
 			if self.__outputFilePath:
-				if self.__handleFolder():
+				if self.__handleDirectory():
 					flag = True
 					while True: # try our best to avoid ``KeyboardInterrupt`` when writing the output file
 						if flag and self.__extensionName != "TXT":

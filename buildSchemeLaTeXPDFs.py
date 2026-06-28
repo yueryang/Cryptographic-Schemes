@@ -1,4 +1,5 @@
-import os
+from os import chdir, getenv, makedirs, name, sep, walk
+from os.path import abspath, dirname, isdir, isfile, islink, join, relpath, split, splitext
 from sys import argv, exit
 try:
 	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
@@ -9,7 +10,7 @@ from re import match
 from subprocess import TimeoutExpired, run
 from time import perf_counter, sleep
 try:
-	os.chdir(os.path.abspath(os.path.dirname(__file__)))
+	chdir(abspath(dirname(__file__)))
 except:
 	pass
 EXIT_SUCCESS = 0
@@ -82,10 +83,10 @@ class Environments:
 		except:
 			return None
 	def resolve(self:object) -> tuple:
-		waitingTime = self.__parseRealNumber(os.getenv("WAITING_TIME"))
-		return (os.getenv("FORMATTER"), waitingTime if isinstance(waitingTime, (int, float)) and waitingTime >= 0 else Environments.__DefaultWaitingTime)
+		waitingTime = self.__parseRealNumber(getenv("WAITING_TIME"))
+		return (getenv("FORMATTER"), waitingTime if isinstance(waitingTime, (int, float)) and waitingTime >= 0 else Environments.__DefaultWaitingTime)
 	def disableConsoleEchoes(self:object) -> bool:
-		if "posix" == os.name:
+		if "posix" == name:
 			try:
 				if self.__originalConsoleAttributes is None:
 					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
@@ -99,7 +100,7 @@ class Environments:
 				return False
 		return True
 	def restoreConsoleEchoes(self:object) -> bool:
-		if "posix" == os.name:
+		if "posix" == name:
 			try:
 				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
 			except:
@@ -113,7 +114,7 @@ class Builder:
 		self.__schemeFilePath = schemeFilePath
 		if isinstance(self.__schemeFilePath, str) and isinstance(pathWithoutExtensions, str):
 			self.__schemeLaTeXFilePath = pathWithoutExtensions + ".tex"
-			self.__targetFolderPath, self.__schemeLaTeXFileName = os.path.split(self.__schemeLaTeXFilePath)
+			self.__targetFolderPath, self.__schemeLaTeXFileName = split(self.__schemeLaTeXFilePath)
 			self.__schemePDFFilePath = pathWithoutExtensions + ".pdf"
 			self.__flag = 1
 		else:
@@ -257,10 +258,9 @@ class Builder:
 			try:
 				with open(self.__schemeFilePath, "rb") as f:
 					tree = parse_module(f.read())
-				os.makedirs(self.__targetFolderPath, exist_ok = True)
+				makedirs(self.__targetFolderPath, exist_ok = True)
 				with open(self.__schemeLaTeXFilePath, "w", encoding = tree.encoding) as f:
-					f.write("\\documentclass[a4paper]{article}" + os.linesep + "\\setlength{\\parindent}{0pt}" + os.linesep + "\\usepackage{amsmath,amssymb}" + os.linesep)
-					f.write("\\usepackage{bm}" + os.linesep * 2 + "\\begin{document}" + os.linesep * 2)
+					f.write("\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n\\usepackage{amsmath,amssymb}\n\\usepackage{bm}\n\n\\begin{document}\n\n")
 					stack = [tree]
 					while stack:
 						element = stack.pop()
@@ -299,17 +299,17 @@ class Builder:
 								elif isinstance(ele, CSTNode):
 									s.extend(reversed(list(ele.children)))
 						elif isinstance(element, ClassDef) and element.name.value.startswith("Scheme"): # match("^class\\s+Scheme[0-9A-Z_a-z]*", line)
-							f.write("\\section{" + element.name.value.replace("_", "\\_") + "}" + os.linesep * 2)
+							f.write("\\section{" + element.name.value.replace("_", "\\_") + "}\n\n")
 							for item in element.body.body:
 								if isinstance(item, FunctionDef):
 									s, mode, functionName = [item], False, ""
 									if "__init__" == item.name.value: # match("^\tdef\\s+__init__", line)
 										if item.body.header.comment:
-											f.write(item.body.header.comment.value.lstrip("# ") + os.linesep * 2)
+											f.write(item.body.header.comment.value.lstrip("# ") + "\n\n")
 										functionName = "Init"
 									elif not item.name.value.startswith("_") and "getLengthOf" != item.name.value: # match("^\tdef\\s+[A-Za-z][0-9A-Z_a-z]*", line)
 										if item.body.header.comment:
-											f.write("\\subsection{" + item.body.header.comment.value.lstrip("# ") + "}" + os.linesep * 2)
+											f.write("\\subsection{" + item.body.header.comment.value.lstrip("# ") + "}" + "\n\n")
 										functionName = item.name.value
 									while s:
 										ele = s.pop()
@@ -358,7 +358,7 @@ class Builder:
 																mode = "$" * dollarCount
 														else:
 															characterIndex += 1
-													f.write(comment + os.linesep * (1 if isinstance(mode, str) else 2))
+													f.write(comment + ("\n" if isinstance(mode, str) else "\n\n"))
 										elif isinstance(ele, Call) and isinstance(ele.func, Name) and "print" == ele.func.value:
 											for argument in ele.args:
 												if isinstance(argument.value, (ConcatenatedString, SimpleString)):
@@ -458,7 +458,7 @@ class Builder:
 			warnings.sort()
 		return Builder.__GenerationDiagnostics
 
-class Builders:
+class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainFileName.extension", "mainFileName", ".extension")
 	__DefaultFormatter, __DefaultSchemeFilePathPrompt, __DefaultGenerationPrompt, __DefaultCompilationPrompt = "%p%s%mLaTeX%s%m", "[F] ", "[G] ", "[C] "
 	def __init__(self:object, formatter:str = __DefaultFormatter, collectionMode:bool = False, *paths:tuple) -> object:
 		self.__formatter = formatter if isinstance(formatter, str) else Builders.__DefaultFormatter
@@ -466,9 +466,9 @@ class Builders:
 		self.__filePaths = []
 		self.__builders = []
 		self.updateFilePaths(*paths if paths else ".")
-	def __format(self:object, _m:str = "", _n:str = "", _p:str = "", _s:str = os.sep, _x:str = ".py") -> str:
+	def __format(self:object, _m:str = "", _n:str = "", _p:str = "", _s:str = sep, _x:str = ".py") -> str:
 		m, n, p = _m if isinstance(_m, str) else "", _n if isinstance(_n, str) else "", _p if isinstance(_p, str) else ""
-		s, x = _s if isinstance(_s, str) else os.sep, _x if isinstance(_x, str) else ".py"
+		s, x = _s if isinstance(_s, str) else sep, _x if isinstance(_x, str) else ".py"
 		buffer, index, length = [], 0, len(self.__formatter)
 		while index < length:
 			if '%' == self.__formatter[index]:
@@ -505,26 +505,25 @@ class Builders:
 			elif isinstance(element, set):
 				stack.extend(sorted(element, reverse = True))
 			elif isinstance(element, str):
-				if os.path.isdir(element) and not os.path.islink(element):
-					filePaths = []
-					for root, folderNames, fileNames in os.walk(element):
+				if not islink(element) and isdir(element):
+					for root, directoryNames, fileNames in walk(element):
 						for fileName in fileNames:
-							filePath = os.path.join(root, fileName)
-							if os.path.isfile(filePath) and not os.path.islink(filePath) and os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-								filePaths.append(filePath)
-					filePaths.sort(reverse = True)
-					stack.extend(filePaths)
-					del filePaths
-				elif os.path.isfile(element) and not os.path.islink(element):
-					fileName = os.path.split(element)[1]
-					if os.path.splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-						relativePath = os.path.relpath(element)
-						if relativePath not in self.__filePaths:
-							self.__filePaths.append(relativePath)
+							relativeFilePath = relpath(join(root, fileName))
+							if (
+								not islink(relativeFilePath) and isfile(relativeFilePath) and splitext(fileName)[1] == ".py"
+								and fileName.startswith("Scheme") and relativeFilePath not in self.__filePaths
+							):
+								self.__filePaths.append(relativePath)
+				elif not islink(element) and isfile(element):
+					fileName = split(element)[1]
+					if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
+						relativeFilePath = relpath(element)
+						if relativeFilePath not in self.__filePaths:
+							self.__filePaths.append(relativeFilePath)
 		for filePath in self.__filePaths[originalLength:]:
-			p, n = os.path.split(filePath)
-			m, x = os.path.splitext(n)
-			self.__builders.append(Builder(filePath, self.__format(m, n, p, os.sep, x), collectionMode = self.__collectionMode))
+			p, n = split(filePath)
+			m, x = splitext(n)
+			self.__builders.append(Builder(filePath, self.__format(_m = m, _n = n, _p = p, _x = x), collectionMode = self.__collectionMode))
 		currentLength = len(self.__builders)
 		return currentLength - originalLength
 	def build(self:object, isSilent:bool = False) -> None:

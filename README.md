@@ -91,7 +91,7 @@ cat > ~/.config/pip/pip.conf << "EOF"
 root-user-action = ignore
 EOF
 python -m pip install --upgrade pip
-python -m pip install setuptools, wheel
+python -m pip install setuptools wheel
 ```
 
 Subsequently, please follow [the official tutorial](https://github.com/JHUISI/charm) or the [``runPython`` workflow](./.github/workflows/runPython.yml) to deploy the Python Charm-Crypto framework. 
