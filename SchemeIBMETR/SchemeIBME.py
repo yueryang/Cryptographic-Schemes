@@ -87,7 +87,7 @@ class Parser:
 			return Parser.__DefaultOutputFileName
 	def __parseRealNumber(self:object, string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -129,8 +129,8 @@ class Parser:
 				else:
 					integerPartString, decimalPartString = realNumberString.split(".")[:2] if "." in realNumberString else (realNumberString, "")
 					realNumber = 0
-					for ch in decimalPartString.rstrip("0")[::-1]:
-						realNumber += digits.index(ch)
+					for character in reversed(decimalPartString.rstrip("0")):
+						realNumber += digits.index(character)
 						realNumber /= base
 					integerPartString = integerPartString.lstrip("0")
 					if integerPartString:

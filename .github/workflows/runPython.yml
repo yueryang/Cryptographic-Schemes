@@ -200,68 +200,68 @@ jobs:
           fi
           
           # Run count #
-          strippedRunCountString="$(echo -n "${runCountString}" | tr -d '\t _')"
-          leadingSigns="${strippedRunCountString%%[!+-]*}"
+          integerNumberString="$(echo -n "${runCountString}" | tr -cd '0-9A-Za-z+.-' | tr 'A-Z' 'a-z')"
+          leadingSigns="${integerNumberString%%[!+-]*}"
           minusCount=$(echo -n "${leadingSigns}" | tr -cd '-' | wc -c)
-          strippedRunCountString="${strippedRunCountString#$leadingSigns}"
-          if [[ "${strippedRunCountString:0:1}" =~ [0-9] ]];
+          integerNumberString="${integerNumberString#$leadingSigns}"
+          if [[ "${integerNumberString:0:1}" =~ [0-9] ]];
           then
-            case "${strippedRunCountString: -1}" in
-              'B'|'b')
+            case "${integerNumberString: -1}" in
+              'b')
                 radix=2
-                strippedRunCountString="${strippedRunCountString:0:-1}"
+                integerNumberString="${integerNumberString:0:-1}"
                 ;;
-              'Q'|'q')
+              'q')
                 radix=4
-                strippedRunCountString="${strippedRunCountString:0:-1}"
+                integerNumberString="${integerNumberString:0:-1}"
                 ;;
-              'O'|'o')
+              'o')
                 radix=8
-                strippedRunCountString="${strippedRunCountString:0:-1}"
+                integerNumberString="${integerNumberString:0:-1}"
                 ;;
-              'D'|'d')
+              'd')
                 radix=10
-                strippedRunCountString="${strippedRunCountString:0:-1}"
+                integerNumberString="${integerNumberString:0:-1}"
                 ;;
-              'X'|'x')
+              'x')
                 radix=16
-                strippedRunCountString="${strippedRunCountString:0:-1}"
+                integerNumberString="${integerNumberString:0:-1}"
                 ;;
               *)
                 radix=10
                 ;;
             esac
           else
-            case "${strippedRunCountString:0:1}" in
-              'B'|'b')
+            case "${integerNumberString:0:1}" in
+              'b')
                 radix=2
-                strippedRunCountString="${strippedRunCountString:1}"
+                integerNumberString="${integerNumberString:1}"
                 ;;
-              'Q'|'q')
+              'q')
                 radix=4
-                strippedRunCountString="${strippedRunCountString:1}"
+                integerNumberString="${integerNumberString:1}"
                 ;;
-              'O'|'o')
+              'o')
                 radix=8
-                strippedRunCountString="${strippedRunCountString:1}"
+                integerNumberString="${integerNumberString:1}"
                 ;;
-              'D'|'d')
+              'd')
                 radix=10
-                strippedRunCountString="${strippedRunCountString:1}"
+                integerNumberString="${integerNumberString:1}"
                 ;;
-              'X'|'x')
+              'x')
                 radix=16
-                strippedRunCountString="${strippedRunCountString:1}"
+                integerNumberString="${integerNumberString:1}"
                 ;;
               *)
                 radix=10
                 ;;
             esac
           fi
-          strippedRunCountString="$(echo "${strippedRunCountString}" | sed 's/^0*//')"
-          strippedRunCountString="${strippedRunCountString%%.*}"
+          integerNumberString="$(echo "${integerNumberString}" | sed 's/^0*//')"
+          integerNumberString="${integerNumberString%%.*}"
           runCount=10
-          { runCount=$((${radix}#$strippedRunCountString)); } 2>/dev/null
+          { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null
           if (( minusCount % 2 == 1 ));
           then
             runCount=$(( -runCount ))
@@ -318,6 +318,7 @@ jobs:
         run: |
           cd "${{ github.workspace }}"
           python -m pip install --upgrade pip
+          python -m pip install wheel
           python -m pip install -r requirements.txt
       
       - name: Build LaTeX and the PDF for the cryptographic scheme
@@ -329,7 +330,7 @@ jobs:
             echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
             python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
           else
-            echo "Could not execute the cryptographic scheme file \"buildSchemeLaTeXPDFs.py\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
+            echo "Could not execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
             tree
           fi
         env:

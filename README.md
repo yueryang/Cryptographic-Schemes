@@ -65,7 +65,7 @@ Eventually, other relevant implementation issues are presented.
 To start with, the Python environments must be resolved. As installing Python directly via the system's package manager 
 (e.g., ``sudo apt install python3``, ``sudo apt-get install python3``, ``sudo yum install python3``, ``sudo dnf install python3``, and ``pkg install python3``) 
 will cause the management of Python libraries from the Python pip to be taken over by the system's package manager, which is quite annoying and inconvenient 
-(especially when executing ``pip install`` and ``python -m pip install --upgrade pip``) we strongly recommend manually installing the latest Python. 
+(especially when executing ``pip install`` and ``python -m pip install --upgrade pip``), we strongly recommend manually installing the latest Python. 
 Taking the installation of the latest Python on the latest Ubuntu as an example, here is a possible set of shell commands to finish the manual installation, 
 where ``apt-get update`` can be executed as ``apt-get update && apt-get upgrade -y`` if on a fresh operating system. 
 If it is suspected that the system already includes a system-wide Python and it is highly desirable to remove it entirely, 
@@ -134,7 +134,7 @@ The parsers are designed to recognize the command-line arguments as robustly as 
 For example, regarding the parsing of a number, if both the prefix base descriptor and the suffix base descriptor are specified at the same time, the former will take effect. 
 Literals like "----000x0052_eF.33__44 *" can still be recognized as 21231.200256347656 $\left(\cfrac{347851985}{16384} = 21231.20025634765625\right)$. Detailed parsing procedures are as follows. 
 
-1) Remove all characters except '+', '-', '.', digits (``[0-9]``), and letters (``[A-Za-z]``) from the string, and convert the remaining string to lowercase. 
+1) Remove all characters except '+', '-', '.', digits (``[0-9]``), and letters (``[A-Za-z]``) from the string, and convert the remaining characters to lowercase. 
 2) Define the sign part by scanning the '+' and '-' characters at the beginning of the string obtained in **Step 1**. 
 3) Compute the count of the leading '-' in the sign part defined in **Step 2** and remove the sign part from the string obtained in **Step 1**. 
 4) Remove the leading zeros from the string obtained in **Step 3**. 

@@ -1,5 +1,5 @@
 from os import chdir, getenv, makedirs, name, sep, walk
-from os.path import abspath, dirname, isdir, isfile, islink, join, relpath, split, splitext
+from os.path import abspath, basename, dirname, isdir, isfile, islink, join, relpath, split, splitext
 from sys import argv, exit
 try:
 	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
@@ -27,7 +27,7 @@ class Environments:
 	def __parseRealNumber(self:object, string:str) -> int|float|None:
 		try:
 			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
-			if "e" in realNumberString and not realNumberString.endswith("e"):
+			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
 				minusSign = False
@@ -38,18 +38,17 @@ class Environments:
 						minusSign, realNumberString = not minusSign, realNumberString[1:]
 					else:
 						break
-				while realNumberString.startswith("00"):
-					realNumberString = realNumberString[1:]
-				if realNumberString.startswith("0b"):
-					base, digits, realNumberString = 2, "01", realNumberString[2:]
-				elif realNumberString.startswith("0q"):
-					base, digits, realNumberString = 4, "0123", realNumberString[2:]
-				elif realNumberString.startswith("0o"):
-					base, digits, realNumberString = 8, "01234567", realNumberString[2:]
-				elif realNumberString.startswith(("0d", "0l")):
-					base, digits, realNumberString = 10, "0123456789", realNumberString[2:]
-				elif realNumberString.startswith(("0h", "0x")):
-					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[2:]
+				realNumberString = realNumberString.lstrip("0")
+				if realNumberString.startswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[1:]
+				elif realNumberString.startswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[1:]
+				elif realNumberString.startswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[1:]
+				elif realNumberString.startswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[1:]
+				elif realNumberString.startswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[1:]
 				elif realNumberString.endswith("b"):
 					base, digits, realNumberString = 2, "01", realNumberString[:-1]
 				elif realNumberString.endswith("q"):
@@ -67,9 +66,9 @@ class Environments:
 				elif "nan" == realNumberString:
 					realNumber = float("nan")
 				else:
-					integerPartString, decimalPartString = realNumberString.split(".") if "." in realNumberString else (realNumberString, "")
+					integerPartString, decimalPartString = realNumberString.split(".")[:2] if "." in realNumberString else (realNumberString, "")
 					realNumber = 0
-					for ch in reversed(decimalPartString.rstrip("0")):
+					for ch in decimalPartString.rstrip("0")[::-1]:
 						realNumber += digits.index(ch)
 						realNumber /= base
 					integerPartString = integerPartString.lstrip("0")
@@ -505,21 +504,26 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 			elif isinstance(element, set):
 				stack.extend(sorted(element, reverse = True))
 			elif isinstance(element, str):
-				if not islink(element) and isdir(element):
-					for root, directoryNames, fileNames in walk(element):
-						for fileName in fileNames:
-							relativeFilePath = relpath(join(root, fileName))
-							if (
-								not islink(relativeFilePath) and isfile(relativeFilePath) and splitext(fileName)[1] == ".py"
-								and fileName.startswith("Scheme") and relativeFilePath not in self.__filePaths
-							):
-								self.__filePaths.append(relativePath)
-				elif not islink(element) and isfile(element):
-					fileName = split(element)[1]
-					if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-						relativeFilePath = relpath(element)
-						if relativeFilePath not in self.__filePaths:
-							self.__filePaths.append(relativeFilePath)
+				if not islink(element):
+					if isdir(element):
+						filePaths = []
+						for root, directoryNames, fileNames in walk(element):
+							for fileName in fileNames:
+								relativeFilePath = relpath(join(root, fileName))
+								if (
+									not islink(relativeFilePath) and isfile(relativeFilePath) and splitext(fileName)[1] == ".py"
+									and fileName.startswith("Scheme") and relativeFilePath not in self.__filePaths
+								):
+									filePaths.append(relativePath)
+						filePaths.sort()
+						self.__filePaths.extend(filePaths)
+						del filePaths
+					elif isfile(element):
+						fileName = basename(element)
+						if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
+							relativeFilePath = relpath(element)
+							if relativeFilePath not in self.__filePaths:
+								self.__filePaths.append(relativeFilePath)
 		for filePath in self.__filePaths[originalLength:]:
 			p, n = split(filePath)
 			m, x = splitext(n)
