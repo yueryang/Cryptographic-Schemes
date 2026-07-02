@@ -117,6 +117,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+      decimalPlace: ${{ steps.decimalPlace.outputs.decimalPlace }}
+      runCount: ${{ steps.runCount.outputs.runCount }}
+      timeString: ${{ steps.timeString.outputs.timeString }}
     steps:
       - name: Prepare the matrix
         id: matrix
@@ -153,30 +156,11 @@ jobs:
           else
             echo "matrix=[]" >> "${GITHUB_OUTPUT}"
           fi
-  
-  runPython:
-    if: needs.prepare.outputs.matrix != '[]'
-    needs: prepare
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          sparse-checkout: |
-            ${{ matrix.cryptographicScheme }}
-            buildSchemeLaTeXPDFs.py
-            requirements.txt
       
-      - name: Get ready
-        id: ready
+      - name: Prepare the decimal place
+        id: decimalPlace
         run: |
           cd "${{ github.workspace }}"
-          
-          # Decimal place #
           if [[ "s" == "${decimalPlaceString}" || "second" == "${decimalPlaceString}" ]];
           then
             decimalPlace=0
@@ -198,13 +182,43 @@ jobs:
           else
             decimalPlace=${decimalPlaceString}
           fi
-          
-          # Run count #
+          echo "decimalPlace=${decimalPlace}" >> "${GITHUB_OUTPUT}"
+        env:
+          decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
+      
+      - name: Prepare the run count
+        id: runCount
+        run: |
+          cd "${{ github.workspace }}"
           integerNumberString="$(echo -n "${runCountString}" | tr -cd '0-9A-Za-z+.-' | tr 'A-Z' 'a-z')"
           leadingSigns="${integerNumberString%%[!+-]*}"
           minusCount=$(echo -n "${leadingSigns}" | tr -cd '-' | wc -c)
           integerNumberString="${integerNumberString#$leadingSigns}"
-          if [[ "${integerNumberString:0:1}" =~ [0-9] ]];
+          integerNumberString="$(echo "${integerNumberString}" | sed 's/^0*//')"
+          radix=0
+          case "${integerNumberString:0:1}" in
+            'b')
+              radix=2
+              integerNumberString="${integerNumberString:1}"
+              ;;
+            'q')
+              radix=4
+              integerNumberString="${integerNumberString:1}"
+              ;;
+            'o')
+              radix=8
+              integerNumberString="${integerNumberString:1}"
+              ;;
+            'd')
+              radix=10
+              integerNumberString="${integerNumberString:1}"
+              ;;
+            'x')
+              radix=16
+              integerNumberString="${integerNumberString:1}"
+              ;;
+          esac
+          if [[ 0 -eq ${radix} ]];
           then
             case "${integerNumberString: -1}" in
               'b')
@@ -231,36 +245,10 @@ jobs:
                 radix=10
                 ;;
             esac
-          else
-            case "${integerNumberString:0:1}" in
-              'b')
-                radix=2
-                integerNumberString="${integerNumberString:1}"
-                ;;
-              'q')
-                radix=4
-                integerNumberString="${integerNumberString:1}"
-                ;;
-              'o')
-                radix=8
-                integerNumberString="${integerNumberString:1}"
-                ;;
-              'd')
-                radix=10
-                integerNumberString="${integerNumberString:1}"
-                ;;
-              'x')
-                radix=16
-                integerNumberString="${integerNumberString:1}"
-                ;;
-              *)
-                radix=10
-                ;;
-            esac
           fi
           integerNumberString="$(echo "${integerNumberString}" | sed 's/^0*//')"
           integerNumberString="${integerNumberString%%.*}"
-          runCount=10
+          runCount=0
           { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null
           if (( minusCount % 2 == 1 ));
           then
@@ -270,10 +258,42 @@ jobs:
           then
             runCount=10
           fi
-          
+          echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
+        env:
+          runCountString: ${{ github.event.inputs.runCount || '10' }}
+      
+      - name: Prepare the time string
+        id: timeString
+        run: |
+          cd "${{ github.workspace }}"
+          timeString="HKT$(date '+%Y%m%d%H%M%S')"
+          echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
+        env:
+          TZ: 'Asia/Hong_Kong'
+  
+  runPython:
+    if: ${{ needs.prepare.outputs.matrix != '[]' }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+            buildSchemeLaTeXPDFs.py
+            requirements.txt
+      
+      - name: Get ready
+        id: ready
+        run: |
+          cd "${{ github.workspace }}"
           directoryPath="$(dirname "${{ matrix.cryptographicScheme }}")"
           mainFileName="$(basename "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
-          timeString="HKT$(date '+%Y%m%d%H%M%S')"
           outputFilePath="${directoryPath}/${mainFileName}-Python${pythonVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
           outputFileName="$(basename "${outputFilePath}")"
           schemeLaTeXFilePath="${directoryPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.tex"
@@ -281,17 +301,13 @@ jobs:
           echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
           echo "Python version: ${pythonVersion}"
           echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
-          echo "Run count: ${runCountString} (${runCount})"
+          echo "Run count: ${runCount}"
           echo "Time string: ${timeString}"
           echo "Output format: ${outputFormat}"
           echo "Output file path: ${outputFilePath}"
           echo "Output file name: ${outputFileName}"
           echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
           echo "Scheme PDF file path: ${schemePDFFilePath}"
-          echo "pythonVersion=${pythonVersion}" >> "${GITHUB_OUTPUT}"
-          echo "decimalPlace=${decimalPlaceString}" >> "${GITHUB_OUTPUT}"
-          echo "runCount=${runCount}" >> "${GITHUB_OUTPUT}"
-          echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
           echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
@@ -299,8 +315,9 @@ jobs:
         env:
           pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
           decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
-          runCountString: ${{ github.event.inputs.runCount || '10' }}
-          TZ: 'Asia/Hong_Kong'
+          decimalPlace: ${{ needs.prepare.outputs.decimalPlace }}
+          runCount: ${{ needs.prepare.outputs.runCount }}
+          timeString: ${{ needs.prepare.outputs.timeString }}
           outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
       
       - name: Install system dependencies
@@ -309,10 +326,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flex libfl-dev libgmp-dev libssl-dev texlive-latex-base wget
       
-      - name: Set up Python ${{ steps.ready.outputs.pythonVersion }}
+      - name: Set up Python ${{ github.event.inputs.pythonVersion || '3.x' }}
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ steps.ready.outputs.pythonVersion }}
+          python-version: ${{ github.event.inputs.pythonVersion || '3.x' }}
       
       - name: Install Python dependencies
         run: |
@@ -334,7 +351,7 @@ jobs:
             tree
           fi
         env:
-          FORMATTER: '%p%s%mLaTeX%s%m-${{ steps.ready.outputs.timeString }}'
+          FORMATTER: '%p%s%mLaTeX%s%m-${{ needs.prepare.outputs.timeString }}'
           WAITING_TIME: 0
       
       - name: Upload the LaTeX source code for the cryptographic scheme
@@ -381,8 +398,8 @@ jobs:
             echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
             python "${{ matrix.cryptographicScheme }}" -t 0 -h
             echo ""
-            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }} -t 0 -y"
-            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ steps.ready.outputs.decimalPlace }} -r ${{ steps.ready.outputs.runCount }} -t 0 -y
+            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y"
+            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y
           else
             echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ steps.ready.outputs.pythonVersion }}. "
             tree
