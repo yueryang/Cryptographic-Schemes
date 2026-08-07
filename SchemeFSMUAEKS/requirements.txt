@@ -1,7 +1,5 @@
 # Python built-in standard libraries
-# Python Charm-Crypto framework
 libcst
-setuptools
 numPy
 symPy
 xlwt # XLS

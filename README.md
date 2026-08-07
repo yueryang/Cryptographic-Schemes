@@ -1076,6 +1076,33 @@ The implementations retain their original measurement model. They take CPU-clock
 
 The original ``baseNum`` scaling remains part of both total and actor-specific measurements. The SchemeVPSICA variants also retain their per-operation ``adjust`` terms. SchemeOPSICA and SchemeSPSICA retain the actor-specific modeled costs added to the measured sender and cloud totals. These values therefore reproduce the programs' academic cost model and should not be interpreted as unadjusted wall-clock benchmarks.
 
+For time consumption computation in or after September 2024, better time consumption computation can be done. 
+
+The recent period has witnessed the ``#include<chrono>`` reach a computation level of nanoseconds. Users can modify the time consumption computation codes in this repository to make the timing more exact. 
+
+The following codes may be useful for cross-platform universal improvements. 
+
+```cpp
+#if defined WIN32 || defined _WIN32 || defined _WIN64
+#include <windows.h>
+#ifndef TIME_POINT_TYPE
+#define TIME_POINT_TYPE chrono::steady_clock::time_point
+#endif
+#else
+#include <string.h>
+#include <math.h>
+#ifndef TIME_POINT_TYPE
+#define TIME_POINT_TYPE chrono::system_clock::time_point
+#endif
+#endif
+```
+
+```cpp
+const TIME_POINT_TYPE startTime = chrono::high_resolution_clock::now();
+const long long int timeDelta = (chrono::high_resolution_clock::now() - startTime).count();
+cout << "Time: " << timeDelta << " ns" << endl;
+```
+
 ### 3.3 Space complexity
 
 The space outputs preserve the academic formulas implemented by each class's ``printSize`` method. SchemeOPSICA, SchemePSICA, and SchemeSPSICA report bytes. The SchemeVPSICA programs sum the ``printSize`` results as aggregate byte totals, divide them by ``1024.0``, and save the fractional results as kilobytes. The formulas scale selected elements and collections according to the scheme parameters and retain the original program-specific aggregation.
