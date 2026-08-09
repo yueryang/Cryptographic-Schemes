@@ -1,3 +1,5 @@
+# Python built-in standard libraries
+libcst
 numpy
-openpyxl
-xlwt
+xlwt # XLS
+openpyxl # XLSX

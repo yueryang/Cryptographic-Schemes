@@ -9,14 +9,14 @@ on:
     paths:
       - '**/*.py'
       - '.github/workflows/runPython.yml'
-      - 'requirements.txt'
+      - '**/requirements.txt'
   push:
     branches:
       - main
     paths:
       - '**/*.py'
       - '.github/workflows/runPython.yml'
-      - 'requirements.txt'
+      - '**/requirements.txt'
   workflow_dispatch:
     inputs:
       executeSchemeAAIBME:

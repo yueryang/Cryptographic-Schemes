@@ -1,6 +1,6 @@
 # Python built-in standard libraries
 libcst
-numPy
-symPy
+numpy
+sympy
 xlwt # XLS
 openpyxl # XLSX
