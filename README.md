@@ -19,6 +19,8 @@ We are currently merging cryptographic schemes from our other repositories. Cryp
 - [SchemeFSMUAEKS](./SchemeFSMUAEKS/)
   - [SchemeFSMUAEKS.java](./SchemeFSMUAEKS/SchemeFSMUAEKS.java)
   - [SchemeFSMUAEKS.py](./SchemeFSMUAEKS/SchemeFSMUAEKS.py)
+- [SchemeGRS](./SchemeGRS/)
+  - [SchemeGRS.java](./SchemeGRS/SchemeGRS.java)
 - [SchemeHIBME](./SchemeHIBME/)
   - [SchemeAnonymousME.java](./SchemeHIBME/SchemeAnonymousME.java)
   - [SchemeAnonymousME.py](./SchemeHIBME/SchemeAnonymousME.py)
@@ -56,6 +58,10 @@ We are currently merging cryptographic schemes from our other repositories. Cryp
 - [SchemeLBPEAKS](./SchemeLBPEAKS/)
   - [SchemeLBPEAKS.java](./SchemeLBPEAKS/SchemeLBPEAKS.java)
   - [SchemeLBPEAKS.py](./SchemeLBPEAKS/SchemeLBPEAKS.py)
+- [SchemeLLRS](./SchemeLLRS/)
+  - [SchemeLLRS.py](./SchemeLLRS/SchemeLLRS.py)
+- [SchemeLWEPEKS](./SchemeLWEPEKS/)
+  - [SchemeLWEPEKS.py](./SchemeLWEPEKS/SchemeLWEPEKS.py)
 - [SchemeOPSICA](./SchemeOPSICA/)
   - [SchemeOPSICA.cpp](./SchemeOPSICA/SchemeOPSICA.cpp)
   - [SchemePSICA.cpp](./SchemeOPSICA/SchemePSICA.cpp) -> [SchemePSICA.cpp](./SchemeVPSICA/SchemePSICA.cpp)
@@ -77,7 +83,7 @@ Most of the cryptographic schemes here are pairing-based, which are implemented 
 | Programming language | Third-party dependencies |
 | - | - |
 | C/C++ | [PBC](https://crypto.stanford.edu/pbc/download.html) |
-| Python (3.12 or above) | [Python Charm-Crypto framework](https://github.com/JHUISI/charm) |
+| Python (3.12 or above) | Scheme-specific dependencies, including the [Python Charm-Crypto framework](https://github.com/JHUISI/charm), NumPy, and SymPy |
 | Java | JPBC |
 
 All programming and experiments are conducted under the Ubuntu (24.04.4 LTS) operating system. 

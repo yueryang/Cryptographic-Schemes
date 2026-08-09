@@ -1,0 +1,810 @@
+from os import chdir, makedirs, name, sep
+from os.path import abspath, dirname, exists, isfile, isdir, join, split, splitext
+from sys import argv, exit
+from codecs import lookup
+from getpass import getpass
+from hashlib import sha3_256
+try:
+	from numpy import concatenate, dot, eye, ndarray, sum as np_sum
+	from numpy.random import randint
+except:
+	concatenate, dot, eye, ndarray, np_sum, randint = (None, ) * 6
+from time import perf_counter, sleep
+try:
+	chdir(abspath(dirname(__file__)))
+except:
+	pass
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EOF = (-1)
+
+
+class Parser:
+	__SchemeName = "SchemeLWEPEKS" # splitext(basename(__file__))[0]
+	__OptionEncoding = ("e", "/e", "-e", "encoding", "/encoding", "--encoding")
+	__DefaultEncoding = "utf-8"
+	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
+	__OptionOutput = ("o", "/o", "-o", "output", "/output", "--output")
+	__DefaultExtension = ".xlsx"
+	__DefaultOutputFileName = __SchemeName + __DefaultExtension
+	__ProtectedExtensionNames = ("ASM", "BAT", "C", "CMD", "CPP", "CS", "GO", "H", "HPP", "IPYNB", "JAR", "JAVA", "JS", "KT", "LUA", "M", "O", "PHP", "PS1", "PY", "R", "RB", "RS", "S", "SH", "SQL")
+	__OptionPlace = ("p", "/p", "-p", "place", "/place", "--place")
+	__DefaultPlace = 9
+	__PlaceTranslations = {"s":0, "second":0, "ms":3, "millisecond":3, "microsecond":6, "ns":9, "nanosecond":9, "ps":12, "picosecond":12, "fs":15, "femtosecond":15}
+	__OptionQuiet = ("q", "/q", "-q", "quiet", "/quiet", "--quiet")
+	__OptionRun = ("r", "/r", "-r", "run", "/run", "--run")
+	__DefaultRun = 10
+	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
+	__DefaultTime = float("inf")
+	__OptionYes = ("y", "/y", "-y", "yes", "/yes", "--yes")
+	def __init__(self:object, arguments:tuple|list) -> object:
+		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
+		self.__originalConsoleAttributes = None
+		self.__echolessConsoleAttributes = None
+		self.__tcsetattr = None
+	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
+		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
+			prefix = pre if isinstance(pre, str) else "["
+			separator = sep if isinstance(sep, str) else "|"
+			suffix = suf if isinstance(suf, str) else "]"
+			return prefix + separator.join(option) + suffix
+		else:
+			return ""
+	def __printHelp(self:object) -> None:
+		print("This is the official simulation implementation of the LWE-PEKS cryptographic scheme in Python programming language based on the Python NumPy library. ")
+		print()
+		print("Options (case-insensitive): ")
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
+		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
+		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(
+			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)
+		))
+		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(
+			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)
+		)
+		print("\t{0}\t\tDisable the verbose console outputs. ".format(self.__formatOption(Parser.__OptionQuiet)))
+		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
+		print(
+			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))
+			+ "Passing inf requires users to manually press the Enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)
+		)
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print()
+	def __handlePath(self:object, filePath:str) -> str:
+		if isinstance(filePath, str):
+			if isdir(filePath) or filePath.endswith((sep, "/")):
+				print("Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ".format(repr(Parser.__DefaultOutputFileName)))
+				return self.__handlePath(join(filePath, Parser.__DefaultOutputFileName))
+			elif splitext(split(filePath)[1])[1][1:].upper() in Parser.__ProtectedExtensionNames:
+				print("Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ".format(repr(self.__DefaultExtension)))
+				return self.__handlePath(splitext(filePath)[0] + Parser.__DefaultExtension)
+			else:
+				return filePath
+		else:
+			return Parser.__DefaultOutputFileName
+	def __parseRealNumber(self:object, string:str) -> int|float|None:
+		try:
+			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
+				return float(realNumberString)
+			else:
+				minusSign = False
+				while realNumberString:
+					if '+' == realNumberString[0]:
+						realNumberString = realNumberString[1:]
+					elif '-' == realNumberString[0]:
+						minusSign, realNumberString = not minusSign, realNumberString[1:]
+					else:
+						break
+				realNumberString = realNumberString.lstrip("0")
+				if realNumberString.startswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[1:]
+				elif realNumberString.startswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[1:]
+				elif realNumberString.startswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[1:]
+				elif realNumberString.startswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[1:]
+				elif realNumberString.startswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[1:]
+				elif realNumberString.endswith("b"):
+					base, digits, realNumberString = 2, "01", realNumberString[:-1]
+				elif realNumberString.endswith("q"):
+					base, digits, realNumberString = 4, "0123", realNumberString[:-1]
+				elif realNumberString.endswith("o"):
+					base, digits, realNumberString = 8, "01234567", realNumberString[:-1]
+				elif realNumberString.endswith(("d", "l")):
+					base, digits, realNumberString = 10, "0123456789", realNumberString[:-1]
+				elif realNumberString.endswith(("h", "x")):
+					base, digits, realNumberString = 16, "0123456789abcdef", realNumberString[:-1]
+				else:
+					base, digits = 10, "0123456789"
+				if "inf" == realNumberString:
+					realNumber = float("inf")
+				elif "nan" == realNumberString:
+					realNumber = float("nan")
+				else:
+					integerPartString, decimalPartString = realNumberString.split(".")[:2] if "." in realNumberString else (realNumberString, "")
+					realNumber = 0
+					for character in reversed(decimalPartString.rstrip("0")):
+						realNumber += digits.index(character)
+						realNumber /= base
+					integerPartString = integerPartString.lstrip("0")
+					if integerPartString:
+						realNumber += int(integerPartString, base = base)
+					if isinstance(realNumber, float) and realNumber.is_integer():
+						realNumber = int(realNumber)
+				if minusSign:
+					realNumber = -realNumber
+				return realNumber
+		except:
+			return None
+	def parse(self:object) -> tuple:
+		flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = (
+			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, True, Parser.__DefaultRun, Parser.__DefaultTime, False
+		)
+		index, argumentCount, buffers = 1, len(self.__arguments), []
+		while index < argumentCount:
+			argument = self.__arguments[index].lower()
+			if argument in Parser.__OptionEncoding:
+				index += 1
+				if index < argumentCount:
+					try:
+						lookup(self.__arguments[index])
+						encoding = self.__arguments[index]
+					except:
+						flag = EOF
+						buffers.append("Parser: The value [0] = {1} for the encoding option is invalid. ".format(index, repr(self.__arguments[index])))
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the encoding option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionHelp:
+				self.__printHelp()
+				flag = EXIT_SUCCESS
+				break
+			elif argument in Parser.__OptionOutput:
+				index += 1
+				if index < argumentCount:
+					outputFilePath = self.__handlePath(self.__arguments[index])
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionPlace:
+				index += 1
+				if index < argumentCount:
+					decimalPlaceLower = self.__arguments[index].lower()
+					if decimalPlaceLower in Parser.__PlaceTranslations:
+						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
+					else:
+						p = self.__parseRealNumber(self.__arguments[index])
+						if p is None:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+						elif isinstance(p, int) and p >= 0:
+							decimalPlace = p
+						else:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
+						del p
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionQuiet:
+				isVerbose = False
+			elif argument in Parser.__OptionRun:
+				index += 1
+				if index < argumentCount:
+					r = self.__parseRealNumber(self.__arguments[index])
+					if r is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif isinstance(r, int) and r >= 1:
+						runCount = r
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
+					del r
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the run count option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionTime:
+				index += 1
+				if index < argumentCount:
+					t = self.__parseRealNumber(self.__arguments[index])
+					if t is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif t >= 0:
+						waitingTime = t
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
+					del t
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionYes:
+				overwritingConfirmed = True
+			else:
+				flag = EOF
+				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(self.__arguments[index])))
+			index += 1
+		if EOF == flag:
+			for buffer in buffers:
+				print(buffer)
+		return (flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed)
+	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
+		if isinstance(outputFP, str) and isinstance(overwriting, bool):
+			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
+			while outputFilePath and exists(outputFilePath):
+				if isfile(outputFilePath):
+					if not overwritingConfirmed:
+						flag = True
+						try:
+							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
+						except:
+							print()
+				else:
+					flag = True
+					print("Parser: The path {0} exists not to be a regular file. ".format(repr(outputFilePath)))
+				if overwritingConfirmed:
+					break
+				else:
+					flag = True
+					try:
+						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
+					except:
+						print()
+			if flag:
+				print()
+			return (outputFilePath, overwritingConfirmed)
+		else:
+			return (outputFP, overwriting)
+	def disableConsoleEchoes(self:object) -> bool:
+		if "posix" == name:
+			try:
+				if self.__originalConsoleAttributes is None:
+					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
+				if self.__echolessConsoleAttributes is None:
+					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
+					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
+				if self.__tcsetattr is None:
+					self.__tcsetattr = __import__("termios").tcsetattr
+				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
+			except:
+				return False
+		return True
+	def restoreConsoleEchoes(self:object) -> bool:
+		if "posix" == name:
+			try:
+				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+			except:
+				return False
+		return True
+	@staticmethod
+	def getDefaultOutputFilePath() -> str:
+		return Parser.__DefaultOutputFileName
+	@staticmethod
+	def getDefaultPlace() -> int:
+		return Parser.__DefaultPlace
+	@staticmethod
+	def getDefaultEncoding() -> str:
+		return Parser.__DefaultEncoding
+	@staticmethod
+	def getSchemeName() -> str:
+		return Parser.__SchemeName
+	@staticmethod
+	def getProtectedExtensionNames() -> tuple:
+		return Parser.__ProtectedExtensionNames
+
+class Saver:
+	def __init__(self:object, outputFilePath:str = Parser.getDefaultOutputFilePath(), columns:tuple|list = tuple(), decimalPlace:int = Parser.getDefaultPlace(), encoding:str = Parser.getDefaultEncoding()) -> object:
+		self.__outputFilePath = outputFilePath if isinstance(outputFilePath, str) else Parser.getDefaultOutputFilePath()
+		self.__columns = tuple(column for column in columns if isinstance(column, str)) if isinstance(columns, (tuple, list)) else tuple()
+		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
+		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
+		self.__folderPath = dirname(self.__outputFilePath)
+		self.__extensionName = splitext(split(self.__outputFilePath)[1])[1][1:].upper()
+		self.__Writer = None # CSV/TSV
+		self.__escapeHTML = None # HTM/HTML
+		self.__dumpsJSON = None # JSON/YAML/YML
+		self.__escapeTEX = None # TEX
+		self.__columnsTEX = None # TEX
+		self.__WorkbookXLS = None #XLS
+		self.__styleXLSColumns = None # XLS
+		self.__styleXLSValues = None # XLS
+		self.__WorkbookXLSX = None # XLSX
+		self.__alignmentXLSX = None # XLSX
+		self.__fontXLSXColumns = None # XLSX
+		self.__fontXLSXValues = None # XLSX
+		self.__escapeXLSX = None # XLSX
+		self.__escapeXML = None # XML
+	def __handleDirectory(self:object) -> bool:
+		if not self.__folderPath:
+			return True
+		elif exists(self.__folderPath):
+			return isdir(self.__folderPath)
+		else:
+			try:
+				makedirs(self.__folderPath)
+				return True
+			except:
+				return False
+	def save(self:object, results:tuple|list) -> bool:
+		if isinstance(results, (tuple, list)) and all(isinstance(result, (tuple, list)) and all(r is None or isinstance(r, (bool, float, int, str)) for r in result) for result in results):
+			if self.__outputFilePath:
+				if self.__handleDirectory():
+					flag = True
+					while True: # try our best to avoid ``KeyboardInterrupt`` when writing the output file
+						if flag and self.__extensionName != "TXT":
+							try:
+								if "CSV" == self.__extensionName:
+									if self.__Writer is None:
+										self.__Writer = __import__("csv").writer
+									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
+										writer = self.__Writer(f)
+										writer.writerow(self.__columns)
+										for result in results:
+											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
+								elif self.__extensionName in ("HTM", "HTML"):
+									if self.__escapeHTML is None:
+										self.__escapeHTML = (
+											lambda x:str(x).replace("&", "&amp;").replace('"', "&quot;").replace("'", "&#39;")
+											.replace("<", "&lt;").replace(">", "&gt;").replace("\r\n", "<br />").replace("\n", "<br />").replace("\r", "<br />")
+										)
+									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+										f.write("<!DOCTYPE html>\n<html>\n\t<head>\n\t\t<meta charset=\"{0}\" />\n".format(self.__encoding.upper()))
+										f.write("\t\t<title>{0}</title>\n\t\t<style>\n".format(Parser.getSchemeName()))
+										f.write("\t\t\ttable {\n\t\t\t\tfont-family: \'Times New Roman\', serif;\n\t\t\t\twidth: 80%;\n")
+										f.write("\t\t\t\tmargin: 20px auto;\n\t\t\t\tborder-top: 2px solid black;\n")
+										f.write("\t\t\t\tborder-bottom: 2px solid black;\n\t\t\t\tborder-collapse: collapse;\n\t\t\t}\n")
+										f.write("\t\t\tth, td {\n\t\t\t\tpadding: 8px 12px;\n\t\t\t\tborder: none;\n\t\t\t\ttext-align: center;\n\t\t\t}\n")
+										f.write("\t\t\tthead tr {\n\t\t\t\tborder-bottom: 1.5px solid #000;\n\t\t\t}\n")
+										f.write("\t\t\tth {\n\t\t\t\tfont-weight: bold;\n\t\t\t}\n")
+										f.write("\t\t\tcaption {\n\t\t\t\tfont-size: 1.5em;\n\t\t\t\tfont-weight: bold;\n")
+										f.write("\t\t\t\tmargin: 10px;\n\t\t\t\tcaption-side: top;\n\t\t\t}\n")
+										f.write("\t\t</style>\n\t</head>\n\t<body>\n\t\t<table>\n")
+										f.write("\t\t\t<caption>{0}</caption>\n\t\t\t<thead>\n\t\t\t\t<tr>\n".format(Parser.getSchemeName()))
+										for column in self.__columns:
+											f.write("\t\t\t\t\t<th>{0}</th>\n".format(self.__escapeHTML(column)))
+										f.write("\t\t\t\t</tr>\n\t\t\t</thead>\n\t\t\t<tbody>\n")
+										for result in results:
+											f.write("\t\t\t\t<tr>\n")
+											for r in result:
+												f.write("\t\t\t\t\t<td>{0}</td>\n".format(
+													"{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else self.__escapeHTML(r)
+												))
+											f.write("\t\t\t\t</tr>\n")
+										f.write("\t\t\t</tbody>\n\t\t</table>\n\t</body>\n</html>")
+								elif "JSON" == self.__extensionName:
+									if self.__dumpsJSON is None:
+										self.__dumpsJSON = __import__("json").dumps
+									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+										f.write(self.__dumpsJSON({"columns":self.__columns, "results":results}, indent = "\t", sort_keys = True, ensure_ascii = True))
+								elif "TEX" == self.__extensionName:
+									if self.__escapeTEX is None:
+										self.__escapeTEX = lambda x:"\\textbackslash{}".join(
+											string.replace("#", "\\#").replace("$", "\\$").replace("%", "\\%").replace("&", "\\&")
+											.replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
+											.replace("<", "\\textless{}").replace(">", "\\textgreater{}")
+											.replace("^", "\\textasciicircum{}").replace("~", "\\textasciitilde{}")
+											for string in "".join(character for character in str(x) if ' ' <= character <= '~').split("\\")
+										)
+									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+										maxLength = max(len(self.__columnsTEX) if isinstance(self.__columnsTEX, (tuple, list)) else 0, max(len(result) for result in results))
+										f.write("\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n")
+										f.write("\\usepackage{graphicx}\n\\usepackage{textcomp}\n\\usepackage{booktabs}\n\\usepackage{rotating}\n\n")
+										f.write("\\begin{document}\n\n\\begin{sidewaystable}\n\t\\caption{The comparison results. }\n")
+										f.write("\t\\label{tab:comparison}\n\t\\centering\n\t\\resizebox{\\textwidth}{!}{%\n\t\t\\begin{tabular}{")
+										f.write("c" * maxLength + "}\n\t\t\t\\toprule\n\t\t\t\t")
+										if self.__columns:
+											f.write(" & ".join("\\textbf{{{0}}}".format(self.__escapeTEX(column)) for column in self.__columns))
+											if len(self.__columns) < maxLength:
+												f.write(" & \\textbf{~}" * (maxLength - len(self.__columns)))
+										else:
+											f.write(" & ".join(("\\textbf{~}", ) * maxLength))
+										f.write(" \\\\\n\t\t\t\\midrule\n")
+										for result in results:
+											if result:
+												f.write("\t\t\t\t")
+												f.write(" & ".join((
+													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
+												).format(r) if isinstance(r, (float, int)) and not isinstance(r, bool) else self.__escapeTEX(r) for r in result))
+												if len(result) < maxLength:
+													f.write(" & ~" * (maxLength - len(result)))
+												f.write(" \\\\\n")
+										f.write("\t\t\t\\bottomrule\n\t\t\\end{tabular}\n\t}\n")
+										f.write("\\end{sidewaystable}\n\n\\end{document}")
+								elif "TSV" == self.__extensionName:
+									if self.__Writer is None:
+										self.__Writer = __import__("csv").writer
+									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
+										writer = self.__Writer(f, delimiter = '\t')
+										writer.writerow(self.__columns)
+										for result in results:
+											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
+								elif "XLS" == self.__extensionName:
+									if self.__WorkbookXLS is None:
+										self.__WorkbookXLS = __import__("xlwt").Workbook
+									if self.__styleXLSColumns is None:
+										self.__styleXLSColumns = __import__("xlwt").XFStyle()
+										self.__styleXLSColumns.font = __import__("xlwt").Font()
+										self.__styleXLSColumns.font.name = "Times New Roman"
+										self.__styleXLSColumns.font.height = 240 # 12 * 20
+										self.__styleXLSColumns.font.bold = True
+										self.__styleXLSColumns.alignment = __import__("xlwt").Alignment()
+										self.__styleXLSColumns.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
+										self.__styleXLSColumns.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+									if self.__styleXLSValues is None:
+										self.__styleXLSValues = __import__("xlwt").XFStyle()
+										self.__styleXLSValues.font = __import__("xlwt").Font()
+										self.__styleXLSValues.font.name = "Times New Roman"
+										self.__styleXLSValues.font.height = 240 # 12 * 20
+										self.__styleXLSValues.alignment = __import__("xlwt").Alignment()
+										self.__styleXLSValues.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
+										self.__styleXLSValues.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+									workbook = self.__WorkbookXLS(encoding = self.__encoding)
+									worksheet = workbook.add_sheet(Parser.getSchemeName())
+									for columnIndex, columnName in enumerate(self.__columns):
+										worksheet.write(0, columnIndex, columnName, self.__styleXLSColumns)
+									for i, result in enumerate(results, start = 1):
+										for j, r in enumerate(result):
+											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLSValues)
+									workbook.save(self.__outputFilePath)
+								elif "XLSX" == self.__extensionName:
+									if self.__WorkbookXLSX is None:
+										self.__WorkbookXLSX = __import__("openpyxl").Workbook
+									if self.__alignmentXLSX is None:
+										self.__alignmentXLSX = __import__("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
+									if self.__fontXLSXColumns is None:
+										self.__fontXLSXColumns = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+									if self.__fontXLSXValues is None:
+										self.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
+									if self.__escapeXLSX is None:
+										self.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character > ' ')
+									workbook = self.__WorkbookXLSX()
+									worksheet = workbook.active
+									for columnIndex, columnName in enumerate(self.__columns, start = 1):
+										cell = worksheet.cell(row = 1, column = columnIndex, value = self.__escapeXLSX(columnName))
+										cell.alignment = self.__alignmentXLSX
+										cell.font = self.__fontXLSXColumns
+									for i, result in enumerate(results, start = 2):
+										for j, r in enumerate(result, start = 1):
+											if isinstance(r, float):
+												cell = worksheet.cell(row = i, column = j, value = "{{0:.{0}f}}".format(self.__decimalPlace).format(r))
+											elif isinstance(r, str):
+												cell = worksheet.cell(row = i, column = j, value = self.__escapeXLSX(r))
+											else:
+												cell = worksheet.cell(row = i, column = j, value = r)
+											cell.alignment = self.__alignmentXLSX
+											cell.font = self.__fontXLSXValues
+									worksheet.freeze_panes = "A2"
+									workbook.save(self.__outputFilePath)
+								elif "XML" == self.__extensionName:
+									if self.__escapeXML is None:
+										self.__escapeXML = (
+											lambda x:"".join(character for character in str(x) if ' ' <= character <= '~')
+											.replace("&", "&amp;").replace("\"", "&quot;").replace("\'", "&apos;").replace("<", "&lt;").replace(">", "&gt;")
+										)
+									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+										f.write("<?xml version=\"1.0\" encoding=\"{0}\"?>\n<data>\n\t<columns>\n".format(self.__encoding.upper()))
+										for column in self.__columns:
+											f.write("\t\t<column>" + self.__escapeXML(column) + "</column>\n")
+										f.write("\t</columns>\n\t<results>\n")
+										for result in results:
+											f.write("\t\t<result>\n")
+											for rIndex, r in enumerate(result):
+												if isinstance(r, float):
+													f.write("\t\t\t<r>{{0:.{0}f}}</r>\n".format(self.__decimalPlace).format(r))
+												else:
+													f.write("\t\t\t<r>{0}</r>\n".format(self.__escapeXML(str(r))))
+											f.write("\t\t</result>\n")
+										f.write("\t</results>\n</data>")
+								elif self.__extensionName in ("YAML", "YML"):
+									if self.__dumpsJSON is None:
+										self.__dumpsJSON = __import__("json").dumps
+									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+										if self.__columns:
+											f.write("columns:\n")
+											for column in self.__columns:
+												f.write("  - {0}\n".format(self.__dumpsJSON(column, indent = "\t", sort_keys = True, ensure_ascii = True)))
+										else:
+											f.write("columns: []")
+										f.write("\n")
+										if results:
+											f.write("results:\n")
+											for result in results:
+												if result:
+													f.write("  - - {0}\n".format(
+														self.__dumpsJSON(result[0], indent = "\t", sort_keys = True, ensure_ascii = True)
+													))
+													for r in result[1:]:
+														f.write("    - {0}\n".format(
+															self.__dumpsJSON(r, indent = "\t", sort_keys = True, ensure_ascii = True)
+														))
+												else:
+													f.write("  - []")
+										else:
+											f.write("results: []")
+								elif self.__extensionName in Parser.getProtectedExtensionNames():
+									print("Saver: Failed to save the results to {0} since {1} is one of the protected extension names. ".format(repr(self.__outputFilePath), self.__extensionName))
+									print("Saver: {0}".format({"columns":self.__columns, "results":results}))
+									return False
+								else:
+									raise Exception("The {0} format is not supported. ".format(self.__extensionName))
+								print("Saver: Successfully saved the results to {0} in the {1} format. ".format(repr(self.__outputFilePath), self.__extensionName))
+								return True
+							except KeyboardInterrupt:
+								continue
+							except BaseException as e:
+								flag = False
+								print("Saver: Failed to save the results to {0} in the {1} format due to the following exception(s). \n\t{2}".format(
+									repr(self.__outputFilePath), self.__extensionName, repr(e)
+								))
+						else:
+							try:
+								with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
+									f.write(str({"columns":self.__columns, "results":results}))
+								print("Saver: Successfully saved the results to {0} in the TXT format. ".format(repr(self.__outputFilePath)))
+								return True
+							except KeyboardInterrupt:
+								continue
+							except BaseException as e:
+								if flag:
+									print("Saver: Failed to save the results to {0} due to the following exception(s). \n\t{1}".format(repr(self.__outputFilePath), repr(e)))
+								else:
+									print("\t{0}".format(e))
+								print("Saver: {0}".format({"columns":self.__columns, "results":results}))
+								return False
+				else:
+					print("Saver: Failed to initialize the directory for the output file path {0}. ".format(repr(self.__outputFilePath)))
+					print("Saver: {0}".format({"columns":self.__columns, "results":results}))
+					return False
+			else:
+				print("Saver: {0}".format({"columns":self.__columns, "results":results}))
+				return True
+		else:
+			print("Saver: The results are invalid. ")
+			return False
+
+class SchemeLWEPEKS:
+	def __init__(self:object) -> object:
+		self.__n, self.__m, self.__q = None, None, None
+		self.__keywordLength, self.__identityLength = None, None
+		self.__publicMatrix, self.__masterSecretKey = None, None
+		self.__derivedPublicMatrix, self.__derivedSecretKey = None, None
+		self.__keyword, self.__cipherText, self.__searchTrapdoor = None, None, None
+	def __requireSetup(self:object) -> None:
+		if not all(isinstance(value, int) for value in (self.__n, self.__m, self.__q)):
+			raise RuntimeError("The scheme has not been set up. ")
+	def __randomSigned(self:object, shape:tuple) -> ndarray:
+		return randint(-self.__q, self.__q + 1, size = shape)
+	def Setup(self:object, n:int, m:int, q:int) -> tuple:
+		if not all(isinstance(value, int) and value > 1 for value in (n, m, q)):
+			raise ValueError("The parameters n, m, and q must be integers greater than one. ")
+		if m % n:
+			raise ValueError("The parameters n and m must satisfy n | m. ")
+		self.__n, self.__m, self.__q = n, m, q
+		self.__keywordLength, self.__identityLength = min(4, m), min(4, m)
+		self.__publicMatrix = randint(q, size = (n, m))
+		reversedMatrix = self.__publicMatrix[:, ::-1]
+		self.__masterSecretKey = concatenate((reversedMatrix.T, q * eye(m, dtype = "int")), axis = 1)
+		self.__derivedPublicMatrix, self.__derivedSecretKey = None, None
+		self.__keyword, self.__cipherText, self.__searchTrapdoor = None, None, None
+		return (self.__publicMatrix, self.__masterSecretKey)
+	def Derive(self:object) -> tuple:
+		self.__requireSetup()
+		identity = randint(2, size = (self.__identityLength, ))
+		identityMatrices = self.__randomSigned((self.__identityLength, self.__n, self.__m))
+		identityMatrix = np_sum(identity[:, None, None] * identityMatrices, axis = 0) % self.__q
+		self.__derivedPublicMatrix = concatenate((self.__publicMatrix, identityMatrix), axis = 1)
+		extension = randint(self.__q, size = (self.__m, self.__n))
+		self.__derivedSecretKey = concatenate((self.__masterSecretKey, extension), axis = 1)
+		return (identity, self.__derivedPublicMatrix, self.__derivedSecretKey)
+	def Encrypt(self:object) -> tuple:
+		self.__requireSetup()
+		if self.__derivedPublicMatrix is None:
+			raise RuntimeError("The identity key has not been derived. ")
+		self.__keyword = randint(2, size = (self.__keywordLength, ))
+		keywordMatrices = self.__randomSigned((self.__keywordLength, self.__n, self.__m))
+		keywordMatrix = np_sum(self.__keyword[:, None, None] * keywordMatrices, axis = 0) % self.__q
+		encryptionMatrix = concatenate((self.__derivedPublicMatrix, keywordMatrix), axis = 1)
+		randomVector = randint(self.__q, size = (self.__n, 1))
+		messageVector = randint(self.__q, size = (self.__n, 1))
+		noiseVector = randint(self.__q, size = (self.__m, 1))
+		randomSigns = randint(-1, 2, size = (self.__m << 1, self.__m))
+		noise = concatenate((noiseVector, dot(randomSigns, noiseVector)), axis = 0)
+		c1 = int(dot(messageVector.T, randomVector)[0, 0] % self.__q)
+		c2 = (dot(encryptionMatrix.T, randomVector) + noise) % self.__q
+		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest()
+		self.__cipherText = (c1, c2, keywordHash)
+		return self.__cipherText
+	def Trapdoor(self:object) -> tuple:
+		self.__requireSetup()
+		if self.__keyword is None or self.__derivedSecretKey is None:
+			raise RuntimeError("Encryption and identity derivation have not been completed. ")
+		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest()
+		sampledVector = randint(self.__q, size = (self.__derivedSecretKey.shape[1], 1))
+		self.__searchTrapdoor = (keywordHash, sampledVector)
+		return self.__searchTrapdoor
+	def Search(self:object) -> bool:
+		self.__requireSetup()
+		if self.__cipherText is None or self.__searchTrapdoor is None:
+			return False
+		cipherKeywordHash = self.__cipherText[2]
+		trapdoorKeywordHash = self.__searchTrapdoor[0]
+		return bool(cipherKeywordHash == trapdoorKeywordHash)
+	def getLengthOf(self:object, obj:object) -> int|str:
+		if isinstance(obj, ndarray):
+			return int(obj.nbytes)
+		elif isinstance(obj, bool):
+			return 1
+		elif isinstance(obj, int):
+			return max(1, (abs(obj).bit_length() + 7) >> 3)
+		elif isinstance(obj, bytes):
+			return len(obj)
+		elif isinstance(obj, str):
+			return len(obj.encode())
+		elif isinstance(obj, (tuple, list, set)):
+			sizes = tuple(self.getLengthOf(value) for value in obj)
+			return sum(sizes) if all(isinstance(size, int) and size >= 0 for size in sizes) else "N/A"
+		elif isinstance(obj, dict):
+			sizes = tuple(self.getLengthOf(value) for value in obj.values())
+			return sum(sizes) if all(isinstance(size, int) and size >= 0 for size in sizes) else "N/A"
+		else:
+			return "N/A"
+
+def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool = False) -> list:
+	nString, mString, qString, runString = ("N/A", ) * 4
+	isSystemValid, isSchemeCorrect = (False, ) * 2
+	timeSetup, timeDerive, timeEncrypt, timeTrapdoor, timeSearch = ("N/A", ) * 5
+	sizePublicParameters, sizeMasterSecretKey, sizeDerivedKey, sizeCipherText, sizeTrapdoor = ("N/A", ) * 5
+	if isinstance(parameter, (tuple, list)) and len(parameter) >= 3:
+		n, m, q = parameter[:3]
+	elif isinstance(parameter, dict):
+		n, m, q = tuple(parameter.get(key) for key in ("n", "m", "q"))
+	else:
+		n, m, q = (None, ) * 3
+	if all(isinstance(value, int) for value in (n, m, q)):
+		nString, mString, qString = n, m, q
+	if isinstance(run, int) and run >= 1:
+		runString = run
+	if not isinstance(isVerbose, bool) or isVerbose:
+		print("Parameters: (n = {0}, m = {1}, q = {2})".format(nString, mString, qString))
+		print("run:", runString)
+	try:
+		if not all(isinstance(value, int) for value in (n, m, q)):
+			raise ValueError("The parameters are invalid. ")
+		scheme = SchemeLWEPEKS()
+		startTime = perf_counter()
+		publicParameters = scheme.Setup(n, m, q)
+		timeSetup = perf_counter() - startTime
+		isSystemValid = True
+		startTime = perf_counter()
+		identity, derivedPublicKey, derivedSecretKey = scheme.Derive()
+		timeDerive = perf_counter() - startTime
+		startTime = perf_counter()
+		cipherText = scheme.Encrypt()
+		timeEncrypt = perf_counter() - startTime
+		startTime = perf_counter()
+		trapdoor = scheme.Trapdoor()
+		timeTrapdoor = perf_counter() - startTime
+		startTime = perf_counter()
+		isSchemeCorrect = scheme.Search()
+		timeSearch = perf_counter() - startTime
+		sizePublicParameters = scheme.getLengthOf(publicParameters)
+		sizeMasterSecretKey = scheme.getLengthOf(publicParameters[1])
+		sizeDerivedKey = scheme.getLengthOf((identity, derivedPublicKey, derivedSecretKey))
+		sizeCipherText, sizeTrapdoor = scheme.getLengthOf(cipherText), scheme.getLengthOf(trapdoor)
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Is the system valid? Yes. ")
+			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Time:", (timeSetup, timeDerive, timeEncrypt, timeTrapdoor, timeSearch))
+			print("Space:", (sizePublicParameters, sizeMasterSecretKey, sizeDerivedKey, sizeCipherText, sizeTrapdoor))
+			print()
+	except BaseException as e:
+		if not isinstance(isVerbose, bool) or isVerbose:
+			print("Is the system valid? No. The execution failed due to {0}. ".format(repr(e)))
+			print()
+	return [
+		nString, mString, qString, runString,
+		isSystemValid, isSchemeCorrect,
+		timeSetup, timeDerive, timeEncrypt, timeTrapdoor, timeSearch,
+		sizePublicParameters, sizeMasterSecretKey, sizeDerivedKey, sizeCipherText, sizeTrapdoor
+	]
+
+def main() -> int:
+	parser = Parser(argv)
+	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = parser.parse()
+	if flag > EXIT_SUCCESS and flag > EOF:
+		if any((concatenate is None, dot is None, eye is None, ndarray is None, np_sum is None, randint is None)):
+			parser.disableConsoleEchoes()
+			print("The runtime environment of the Python NumPy library is not correctly configured. ")
+			print("Please install the libraries via the active Python package manager (e.g., pip). ")
+			errorLevel = EOF
+		else:
+			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
+			parser.disableConsoleEchoes()
+			print("The execution has started. ")
+			print()
+
+			# Parameters #
+			parameters = ((2, 8, 251), (4, 16, 251))
+			queries = ("n", "m", "q", "runCount")
+			validators = ("isSystemValid", "isSchemeCorrect")
+			metrics = (
+				"Setup (s)", "Derive (s)", "Encrypt (s)", "Trapdoor (s)", "Search (s)",
+				"publicParameters (B)", "masterSecretKey (B)", "derivedKey (B)", "cipherText (B)", "trapdoor (B)"
+			)
+
+			# Scheme #
+			columns, queryLength, results = queries + validators + metrics, len(queries), []
+			queryValidatorLength, runCountIndex = queryLength + len(validators), queryLength - 1
+			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
+			try:
+				for parameter in parameters:
+					runs = [conductScheme(parameter, run = run, isVerbose = isVerbose) for run in range(1, runCount + 1)]
+					averages = list(runs[0])
+					for index in range(queryLength, queryValidatorLength):
+						averages[index] = sum(int(result[index]) for result in runs)
+					for index in range(queryValidatorLength, len(columns)):
+						values = tuple(result[index] for result in runs)
+						averages[index] = sum(values) / runCount if all(isinstance(value, (float, int)) and value > 0 for value in values) else "N/A"
+						if isinstance(averages[index], float) and averages[index].is_integer():
+							averages[index] = int(averages[index])
+					averages[runCountIndex] = runCount
+					results.append(averages)
+					saver.save(results)
+			except KeyboardInterrupt:
+				print()
+				print("The experiments were interrupted by users. Saved results are retained. ")
+			except BaseException as e:
+				print()
+				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
+			errorLevel = EXIT_SUCCESS if results and all(
+				all(result[index] == runCount for index in range(queryLength, queryValidatorLength))
+				and all(isinstance(result[index], (float, int)) and result[index] > 0 for index in range(queryValidatorLength, len(columns)))
+				for result in results
+			) else EXIT_FAILURE
+	elif EXIT_SUCCESS == flag:
+		errorLevel = flag
+		parser.disableConsoleEchoes()
+	else:
+		errorLevel = EOF
+		parser.disableConsoleEchoes()
+	if 0 == waitingTime:
+		print("The execution has finished ({0}). ".format(errorLevel))
+		print()
+	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
+		integerTime, timeString = int(waitingTime), str(waitingTime)
+		decimalTime = waitingTime - integerTime
+		if "e" in timeString:
+			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
+		timeStringLength = len(timeString)
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		try:
+			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			sleep(decimalTime)
+			while integerTime >= 1:
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				sleep(1)
+				integerTime -= 1
+		except:
+			pass
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
+		print("The execution has finished ({0}). ".format(errorLevel))
+		print()
+	else:
+		print("Please press the Enter key to exit ({0}). ".format(errorLevel))
+		try:
+			getpass("")
+		except:
+			print()
+	parser.restoreConsoleEchoes()
+	del parser
+	return errorLevel
+
+
+
+if "__main__" == __name__:
+	exit(main())

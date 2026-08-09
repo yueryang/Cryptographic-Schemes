@@ -59,6 +59,16 @@ on:
         required: true
         default: true
         type: boolean
+      executeSchemeLLRS:
+        description: 'SchemeLLRS'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeLWEPEKS:
+        description: 'SchemeLWEPEKS'
+        required: true
+        default: true
+        type: boolean
       executeSchemeVLPSICA:
         description: 'SchemeVLPSICA'
         required: true
@@ -147,6 +157,8 @@ jobs:
             executeSchemeIBMETR="${{ github.event.inputs.executeSchemeIBMETR }}"
             executeSchemeIBPRME="${{ github.event.inputs.executeSchemeIBPRME }}"
             executeSchemeLBPEAKS="${{ github.event.inputs.executeSchemeLBPEAKS }}"
+            executeSchemeLLRS="${{ github.event.inputs.executeSchemeLLRS }}"
+            executeSchemeLWEPEKS="${{ github.event.inputs.executeSchemeLWEPEKS }}"
             executeSchemeVLPSICA="${{ github.event.inputs.executeSchemeVLPSICA }}"
           else
             executeSchemeAAIBME="true"
@@ -157,6 +169,8 @@ jobs:
             executeSchemeIBMETR="true"
             executeSchemeIBPRME="true"
             executeSchemeLBPEAKS="true"
+            executeSchemeLLRS="true"
+            executeSchemeLWEPEKS="true"
             executeSchemeVLPSICA="false"
           fi
           matrix=()
@@ -168,6 +182,8 @@ jobs:
           [[ "true" == "${executeSchemeIBMETR}" ]] && matrix+=("SchemeIBMETR/SchemeAIBE.py" "SchemeIBMETR/SchemeARES.py" "SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBMETR/SchemeIBMETR.py")
           [[ "true" == "${executeSchemeIBPRME}" ]] && matrix+=("SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBPRME/SchemeIBPME.py" "SchemeIBPRME/SchemeIBPRME.py" "SchemeIBPRME/SchemePBAC.py")
           [[ "true" == "${executeSchemeLBPEAKS}" ]] && matrix+=("SchemeLBPEAKS/SchemeLBPEAKS.py")
+          [[ "true" == "${executeSchemeLLRS}" ]] && matrix+=("SchemeLLRS/SchemeLLRS.py")
+          [[ "true" == "${executeSchemeLWEPEKS}" ]] && matrix+=("SchemeLWEPEKS/SchemeLWEPEKS.py")
           [[ "true" == "${executeSchemeVLPSICA}" ]] && matrix+=("SchemeVLPSICA/SchemeVLPSICA.py")
           if [[ ${#matrix[@]} -ge 1 ]];
           then

@@ -27,6 +27,11 @@ on:
         required: true
         default: true
         type: boolean
+      executeSchemeGRS:
+        description: 'SchemeGRS'
+        required: true
+        default: true
+        type: boolean
       executeSchemeHIBME:
         description: 'SchemeHIBME'
         required: true
@@ -140,6 +145,7 @@ jobs:
           then
             executeSchemeAAIBME="${{ github.event.inputs.executeSchemeAAIBME }}"
             executeSchemeCANIFPPCT="${{ github.event.inputs.executeSchemeCANIFPPCT }}"
+            executeSchemeGRS="${{ github.event.inputs.executeSchemeGRS }}"
             executeSchemeHIBME="${{ github.event.inputs.executeSchemeHIBME }}"
             executeSchemeIBMEMR="${{ github.event.inputs.executeSchemeIBMEMR }}"
             executeSchemeIBMETR="${{ github.event.inputs.executeSchemeIBMETR }}"
@@ -148,6 +154,7 @@ jobs:
           else
             executeSchemeAAIBME="false"
             executeSchemeCANIFPPCT="true"
+            executeSchemeGRS="true"
             executeSchemeHIBME="false"
             executeSchemeIBMEMR="true"
             executeSchemeIBMETR="true"
@@ -157,6 +164,7 @@ jobs:
           matrix=()
           [[ "true" == "${executeSchemeAAIBME}" ]] && matrix+=("SchemeAAIBME/SchemeAAIBME.java" "SchemeAAIBME/SchemeFuzzyME.java")
           [[ "true" == "${executeSchemeCANIFPPCT}" ]] && matrix+=("SchemeCANIFPPCT/SchemeCANIFPPCT.java" "SchemeCANIFPPCT/SchemeCANIPSI.java")
+          [[ "true" == "${executeSchemeGRS}" ]] && matrix+=("SchemeGRS/SchemeGRS.java")
           [[ "true" == "${executeSchemeHIBME}" ]] && matrix+=("SchemeHIBME/SchemeAnonymousME.java" "SchemeHIBME/SchemeHIBME.java")
           [[ "true" == "${executeSchemeIBMEMR}" ]] && matrix+=("SchemeIBMEMR/SchemeIBBME.java" "SchemeIBMEMR/SchemeIBMEMR.java")
           [[ "true" == "${executeSchemeIBMETR}" ]] && matrix+=("SchemeIBMETR/SchemeAIBE.java" "SchemeIBMETR/SchemeARES.java" "SchemeIBMETR/SchemeIBME.java" "SchemeIBMETR/SchemeIBMECH.java" "SchemeIBMETR/SchemeIBMETR.java")
