@@ -331,6 +331,12 @@ jobs:
           cd "${{ github.workspace }}"
           directoryPath="$(dirname -- "${{ matrix.cryptographicScheme }}")"
           requirementFilePath="${directoryPath}/requirements.txt"
+          if [[ -f "${requirementFilePath}" ]] && grep -qiF "charm" "${requirementFilePath}";
+          then
+            charmBasedScheme="true"
+          else
+            charmBasedScheme="false"
+          fi
           mainFileName="$(basename -- "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
           outputFilePath="${directoryPath}/${mainFileName}-Python${pythonVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
           outputFileName="$(basename "${outputFilePath}")"
@@ -338,6 +344,7 @@ jobs:
           schemePDFFilePath="${directoryPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
           echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
           echo "Requirement file path: ${requirementFilePath}"
+          echo "Charm-based scheme: ${charmBasedScheme}"
           echo "Python version: ${pythonVersion}"
           echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
           echo "Run count: ${runCount}"
@@ -348,6 +355,7 @@ jobs:
           echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
           echo "Scheme PDF file path: ${schemePDFFilePath}"
           echo "requirementFilePath=${requirementFilePath}" >> "${GITHUB_OUTPUT}"
+          echo "charmBasedScheme=${charmBasedScheme}" >> "${GITHUB_OUTPUT}"
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
           echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
@@ -409,6 +417,7 @@ jobs:
           if-no-files-found: warn
       
       - name: Build and install the PBC library
+        if: ${{ steps.ready.outputs.charmBasedScheme == 'true' }}
         run: |
           cd "${{ github.workspace }}"
           wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
@@ -420,6 +429,7 @@ jobs:
           sudo ldconfig
       
       - name: Build and install the Python Charm-Crypto framework
+        if: ${{ steps.ready.outputs.charmBasedScheme == 'true' }}
         run: |
           cd "${{ github.workspace }}"
           git clone https://github.com/JHUISI/charm
