@@ -127,6 +127,20 @@ class Builder:
 		self.__generationTimeConsumption = None
 		self.__compilationDiagnostics = None
 		self.__compilationTimeConsumption = None
+	def __evaluateString(self:object, expression:CSTNode) -> str|None:
+		if isinstance(expression, (ConcatenatedString, SimpleString)):
+			return expression.evaluated_value
+		elif (
+			isinstance(expression, Call) and isinstance(expression.func, Attribute)
+			and "format" == expression.func.attr.value
+		):
+			return self.__evaluateString(expression.func.value)
+		elif isinstance(expression, BinaryOperation) and isinstance(expression.operator, Add):
+			leftString = self.__evaluateString(expression.left)
+			rightString = self.__evaluateString(expression.right)
+			if isinstance(leftString, str) and isinstance(rightString, str):
+				return leftString + rightString
+		return None
 	def __checkString(self:object, string:str) -> bool:
 		if self.__collectionMode:
 			if string not in Builder.__GenerationDiagnostics[""]:
@@ -270,36 +284,18 @@ class Builder:
 						element = stack.pop()
 						if isinstance(element, Call) and isinstance(element.func, Name) and "print" == element.func.value:
 							for argument in element.args:
-								if isinstance(argument.value, (ConcatenatedString, SimpleString)):
-									self.__checkString(argument.value.evaluated_value)
-								elif (
-									isinstance(argument.value, Call) and isinstance(argument.value.func, Attribute)
-									and "format" == argument.value.func.attr.value and isinstance(argument.value.func.value, (ConcatenatedString, SimpleString))
-								):
-									self.__checkString(argument.value.func.value.evaluated_value)
-								elif isinstance(argument.value, BinaryOperation) and isinstance(argument.value.operator, Add):
-									if isinstance(argument.value.left, Call) and isinstance(argument.value.right, Call):
-										self.__checkString(argument.value.left.func.value.evaluated_value + argument.value.right.func.value.evaluated_value)
+								string = self.__evaluateString(argument.value)
+								if isinstance(string, str):
+									self.__checkString(string)
 						elif isinstance(element, ClassDef) and "Saver" == element.name.value:
 							s, descriptor = [element], element.name.value + ": "
 							while s:
 								ele = s.pop()
 								if isinstance(ele, Call) and isinstance(ele.func, Name) and "print" == ele.func.value:
 									for argument in ele.args:
-										if isinstance(argument.value, (ConcatenatedString, SimpleString)):
-											self.__checkSaverString(argument.value.evaluated_value)
-										elif (
-											isinstance(argument.value, Call) and isinstance(argument.value.func, Attribute)
-											and "format" == argument.value.func.attr.value
-											and isinstance(argument.value.func.value, (ConcatenatedString, SimpleString))
-										):
-											self.__checkSaverString(argument.value.func.value.evaluated_value)
-										elif isinstance(argument.value, BinaryOperation) and isinstance(argument.value.operator, Add):
-											if isinstance(argument.value.left, Call) and isinstance(argument.value.right, Call):
-												self.__checkSaverString(
-													argument.value.left.func.value.evaluated_value
-													+ argument.value.right.func.value.evaluated_value
-												)
+										string = self.__evaluateString(argument.value)
+										if isinstance(string, str):
+											self.__checkSaverString(string)
 								elif isinstance(ele, CSTNode):
 									s.extend(reversed(list(ele.children)))
 						elif isinstance(element, ClassDef) and element.name.value.startswith("Scheme"): # match("^class\\s+Scheme[0-9A-Z_a-z]*", line)
@@ -365,23 +361,9 @@ class Builder:
 													f.write(comment + ("\n" if isinstance(mode, str) else "\n\n"))
 										elif isinstance(ele, Call) and isinstance(ele.func, Name) and "print" == ele.func.value:
 											for argument in ele.args:
-												if isinstance(argument.value, (ConcatenatedString, SimpleString)):
-													self.__checkFunctionString(argument.value.evaluated_value, functionName)
-												elif (
-													isinstance(argument.value, Call) and isinstance(argument.value.func, Attribute)
-													and "format" == argument.value.func.attr.value
-													and isinstance(argument.value.func.value, (ConcatenatedString, SimpleString))
-												):
-													self.__checkFunctionString(argument.value.func.value.evaluated_value, functionName)
-												elif isinstance(argument.value, BinaryOperation) and isinstance(argument.value.operator, Add):
-													if isinstance(argument.value.left, Call) and isinstance(argument.value.right, Call):
-														self.__checkFunctionString(
-															(
-																argument.value.left.func.value.evaluated_value
-																+ argument.value.right.func.value.evaluated_value
-															), 
-															functionName
-														)
+												string = self.__evaluateString(argument.value)
+												if isinstance(string, str):
+													self.__checkFunctionString(string, functionName)
 										elif isinstance(ele, CSTNode):
 											s.extend(reversed(list(ele.children)))
 								elif isinstance(item, CSTNode):
