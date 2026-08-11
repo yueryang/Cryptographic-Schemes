@@ -1,5 +1,5 @@
 from os import chdir, getenv, makedirs, name, sep, walk
-from os.path import abspath, basename, dirname, isdir, isfile, islink, join, relpath, split, splitext
+from os.path import abspath, basename, dirname, isdir, isfile, islink, join, split, splitext
 from sys import argv, exit
 try:
 	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
@@ -496,21 +496,21 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 						filePaths = []
 						for root, directoryNames, fileNames in walk(element):
 							for fileName in fileNames:
-								relativeFilePath = relpath(join(root, fileName))
+								absoluteFilePath = abspath(join(root, fileName))
 								if (
-									not islink(relativeFilePath) and isfile(relativeFilePath) and splitext(fileName)[1] == ".py"
-									and fileName.startswith("Scheme") and relativeFilePath not in self.__filePaths
+									not islink(absoluteFilePath) and isfile(absoluteFilePath) and splitext(fileName)[1] == ".py"
+									and fileName.startswith("Scheme") and absoluteFilePath not in self.__filePaths
 								):
-									filePaths.append(relativePath)
+									filePaths.append(absoluteFilePath)
 						filePaths.sort()
 						self.__filePaths.extend(filePaths)
 						del filePaths
 					elif isfile(element):
 						fileName = basename(element)
 						if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
-							relativeFilePath = relpath(element)
-							if relativeFilePath not in self.__filePaths:
-								self.__filePaths.append(relativeFilePath)
+							absoluteFilePath = abspath(element)
+							if absoluteFilePath not in self.__filePaths:
+								self.__filePaths.append(absoluteFilePath)
 		for filePath in self.__filePaths[originalLength:]:
 			p, n = split(filePath)
 			m, x = splitext(n)
