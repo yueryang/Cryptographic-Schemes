@@ -154,10 +154,12 @@ class Builder:
 			), "\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ", 
 			"\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ", 
 			"\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ", 
+			"\rThe countdown is {{0:>{0}}} second(s). ",
 			"\rThe countdown is {0} second(s). ", "$d$:", "$k$:", "$l$:", "$m$:", "$n$:", "Curve: ({0}, {1})", "Dec1:", "Dec2:", "Decrypted:", "Derived:", "Is DKey Sanity? {0}. ", 
 			"Is EKey Sanity? {0}. ", "Is ``Dec1`` passed (m == message)? {0}. ", "Is ``Dec2`` passed (m' == message)? {0}. ", "Is ``ProxyDec`` passed? {0}. ", 
 			"Is ``ProxyEnc`` passed? {0}. ", "Is ``ReEnc`` passed? {0}. ", "Is the basic scheme correct? {0}. ", "Is the deriver passed (M' == message)? {0}. ", 
 			"Is the scheme correct (M == message)? {0}. ", "Is the scheme correct (m == message)? {0}. ", "Is the scheme correct (result is not False)? {0}. ", "Is the scheme correct? {0}. ", 
+			"Is the system valid? No. The execution failed due to {0}. ",
 			"Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ", "Is the system valid? No. The parameter $d$ should be a positive integer. ", 
 			"Is the system valid? No. The parameter $l$ and $n$ should be two positive integers satisfying $1 \\leqslant n \\leqslant l$. ", 
 			"Is the system valid? No. The parameters $l$ and $k$ should be two positive integers satisfying $2 \\leqslant k < l$. ", 
@@ -167,14 +169,17 @@ class Builder:
 			"Is the system valid? No. The parameters $n$ and $d$ should be two positive integers satisfying $2 \\leqslant d \\leqslant n$. ", 
 			"Is the system valid? No. The parameters $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$. ", 
 			"Is the system valid? Yes. ", "Is the tracing verified? {0}. ", "Is tracing 1 verified (M1 == message1)? {0}. ", "Is tracing 2 verified (M2 == message2)? {0}. ", 
-			"No experiments were conducted. ", "Options (case-insensitive): ", "Original:", 
+			"No experiments were conducted. ", "Options (case-insensitive): ", "Original:",
+			"Parameters: (N = {0}, n = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2}, lS = {3}, lR = {4})",
 			"Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ", 
 			"Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ", 
 			"Parser: The path {0} exists not to be a regular file. ", "Please press the Enter key to exit ({0}). ", 
 			"Please install the libraries via the active Python package manager (e.g., pip). ", "Please refer to https://github.com/JHUISI/charm if necessary. ", 
 			"Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ", "Space:", 
-			"The runtime environment of the Python Charm-Crypto framework is not correctly configured. ", 
-			"The runtime environment of the Python NumPy and SymPy libraries is not correctly configured. ", "The execution has finished ({0}). ", 
+			"The runtime environment of the Python Charm-Crypto framework is not correctly configured. ",
+			"The runtime environment of the Python NumPy and SymPy libraries is not correctly configured. ",
+			"The runtime environment of the Python NumPy library is not correctly configured. ",
+			"The execution has finished ({0}). ",
 			"The execution has started. ", "The experiments were interrupted by users. Saved results are retained. ", "The experiments were interrupted by {0}. Saved results are retained. ", 
 			"This is a possible implementation of the AIBE cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is a possible implementation of the ARES cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ", 
@@ -195,6 +200,8 @@ class Builder:
 			"This is the official implementation of the LB-PEAKS cryptographic scheme in Python programming language based on the Python NumPy and SymPy libraries. ", 
 			"This is the official implementation of the PBAC cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is the official implementation of the VL-PSI-CA cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ", 
+			"This is the official simulation implementation of the FS-LLRS cryptographic scheme in Python programming language based on the Python NumPy library. ",
+			"This is the official simulation implementation of the LWE-PEKS cryptographic scheme in Python programming language based on the Python NumPy library. ",
 			"Time:", "Verify:", "bys:", "identities:", "run:", "ys:"
 		):
 			return True
@@ -236,10 +243,33 @@ class Builder:
 			return False
 		elif string[descriptorLength:] in (
 			"An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 224, 256, 384, 512, or 1024 as the security parameter. ", 
+			(
+				"The variable $\\textit{{dk}}_{{\\textit{{ID}}_{{k - 1}}}}$ should be a tuple containing a tuple with $(l - k + 1) \\times 4 + 5 = {0}$ elements, "
+				+ "a tuple with $k - 1 = {1}$ element(s), and two tuples with $l - k + 1 = {2}$ element(s), but it is not, which has been generated accordingly. "
+			), (
+				"The variable $\\textit{{ek}}_{{\\textit{{ID}}_{{k - 1}}}}$ should be a tuple containing a tuple with $k - 1 = {0}$ element(s) "
+				+ "and two tuples with $l - k + 1 = {1}$ element(s), but it is not, which has been generated accordingly. "
+			), (
+				"The variable $\\textit{{ID}}_\textit{{Rev}}$ should be a tuple containing $m = \\|\\textit{{ID}}_\\textit{{Rev}}\\|$ elements of $\\mathbb{{Z}}_r$ "
+				+ "where the integer $m \\in [2, {0}]$, but it is not, which has been generated randomly with a length of ${1} - 1 = {0}$. "
+			), (
+				"The variable $\\textit{{ID}}_\textit{{Snd}}$ should be a tuple containing $n = \\|\\textit{{ID}}_\\textit{{Snd}}\\|$ elements of $\\mathbb{{Z}}_r$ "
+				+ "where the integer $n \\in [2, {0}]$, but it is not, which has been generated randomly with a length of ${1} - 1 = {0}$. "
+			),
+			"The variable $\\textit{{sk}}_{{\\textit{{ID}}_{{k - 1}}}}$ should be a tuple containing $(l - k + 1) \\times 4 + 5 = {0}$ elements, but it is not, which has been generated accordingly. ",
 			"The variable $\textit{btrapdoor}_i$ should be a tuple containing 5 elements, but it is not, which has been generated randomly. ", (
 				"Each of the variables $S_A$, $P_A$, $S_B$, and $P_B$ should be a tuple containing 4 elements of $\\mathbb{Z}_r$, "
 				+ "but at least one of them is not, all of which have been generated randomly. "
-			), "The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ", 
+			), "The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ", (
+				"The variables $n$ and $d$ should be two positive integers satisfying $2 \\leqslant d \\leqslant n$, but they are not, "
+				+ "which have been defaulted to ${0}$ and ${1}$, respectively. "
+			), (
+				"The variables $n$ and $m$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$, but they are not, "
+				+ "which have been defaulted to ${0}$ and ${1}$, respectively. "
+			), (
+				"The variables $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$, but they are not, "
+				+ "which have been defaulted to ${0}$, ${1}$, and ${2}$, respectively. "
+			),
 			"The ``BSetup`` procedure has not been called yet. The program will call the ``BSetup`` first and finish the ``{0}`` subsequently. ".format(functionName), 
 			"The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``{0}`` subsequently. ".format(functionName), 
 			"The passed message (bytes) is too long, which has been cast. ", "The passed message (int) is too long, which has been cast. ", 
