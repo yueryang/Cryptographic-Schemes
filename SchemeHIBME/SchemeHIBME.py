@@ -854,7 +854,7 @@ class SchemeHIBME:
 			ID_Snd = tuple(self.__group.random(ZR) for i in range(self.__l - 1))
 			print(
 				(
-					"Enc: The variable $\\textit{{ID}}_\textit{{Snd}}$ should be a tuple containing $n = \\|\\textit{{ID}}_\\textit{{Snd}}\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $n \\in [2, {0}]$, but it is not, "
+					"Enc: The variable $\\textit{{ID}}_\\textit{{Snd}}$ should be a tuple containing $n = \\|\\textit{{ID}}_\\textit{{Snd}}\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $n \\in [2, {0}]$, but it is not, "
 					+ "which has been generated randomly with a length of ${1} - 1 = {0}$. "
 				).format(self.__l - 1, self.__l)
 			)
@@ -866,7 +866,7 @@ class SchemeHIBME:
 			ID_Rev = tuple(self.__group.random(ZR) for i in range(self.__l - 1))
 			print(
 				(
-					"Enc: The variable $\\textit{{ID}}_\textit{{Rev}}$ should be a tuple containing $m = \\|\\textit{{ID}}_\\textit{{Rev}}\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $m \\in [2, {0}]$, but it is not, "
+					"Enc: The variable $\\textit{{ID}}_\\textit{{Rev}}$ should be a tuple containing $m = \\|\\textit{{ID}}_\\textit{{Rev}}\\|$ elements of $\\mathbb{{Z}}_r$ where the integer $m \\in [2, {0}]$, but it is not, "
 					+ "which has been generated randomly with a length of ${1} - 1 = {0}$. "
 				).format(self.__l - 1, self.__l)
 			)
