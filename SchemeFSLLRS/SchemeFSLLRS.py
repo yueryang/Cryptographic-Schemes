@@ -1,5 +1,5 @@
 from os import chdir, makedirs, name, sep
-from os.path import abspath, dirname, exists, isfile, isdir, join, split, splitext
+from os.path import abspath, basename, dirname, exists, isfile, isdir, join, split, splitext
 from sys import argv, exit
 from codecs import lookup
 from getpass import getpass
@@ -20,13 +20,13 @@ EOF = (-1)
 
 
 class Parser:
-	__SchemeName = "SchemeLLRS" # splitext(basename(__file__))[0]
+	__SchemeName = "SchemeFSLLRS" # splitext(basename(__file__))[0]
 	__OptionEncoding = ("e", "/e", "-e", "encoding", "/encoding", "--encoding")
 	__DefaultEncoding = "utf-8"
 	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
 	__OptionOutput = ("o", "/o", "-o", "output", "/output", "--output")
-	__DefaultExtension = ".xlsx"
-	__DefaultOutputFileName = __SchemeName + __DefaultExtension
+	__DefaultOutputExtension = ".xlsx"
+	__DefaultOutputFileName = __SchemeName + __DefaultOutputExtension
 	__ProtectedExtensionNames = ("ASM", "BAT", "C", "CMD", "CPP", "CS", "GO", "H", "HPP", "IPYNB", "JAR", "JAVA", "JS", "KT", "LUA", "M", "O", "PHP", "PS1", "PY", "R", "RB", "RS", "S", "SH", "SQL")
 	__OptionPlace = ("p", "/p", "-p", "place", "/place", "--place")
 	__DefaultPlace = 9
@@ -75,9 +75,9 @@ class Parser:
 			if isdir(filePath) or filePath.endswith((sep, "/")):
 				print("Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ".format(repr(Parser.__DefaultOutputFileName)))
 				return self.__handlePath(join(filePath, Parser.__DefaultOutputFileName))
-			elif splitext(split(filePath)[1])[1][1:].upper() in Parser.__ProtectedExtensionNames:
-				print("Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ".format(repr(self.__DefaultExtension)))
-				return self.__handlePath(splitext(filePath)[0] + Parser.__DefaultExtension)
+			elif splitext(basename(filePath))[1][1:].upper() in Parser.__ProtectedExtensionNames:
+				print("Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ".format(repr(self.__DefaultOutputExtension)))
+				return self.__handlePath(splitext(filePath)[0] + Parser.__DefaultOutputExtension)
 			else:
 				return filePath
 		else:
@@ -304,7 +304,7 @@ class Saver:
 		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
 		self.__folderPath = dirname(self.__outputFilePath)
-		self.__extensionName = splitext(split(self.__outputFilePath)[1])[1][1:].upper()
+		self.__extensionName = splitext(basename(self.__outputFilePath))[1][1:].upper()
 		self.__Writer = None # CSV/TSV
 		self.__escapeHTML = None # HTM/HTML
 		self.__dumpsJSON = None # JSON/YAML/YML
@@ -567,7 +567,7 @@ class Saver:
 			print("Saver: The results are invalid. ")
 			return False
 
-class SchemeLLRS:
+class SchemeFSLLRS:
 	def __init__(self:object) -> object:
 		self.__ringSize, self.__dimension, self.__modulus, self.__ringMatrix = (None, ) * 4
 		self.__secretKeys, self.__publicKeys, self.__signer, self.__epoch = None, None, None, 0
@@ -700,7 +700,7 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 	try:
 		if not all(isinstance(value, int) for value in (N, n, q)):
 			raise ValueError("The parameters are invalid. ")
-		scheme = SchemeLLRS()
+		scheme = SchemeFSLLRS()
 		startTime = perf_counter()
 		publicParameters = scheme.LLRSSetup(N, n, q)
 		timeSetup = perf_counter() - startTime

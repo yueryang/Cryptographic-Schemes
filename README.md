@@ -2,8 +2,6 @@
 
 This repository serves as a systematic collection of multiple cryptographic schemes, along with their baselines. 
 
-We are currently merging cryptographic schemes from our other repositories. Cryptographic schemes are gathered as follows. 
-
 - [SchemeAAIBME](./SchemeAAIBME/)
   - [SchemeAAIBME.java](./SchemeAAIBME/SchemeAAIBME.java)
   - [SchemeAAIBME.py](./SchemeAAIBME/SchemeAAIBME.py)
@@ -58,8 +56,8 @@ We are currently merging cryptographic schemes from our other repositories. Cryp
 - [SchemeLBPEAKS](./SchemeLBPEAKS/)
   - [SchemeLBPEAKS.java](./SchemeLBPEAKS/SchemeLBPEAKS.java)
   - [SchemeLBPEAKS.py](./SchemeLBPEAKS/SchemeLBPEAKS.py)
-- [SchemeLLRS](./SchemeLLRS/)
-  - [SchemeLLRS.py](./SchemeLLRS/SchemeLLRS.py)
+- [SchemeFSLLRS](./SchemeFSLLRS/)
+  - [SchemeFSLLRS.py](./SchemeFSLLRS/SchemeFSLLRS.py)
 - [SchemeLWEPEKS](./SchemeLWEPEKS/)
   - [SchemeLWEPEKS.py](./SchemeLWEPEKS/SchemeLWEPEKS.py)
 - [SchemeOPSICA](./SchemeOPSICA/)
@@ -78,15 +76,20 @@ We are currently merging cryptographic schemes from our other repositories. Cryp
   - [SchemeVPSICAAlg4.cpp](./SchemeVPSICA/SchemeVPSICAAlg4.cpp)
   - [SchemeVPSICAAlg5.cpp](./SchemeVPSICA/SchemeVPSICAAlg5.cpp)
 
+Programming languages, along with their third-party dependencies, used in this repository are as follows. 
 Most of the cryptographic schemes here are pairing-based, which are implemented based on the PBC library and its variants. 
+Some cryptographic schemes have multiple implementations in different programming languages. 
+Although we have made every effort to ensure their equivalence across different programming languages, 
+we still recommend the priority order of C/C++, followed by Python, and then Java for the same cryptographic scheme. 
 
 | Programming language | Third-party dependencies |
 | - | - |
 | C/C++ | [PBC](https://crypto.stanford.edu/pbc/download.html) |
-| Python (3.12 or above) | Scheme-specific dependencies, including the [Python Charm-Crypto framework](https://github.com/JHUISI/charm), NumPy, and SymPy |
+| Python (3.12 or above) | [Python Charm-Crypto framework](https://github.com/JHUISI/charm), NumPy, or NumPy and SymPy |
 | Java | JPBC |
 
-All programming and experiments are conducted under the Ubuntu (24.04.4 LTS) operating system. 
+All programming and experiments are conducted under the latest Ubuntu (current 24.04.4 LTS) operating system. 
+In principle, all the experiments should also be capable of being conducted on the Windows operating system. 
 
 ## 1. Python
 

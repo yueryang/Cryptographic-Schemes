@@ -1,5 +1,5 @@
-from os import chdir, getenv, makedirs, name, sep, walk
-from os.path import abspath, basename, dirname, isdir, isfile, islink, join, split, splitext
+from os import chdir, makedirs, name, sep, walk
+from os.path import abspath, basename, dirname, isdir, isfile, islink, join, split, splitdrive, splitext
 from sys import argv, exit
 try:
 	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
@@ -19,7 +19,10 @@ EOF = (-1)
 
 
 class Parser:
+	__OptionDelimiter = ("//", "--")
+	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
 	__OptionOutput = ("o", "/o", "-o", "output", "/output", "--output")
+	__DefaultOutput = "%p/%nLaTeX/%n"
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
 	__DefaultTime = float("inf")
 	def __init__(self:object, arguments:tuple|list) -> object:
@@ -27,9 +30,32 @@ class Parser:
 		self.__originalConsoleAttributes = None
 		self.__echolessConsoleAttributes = None
 		self.__tcsetattr = None
+	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
+		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
+			prefix = pre if isinstance(pre, str) else "["
+			separator = sep if isinstance(sep, str) else "|"
+			suffix = suf if isinstance(suf, str) else "]"
+			return prefix + separator.join(option) + suffix
+		else:
+			return ""
+	def __printHelp(self:object) -> None:
+		print("This is the official cryptographic scheme LaTeX and PDF builder. ")
+		print()
+		print("Options (case-insensitive): ")
+		print("\t{0}\t\tIndicate that all the subsequent arguments are file paths. ".format(self.__formatOption(Parser.__OptionDelimiter)))
+		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
+		print((
+			"\t{0} <output>\t\tSpecify the output path without an extension, which can be a format string, "
+			+ "where %%, %d, %n, %p, %x stand for the %, Drive letter (if applicable), main file Name, directory Path, and eXtension, respectively. The default value is {1}. "
+		).format(self.__formatOption(Parser.__OptionOutput), Parser.__DefaultOutput))
+		print(
+			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))
+			+ "Passing inf requires users to manually press the Enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)
+		)
+		print()
 	def __parseRealNumber(self:object, string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(ch for ch in string if ch.isalnum() or ch in "+-.").lower()
+			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -71,8 +97,8 @@ class Parser:
 				else:
 					integerPartString, decimalPartString = realNumberString.split(".")[:2] if "." in realNumberString else (realNumberString, "")
 					realNumber = 0
-					for ch in decimalPartString.rstrip("0")[::-1]:
-						realNumber += digits.index(ch)
+					for character in reversed(decimalPartString.rstrip("0")):
+						realNumber += digits.index(character)
 						realNumber /= base
 					integerPartString = integerPartString.lstrip("0")
 					if integerPartString:
@@ -85,26 +111,22 @@ class Parser:
 		except:
 			return None
 	def parse(self:object) -> tuple:
-		formatter = getenv("FORMATTER")
-		waitingTime = self.__parseRealNumber(getenv("WAITING_TIME"))
-		if not isinstance(waitingTime, (int, float)) or waitingTime < 0:
-			waitingTime = Parser.__DefaultTime
-		flag, paths, index, argumentCount, pathMode, buffers = EXIT_SUCCESS, [], 1, len(self.__arguments), False, []
+		flag, outputPathWithoutAnExtension, waitingTime, paths = max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultOutput, Parser.__DefaultTime, []
+		index, argumentCount, nonOptionMode, buffers = 1, len(self.__arguments), False, []
 		while index < argumentCount:
-			argument = self.__arguments[index]
-			argumentLower = argument.lower()
-			if pathMode:
-				paths.append(argument)
-			elif "--" == argument:
-				pathMode = True
-			elif argumentLower in Parser.__OptionOutput:
+			argument = self.__arguments[index].lower()
+			if nonOptionMode:
+				paths.append(self.__arguments[index])
+			elif argument in Parser.__OptionDelimiter:
+				nonOptionMode = True
+			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
-					formatter = self.__arguments[index]
+					outputPathWithoutAnExtension = self.__arguments[index]
 				else:
 					flag = EOF
-					buffers.append("Parser: The value for the output path formatter option is missing at [{0}]. ".format(index))
-			elif argumentLower in Parser.__OptionTime:
+					buffers.append("Parser: The value for the output path without an extension option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
 					t = self.__parseRealNumber(self.__arguments[index])
@@ -120,16 +142,13 @@ class Parser:
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
-			elif argument.startswith("-") and "-" != argument:
-				flag = EOF
-				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(argument)))
 			else:
 				paths.append(argument)
 			index += 1
 		if EOF == flag:
 			for buffer in buffers:
 				print(buffer)
-		return (flag, formatter, waitingTime, tuple(paths))
+		return (flag, outputPathWithoutAnExtension, waitingTime, paths)
 	def disableConsoleEchoes(self:object) -> bool:
 		if "posix" == name:
 			try:
@@ -151,6 +170,9 @@ class Parser:
 			except:
 				return False
 		return True
+	@staticmethod
+	def getDefaultOutput() -> str:
+		return Parser.__DefaultOutput
 
 class Builder:
 	__DefaultCompilationTimeout = 10
@@ -505,42 +527,39 @@ class Builder:
 			warnings.sort()
 		return Builder.__GenerationDiagnostics
 
-class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainFileName.extension", "mainFileName", ".extension")
-	__DefaultFormatter, __DefaultSchemeFilePathPrompt, __DefaultGenerationPrompt, __DefaultCompilationPrompt = "%p%s%mLaTeX%s%m", "[F] ", "[G] ", "[C] "
-	def __init__(self:object, formatter:str = __DefaultFormatter, collectionMode:bool = False, *paths:tuple) -> object:
-		self.__formatter = formatter if isinstance(formatter, str) else Builders.__DefaultFormatter
-		self.__collectionMode = True == collectionMode
+class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFileName.extension", "directoryPath", ".extension")
+	__DefaultFormatString, __DefaultSchemeFilePathPrompt, __DefaultGenerationPrompt, __DefaultCompilationPrompt = Parser.getDefaultOutput(), "[F] ", "[G] ", "[C] "
+	def __init__(self:object, formatString:str = __DefaultFormatString, collectionMode:bool = False, *paths:tuple) -> object:
+		self.__formatString = formatString if isinstance(formatString, str) else Builders.__DefaultFormatString
+		self.__collectionMode = collectionMode is True
 		self.__filePaths = []
 		self.__builders = []
 		self.updateFilePaths(*paths if paths else ".")
-	def __format(self:object, _m:str = "", _n:str = "", _p:str = "", _s:str = sep, _x:str = ".py") -> str:
-		m, n, p = _m if isinstance(_m, str) else "", _n if isinstance(_n, str) else "", _p if isinstance(_p, str) else ""
-		s, x = _s if isinstance(_s, str) else sep, _x if isinstance(_x, str) else ".py"
-		buffer, index, length = [], 0, len(self.__formatter)
+	def __format(self:object, _d:str = "", _n:str = "", _p:str = "", _x:str = ".py") -> str:
+		d, n, p, x = _d if isinstance(_d, str) else "", _n if isinstance(_n, str) else "", _p if isinstance(_p, str) else "", _x if isinstance(_x, str) else ".py"
+		buffer, index, length = [], 0, len(self.__formatString)
 		while index < length:
-			if '%' == self.__formatter[index]:
+			if '%' == self.__formatString[index]:
 				index += 1
 				if index < length:
-					if '%' == self.__formatter[index]:
+					if '%' == self.__formatString[index]:
 						buffer.append("%")
-					elif 'm' == self.__formatter[index]:
-						buffer.append(m)
-					elif 'n' == self.__formatter[index]:
+					elif 'd' == self.__formatString[index]:
+						buffer.append(d)
+					elif 'n' == self.__formatString[index]:
 						buffer.append(n)
-					elif 'p' == self.__formatter[index]:
+					elif 'p' == self.__formatString[index]:
 						buffer.append(p)
-					elif 's' == self.__formatter[index]:
-						buffer.append(s)
-					elif 'x' == self.__formatter[index]:
+					elif 'x' == self.__formatString[index]:
 						buffer.append(x)
 					else:
-						buffer.append("%" + self.__formatter[index])
+						buffer.append("%" + self.__formatString[index])
 					index += 1
 				else:
 					buffer.append("%")
 					break
 			else:
-				buffer.append(self.__formatter[index])
+				buffer.append(self.__formatString[index])
 				index += 1
 		return "".join(buffer)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
@@ -573,14 +592,15 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 							if absoluteFilePath not in self.__filePaths:
 								self.__filePaths.append(absoluteFilePath)
 		for filePath in self.__filePaths[originalLength:]:
-			p, n = split(filePath)
-			m, x = splitext(n)
-			self.__builders.append(Builder(filePath, self.__format(_m = m, _n = n, _p = p, _x = x), collectionMode = self.__collectionMode))
+			dp, nx = split(filePath)
+			d, p = splitdrive(dp)
+			n, x = splitext(nx)
+			self.__builders.append(Builder(filePath, self.__format(_d = d, _n = n, _p = p, _x = x), collectionMode = self.__collectionMode))
 		currentLength = len(self.__builders)
 		return currentLength - originalLength
 	def build(self:object, isSilent:bool = False) -> None:
 		successCount = 0
-		if not self.__collectionMode and True == isSilent:
+		if not self.__collectionMode and isSilent is True:
 			for builder in self.__builders:
 				builder.generate()
 				builder.compile()
@@ -606,37 +626,42 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 
 def main() -> int:
 	parser = Parser(argv)
-	errorLevel, formatter, waitingTime, paths = parser.parse()
+	flag, outputPathWithoutAnExtension, waitingTime, paths = parser.parse()
 	parser.disableConsoleEchoes()
-	if EXIT_SUCCESS != errorLevel:
-		pass
-	elif any((
-		Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
-		FunctionDef is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
-	)):
-		print("Failed to import necessary items from the ``libcst`` library. ")
-		print("Please try to install the ``libcst`` library via ``pip install libcst``. ")
-		errorLevel = EOF
-	else:
-		builders = Builders(formatter, False, *paths)
-		totalCount = len(builders)
-		print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
-		if totalCount >= 1:
-			print()
-			successCount = builders.build()
-			errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
-			print("Successfully handled {0} / {1} {2} with a success rate of {3:.2f}%. ".format(successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount))
-		else:
+	if flag > EXIT_SUCCESS and flag > EOF:
+		if any((
+			Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
+			FunctionDef is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
+		)):
+			print("The runtime environment of the Python libcst library is not correctly configured. ")
+			print("Please install the libraries via the active Python package manager (e.g., pip). ")
 			errorLevel = EOF
-			print("Nothing was built. ")
+		else:
+			builders = Builders(outputPathWithoutAnExtension, False, *paths)
+			totalCount = len(builders)
+			print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
+			if totalCount >= 1:
+				print()
+				successCount = builders.build()
+				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
+				print("Successfully built {0} / {1} {2} with a success rate of {3:.2f}%. ".format(successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount))
+			else:
+				errorLevel = EOF
+				print("Nothing was built. ")
+	elif EXIT_SUCCESS == flag:
+		errorLevel = flag
+	else:
+		errorLevel = EOF
 	if 0 == waitingTime:
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
 	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
 		integerTime, timeString = int(waitingTime), str(waitingTime)
 		decimalTime = waitingTime - integerTime
+		if "e" in timeString:
+			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing `Ctrl + C` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
 		try:
 			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
 			sleep(decimalTime)

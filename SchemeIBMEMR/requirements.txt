@@ -1,6 +1,5 @@
 # Python built-in standard libraries
 # Python Charm-Crypto framework
-libcst
 setuptools
 xlwt # XLS
 openpyxl # XLSX

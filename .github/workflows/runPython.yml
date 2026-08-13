@@ -59,8 +59,8 @@ on:
         required: true
         default: true
         type: boolean
-      executeSchemeLLRS:
-        description: 'SchemeLLRS'
+      executeSchemeFSLLRS:
+        description: 'SchemeFSLLRS'
         required: true
         default: true
         type: boolean
@@ -157,7 +157,7 @@ jobs:
             executeSchemeIBMETR="${{ github.event.inputs.executeSchemeIBMETR }}"
             executeSchemeIBPRME="${{ github.event.inputs.executeSchemeIBPRME }}"
             executeSchemeLBPEAKS="${{ github.event.inputs.executeSchemeLBPEAKS }}"
-            executeSchemeLLRS="${{ github.event.inputs.executeSchemeLLRS }}"
+            executeSchemeFSLLRS="${{ github.event.inputs.executeSchemeFSLLRS }}"
             executeSchemeLWEPEKS="${{ github.event.inputs.executeSchemeLWEPEKS }}"
             executeSchemeVLPSICA="${{ github.event.inputs.executeSchemeVLPSICA }}"
           else
@@ -169,7 +169,7 @@ jobs:
             executeSchemeIBMETR="true"
             executeSchemeIBPRME="true"
             executeSchemeLBPEAKS="true"
-            executeSchemeLLRS="true"
+            executeSchemeFSLLRS="true"
             executeSchemeLWEPEKS="true"
             executeSchemeVLPSICA="false"
           fi
@@ -182,7 +182,7 @@ jobs:
           [[ "true" == "${executeSchemeIBMETR}" ]] && matrix+=("SchemeIBMETR/SchemeAIBE.py" "SchemeIBMETR/SchemeARES.py" "SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBMETR/SchemeIBMETR.py")
           [[ "true" == "${executeSchemeIBPRME}" ]] && matrix+=("SchemeIBMETR/SchemeIBME.py" "SchemeIBMETR/SchemeIBMECH.py" "SchemeIBPRME/SchemeIBPME.py" "SchemeIBPRME/SchemeIBPRME.py" "SchemeIBPRME/SchemePBAC.py")
           [[ "true" == "${executeSchemeLBPEAKS}" ]] && matrix+=("SchemeLBPEAKS/SchemeLBPEAKS.py")
-          [[ "true" == "${executeSchemeLLRS}" ]] && matrix+=("SchemeLLRS/SchemeLLRS.py")
+          [[ "true" == "${executeSchemeFSLLRS}" ]] && matrix+=("SchemeFSLLRS/SchemeFSLLRS.py")
           [[ "true" == "${executeSchemeLWEPEKS}" ]] && matrix+=("SchemeLWEPEKS/SchemeLWEPEKS.py")
           [[ "true" == "${executeSchemeVLPSICA}" ]] && matrix+=("SchemeVLPSICA/SchemeVLPSICA.py")
           if [[ ${#matrix[@]} -ge 1 ]];
@@ -323,6 +323,7 @@ jobs:
           sparse-checkout: |
             ${{ matrix.cryptographicScheme }}
             buildSchemeLaTeXPDFs.py
+            requirements.txt
           persist-credentials: false
       
       - name: Get ready
@@ -384,7 +385,7 @@ jobs:
           cd "${{ github.workspace }}"
           python -m pip install --upgrade pip
           python -m pip install wheel
-          python -m pip install -r "${{ steps.ready.outputs.requirementFilePath }}"
+          python -m pip install -r requirements.txt -r "${{ steps.ready.outputs.requirementFilePath }}"
       
       - name: Build LaTeX and the PDF for the cryptographic scheme
         run: |
@@ -392,9 +393,11 @@ jobs:
           echo "The current working directory is \"$(pwd)\". "
           if [[ -f buildSchemeLaTeXPDFs.py && -f "${{ matrix.cryptographicScheme }}" ]];
           then
-            formatter='%p%s%mLaTeX%s%m-${{ needs.prepare.outputs.timeString }}'
-            echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatter}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
-            python buildSchemeLaTeXPDFs.py -o "${formatter}" -t 0 -- "${{ matrix.cryptographicScheme }}"
+            formatString='%p/%nLaTeX/%n-${{ needs.prepare.outputs.timeString }}'
+            echo "\$ python buildSchemeLaTeXPDFs.py -h"
+            python buildSchemeLaTeXPDFs.py -h
+            echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatString}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
+            python buildSchemeLaTeXPDFs.py -o "${formatString}" -t 0 -- "${{ matrix.cryptographicScheme }}"
           else
             echo "Could not execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
             tree

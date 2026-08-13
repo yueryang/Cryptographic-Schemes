@@ -1,11 +1,21 @@
-## GRS
+## SchemeGRS
 
 This is the category of the GRS cryptographic scheme.
 
 ### SchemeGRS
 
-- ``SchemeGRS.java``: This is the official implementation of the GRS cryptographic scheme in Java programming language based on the JPBC library. It consolidates the upstream multi-file implementation into one source file and uses the common Parser/Saver interface of this repository.
+- ``SchemeGRS.java``: This is the official implementation of the GRS cryptographic scheme in Java programming language based on the JPBC library. 
 
-The implementation contains both signature constructions from ``From $\Sigma$-protocol Based Signatures to Ring Signatures: General Construction and Applications``. Object sizes are calculated from encoded cryptographic elements, so the former ClassMexer dependency is no longer required.
+```bibtex
+@article{chen2025sigma,
+  title={From $\sigma$-protocol-based signatures to ring signatures: General construction and applications},
+  author={Chen, Xue and Gao, Shang and Xu, Shiyuan and Chen, Liquan and Yiu, Siu-Ming and Xiao, Bin},
+  journal={IEEE Transactions on Information Forensics and Security},
+  volume={20},
+  pages={3646--3661},
+  year={2025},
+  publisher={IEEE}
+}
+```
 
-The implementation was imported from [yueryang/GRS](https://github.com/yueryang/GRS), revision ``c0ec5024cb8321884fb254a4ddeabe1657f40b79``.
+We would like to express our sincere gratitude to everyone who has cited this work. Readers who wish to cite this work may use the BibTeX entry above. 
