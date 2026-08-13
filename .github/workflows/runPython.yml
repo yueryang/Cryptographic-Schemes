@@ -392,15 +392,13 @@ jobs:
           echo "The current working directory is \"$(pwd)\". "
           if [[ -f buildSchemeLaTeXPDFs.py && -f "${{ matrix.cryptographicScheme }}" ]];
           then
-            echo "\$ python buildSchemeLaTeXPDFs.py \"${{ matrix.cryptographicScheme }}\""
-            python buildSchemeLaTeXPDFs.py "${{ matrix.cryptographicScheme }}"
+            formatter='%p%s%mLaTeX%s%m-${{ needs.prepare.outputs.timeString }}'
+            echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatter}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
+            python buildSchemeLaTeXPDFs.py -o "${formatter}" -t 0 -- "${{ matrix.cryptographicScheme }}"
           else
             echo "Could not execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
             tree
           fi
-        env:
-          FORMATTER: '%p%s%mLaTeX%s%m-${{ needs.prepare.outputs.timeString }}'
-          WAITING_TIME: 0
       
       - name: Upload the LaTeX source code for the cryptographic scheme
         uses: actions/upload-artifact@v7
