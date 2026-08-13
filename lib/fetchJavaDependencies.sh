@@ -55,6 +55,16 @@ cleanup()
 	exit "$status"
 }
 
+report_added_file()
+{
+	printf '+++ lib/%s\n' "$1" >&2
+}
+
+report_removed_file()
+{
+	printf '%s\n' "--- lib/$1" >&2
+}
+
 trap cleanup EXIT
 trap 'exit "$EXIT_FAILURE"' HUP INT TERM
 
@@ -289,6 +299,7 @@ commit_downloadable_artifact()
 	then
 		mv -- "${SELECTED_SOURCES[$artifact_index]}" "$selected_path" || fail "failed to install ${selected_filename}"
 		SELECTED_SOURCES[$artifact_index]="$selected_path"
+		report_added_file "$selected_filename"
 	fi
 
 	while IFS= read -r -d '' candidate
@@ -297,6 +308,7 @@ commit_downloadable_artifact()
 		if [[ "$filename" =~ ^${artifact}-([0-9][0-9A-Za-z._+-]*)\.jar$ && "$candidate" != "$selected_path" ]]
 		then
 			rm -f -- "$candidate" || fail "failed to remove obsolete JAR: ${filename}"
+			report_removed_file "$filename"
 		fi
 	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -type f -name "${artifact}-*.jar" -print0)
 

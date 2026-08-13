@@ -18,9 +18,12 @@ EXIT_FAILURE = 1
 EOF = (-1)
 
 
-class Environments:
-	__DefaultWaitingTime = float("inf")
-	def __init__(self:object) -> object:
+class Parser:
+	__OptionOutput = ("o", "/o", "-o", "output", "/output", "--output")
+	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
+	__DefaultTime = float("inf")
+	def __init__(self:object, arguments:tuple|list) -> object:
+		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
 		self.__originalConsoleAttributes = None
 		self.__echolessConsoleAttributes = None
 		self.__tcsetattr = None
@@ -74,16 +77,59 @@ class Environments:
 					integerPartString = integerPartString.lstrip("0")
 					if integerPartString:
 						realNumber += int(integerPartString, base = base)
-					if realNumber.is_integer():
+					if isinstance(realNumber, float) and realNumber.is_integer():
 						realNumber = int(realNumber)
 				if minusSign:
 					realNumber = -realNumber
 				return realNumber
 		except:
 			return None
-	def resolve(self:object) -> tuple:
+	def parse(self:object) -> tuple:
+		formatter = getenv("FORMATTER")
 		waitingTime = self.__parseRealNumber(getenv("WAITING_TIME"))
-		return (getenv("FORMATTER"), waitingTime if isinstance(waitingTime, (int, float)) and waitingTime >= 0 else Environments.__DefaultWaitingTime)
+		if not isinstance(waitingTime, (int, float)) or waitingTime < 0:
+			waitingTime = Parser.__DefaultTime
+		flag, paths, index, argumentCount, pathMode, buffers = EXIT_SUCCESS, [], 1, len(self.__arguments), False, []
+		while index < argumentCount:
+			argument = self.__arguments[index]
+			argumentLower = argument.lower()
+			if pathMode:
+				paths.append(argument)
+			elif "--" == argument:
+				pathMode = True
+			elif argumentLower in Parser.__OptionOutput:
+				index += 1
+				if index < argumentCount:
+					formatter = self.__arguments[index]
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the output path formatter option is missing at [{0}]. ".format(index))
+			elif argumentLower in Parser.__OptionTime:
+				index += 1
+				if index < argumentCount:
+					t = self.__parseRealNumber(self.__arguments[index])
+					if t is None:
+						flag = EOF
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+					elif t >= 0:
+						waitingTime = t
+					else:
+						flag = EOF
+						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
+					del t
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
+			elif argument.startswith("-") and "-" != argument:
+				flag = EOF
+				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(argument)))
+			else:
+				paths.append(argument)
+			index += 1
+		if EOF == flag:
+			for buffer in buffers:
+				print(buffer)
+		return (flag, formatter, waitingTime, tuple(paths))
 	def disableConsoleEchoes(self:object) -> bool:
 		if "posix" == name:
 			try:
@@ -514,7 +560,7 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 								absoluteFilePath = abspath(join(root, fileName))
 								if (
 									not islink(absoluteFilePath) and isfile(absoluteFilePath) and splitext(fileName)[1] == ".py"
-									and fileName.startswith("Scheme") and absoluteFilePath not in self.__filePaths
+									and fileName.lstrip("-").startswith("Scheme") and absoluteFilePath not in self.__filePaths
 								):
 									filePaths.append(absoluteFilePath)
 						filePaths.sort()
@@ -522,7 +568,7 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 						del filePaths
 					elif isfile(element):
 						fileName = basename(element)
-						if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
+						if splitext(fileName)[1] == ".py" and fileName.lstrip("-").startswith("Scheme"):
 							absoluteFilePath = abspath(element)
 							if absoluteFilePath not in self.__filePaths:
 								self.__filePaths.append(absoluteFilePath)
@@ -559,10 +605,12 @@ class Builders: # ("%p", "%s", "%n", "%m", "%x") = ("directoryPath", "/", "mainF
 
 
 def main() -> int:
-	environments = Environments()
-	formatter, waitingTime = environments.resolve()
-	environments.disableConsoleEchoes()
-	if any((
+	parser = Parser(argv)
+	errorLevel, formatter, waitingTime, paths = parser.parse()
+	parser.disableConsoleEchoes()
+	if EXIT_SUCCESS != errorLevel:
+		pass
+	elif any((
 		Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
 		FunctionDef is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
 	)):
@@ -570,7 +618,7 @@ def main() -> int:
 		print("Please try to install the ``libcst`` library via ``pip install libcst``. ")
 		errorLevel = EOF
 	else:
-		builders = Builders(formatter, False, *argv[1:])
+		builders = Builders(formatter, False, *paths)
 		totalCount = len(builders)
 		print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
 		if totalCount >= 1:
@@ -587,8 +635,6 @@ def main() -> int:
 	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
 		integerTime, timeString = int(waitingTime), str(waitingTime)
 		decimalTime = waitingTime - integerTime
-		if "e" in timeString:
-			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
 		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing `Ctrl + C` ({1}). ".format(timeString, errorLevel))
 		try:
@@ -609,8 +655,8 @@ def main() -> int:
 			getpass("")
 		except:
 			print()
-	environments.restoreConsoleEchoes()
-	del environments
+	parser.restoreConsoleEchoes()
+	del parser
 	return errorLevel
 
 
