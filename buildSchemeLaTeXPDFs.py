@@ -2,9 +2,9 @@ from os import chdir, makedirs, name, sep, walk
 from os.path import abspath, basename, dirname, isdir, isfile, islink, join, split, splitdrive, splitext
 from sys import argv, exit
 try:
-	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module
+	from libcst import Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, IfExp, Name, SimpleString, TrailingWhitespace, parse_module
 except:
-	Attribute, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, Name, SimpleString, TrailingWhitespace, parse_module = (None, ) * 11
+	Add, Attribute, BinaryOperation, CSTNode, Call, ClassDef, ConcatenatedString, EmptyLine, FunctionDef, IfExp, Name, SimpleString, TrailingWhitespace, parse_module = (None, ) * 14
 from getpass import getpass
 from re import match
 from subprocess import TimeoutExpired, run
@@ -152,7 +152,7 @@ class Parser:
 					flag = EOF
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
 			else:
-				paths.append(argument)
+				paths.append(arguments[index])
 			index += 1
 		if EOF == flag:
 			for buffer in buffers:
@@ -211,20 +211,22 @@ class Builder:
 		self.__generationTimeConsumption = None
 		self.__compilationDiagnostics = None
 		self.__compilationTimeConsumption = None
-	def __evaluateString(self:object, expression:CSTNode) -> str|None:
+	def __evaluateStrings(self:object, expression:CSTNode) -> tuple:
 		if isinstance(expression, (ConcatenatedString, SimpleString)):
-			return expression.evaluated_value
+			return (expression.evaluated_value, )
 		elif (
 			isinstance(expression, Call) and isinstance(expression.func, Attribute)
 			and "format" == expression.func.attr.value
 		):
-			return self.__evaluateString(expression.func.value)
+			return self.__evaluateStrings(expression.func.value)
 		elif isinstance(expression, BinaryOperation) and isinstance(expression.operator, Add):
-			leftString = self.__evaluateString(expression.left)
-			rightString = self.__evaluateString(expression.right)
-			if isinstance(leftString, str) and isinstance(rightString, str):
-				return leftString + rightString
-		return None
+			leftStrings = self.__evaluateStrings(expression.left)
+			rightStrings = self.__evaluateStrings(expression.right)
+			return tuple(leftString + rightString for leftString in leftStrings for rightString in rightStrings)
+		elif isinstance(expression, IfExp):
+			strings = self.__evaluateStrings(expression.body) + self.__evaluateStrings(expression.orelse)
+			return tuple(dict.fromkeys(strings))
+		return ()
 	def __checkString(self:object, string:str) -> bool:
 		if self.__collectionMode:
 			if string not in Builder.__GenerationDiagnostics[""]:
@@ -253,7 +255,7 @@ class Builder:
 			"Is the system valid? No. The parameters $n$ and $d$ should be two positive integers satisfying $2 \\leqslant d \\leqslant n$. ", 
 			"Is the system valid? No. The parameters $n$, $k$, and $d$ should be three positive integers satisfying $1 \\leqslant d \\leqslant k \\leqslant n$. ", 
 			"Is the system valid? Yes. ", "Is the tracing verified? {0}. ", "Is tracing 1 verified (M1 == message1)? {0}. ", "Is tracing 2 verified (M2 == message2)? {0}. ", 
-			"No experiments were conducted. ", "Options (case-insensitive): ", "Original:", 
+			"N/A", "No experiments were conducted. ", "Options (case-insensitive): ", "Original:",
 			"Parameters: (N = {0}, n = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2}, lS = {3}, lR = {4})", 
 			"Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ", 
 			"Parser: The output file path passed looks like a directory, which would be connected with the default file name {0}. ", 
@@ -300,7 +302,7 @@ class Builder:
 		elif "\t{0}" == string:
 			return True
 		elif not string.startswith("Saver: "):
-			self.__generationDiagnostics["Saver"].append("The statement {0} should start with {1}. ".format(repr(string), repr(descriptor)))
+			self.__generationDiagnostics["Saver"].append("The statement {0} should start with {1}. ".format(repr(string), repr("Saver: ")))
 			return False
 		elif string[7:] in (
 			"Failed to initialize the directory for the output file path {0}. ", "Failed to save the results to {0} due to the following exception(s). \n\t{1}", 
@@ -383,8 +385,7 @@ class Builder:
 						element = stack.pop()
 						if isinstance(element, Call) and isinstance(element.func, Name) and "print" == element.func.value:
 							for argument in element.args:
-								string = self.__evaluateString(argument.value)
-								if isinstance(string, str):
+								for string in self.__evaluateStrings(argument.value):
 									self.__checkString(string)
 						elif isinstance(element, ClassDef) and "Saver" == element.name.value:
 							s, descriptor = [element], element.name.value + ": "
@@ -392,8 +393,7 @@ class Builder:
 								ele = s.pop()
 								if isinstance(ele, Call) and isinstance(ele.func, Name) and "print" == ele.func.value:
 									for argument in ele.args:
-										string = self.__evaluateString(argument.value)
-										if isinstance(string, str):
+										for string in self.__evaluateStrings(argument.value):
 											self.__checkSaverString(string)
 								elif isinstance(ele, CSTNode):
 									s.extend(reversed(list(ele.children)))
@@ -401,14 +401,18 @@ class Builder:
 							f.write("\\section{" + element.name.value.replace("_", "\\_") + "}\n\n")
 							for item in element.body.body:
 								if isinstance(item, FunctionDef):
-									s, mode, functionName = [item], False, ""
+									s, mode, functionName, hasDocumentation, isPublicFunction = [item], False, "", False, False
 									if "__init__" == item.name.value: # match("^\tdef\\s+__init__", line)
 										if item.body.header.comment:
 											f.write(item.body.header.comment.value.lstrip("# ") + "\n\n")
+											hasDocumentation = True
 										functionName = "Init"
 									elif not item.name.value.startswith("_") and "getLengthOf" != item.name.value: # match("^\tdef\\s+[A-Za-z][0-9A-Z_a-z]*", line)
+										isPublicFunction = True
 										if item.body.header.comment:
 											f.write("\\subsection{" + item.body.header.comment.value.lstrip("# ") + "}" + "\n\n")
+										else:
+											f.write("\\subsection{" + item.name.value.replace("_", "\\_") + "}" + "\n\n")
 										functionName = item.name.value
 									while s:
 										ele = s.pop()
@@ -458,13 +462,15 @@ class Builder:
 														else:
 															characterIndex += 1
 													f.write(comment + ("\n" if isinstance(mode, str) else "\n\n"))
+													hasDocumentation = True
 										elif isinstance(ele, Call) and isinstance(ele.func, Name) and "print" == ele.func.value:
 											for argument in ele.args:
-												string = self.__evaluateString(argument.value)
-												if isinstance(string, str):
+												for string in self.__evaluateStrings(argument.value):
 													self.__checkFunctionString(string, functionName)
 										elif isinstance(ele, CSTNode):
 											s.extend(reversed(list(ele.children)))
+									if isPublicFunction and not hasDocumentation:
+										f.write("\\begin{verbatim}\n" + tree.code_for_node(item) + "\\end{verbatim}\n\n")
 								elif isinstance(item, CSTNode):
 									stack.extend(reversed(list(item.children)))
 						elif isinstance(element, CSTNode):
@@ -645,8 +651,8 @@ def main() -> int:
 	Parser.disableConsoleEchoes()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((
-			Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
-			FunctionDef is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
+			Add is None, Attribute is None, BinaryOperation is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None,
+			FunctionDef is None, IfExp is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
 		)):
 			print("The runtime environment of the Python libcst library is not correctly configured. ")
 			print("Please install the libraries via the active Python package manager (e.g., pip). ")
