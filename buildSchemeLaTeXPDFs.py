@@ -25,12 +25,13 @@ class Parser:
 	__DefaultOutput = "%p/%nLaTeX/%n"
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
 	__DefaultTime = float("inf")
-	def __init__(self:object, arguments:tuple|list) -> object:
-		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
-		self.__originalConsoleAttributes = None
-		self.__echolessConsoleAttributes = None
-		self.__tcsetattr = None
-	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
+	__tcgetattr = None
+	__OriginalConsoleAttributes = None
+	__ECHOLESSNESS = None
+	__EcholessConsoleAttributes = None
+	__tcsetattr = None
+	@staticmethod
+	def __formatOption(option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
 		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
 			prefix = pre if isinstance(pre, str) else "["
 			separator = sep if isinstance(sep, str) else "|"
@@ -38,22 +39,24 @@ class Parser:
 			return prefix + separator.join(option) + suffix
 		else:
 			return ""
-	def __printHelp(self:object) -> None:
+	@staticmethod
+	def __printHelp() -> None:
 		print("This is the official cryptographic scheme LaTeX and PDF builder. ")
 		print()
 		print("Options (case-insensitive): ")
-		print("\t{0}\t\tIndicate that all the subsequent arguments are file paths. ".format(self.__formatOption(Parser.__OptionDelimiter)))
-		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
+		print("\t{0}\t\tIndicate that all the subsequent arguments are file paths. ".format(Parser.__formatOption(Parser.__OptionDelimiter)))
+		print("\t{0}\t\tPrint this help document. ".format(Parser.__formatOption(Parser.__OptionHelp)))
 		print((
 			"\t{0} <output>\t\tSpecify the output path without an extension, which can be a format string, "
 			+ "where %%, %d, %n, %p, %x stand for the %, Drive letter (if applicable), main file Name, directory Path, and eXtension, respectively. The default value is {1}. "
-		).format(self.__formatOption(Parser.__OptionOutput), Parser.__DefaultOutput))
+		).format(Parser.__formatOption(Parser.__OptionOutput), Parser.__DefaultOutput))
 		print(
-			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))
+			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(Parser.__formatOption(Parser.__OptionTime))
 			+ "Passing inf requires users to manually press the Enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)
 		)
 		print()
-	def __parseRealNumber(self:object, string:str) -> int|float|None:
+	@staticmethod
+	def __parseRealNumber(string:str) -> int|float|None:
 		try:
 			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
@@ -110,29 +113,35 @@ class Parser:
 				return realNumber
 		except:
 			return None
-	def parse(self:object) -> tuple:
+	@staticmethod
+	def parse(args:tuple|list) -> tuple:
+		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
 		flag, outputPathWithoutAnExtension, waitingTime, paths = max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultOutput, Parser.__DefaultTime, []
-		index, argumentCount, nonOptionMode, buffers = 1, len(self.__arguments), False, []
+		index, argumentCount, nonOptionMode, buffers = 1, len(arguments), False, []
 		while index < argumentCount:
-			argument = self.__arguments[index].lower()
+			argument = arguments[index].lower()
 			if nonOptionMode:
-				paths.append(self.__arguments[index])
+				paths.append(arguments[index])
 			elif argument in Parser.__OptionDelimiter:
 				nonOptionMode = True
+			elif argument in Parser.__OptionHelp:
+				Parser.__printHelp()
+				flag = EXIT_SUCCESS
+				break
 			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
-					outputPathWithoutAnExtension = self.__arguments[index]
+					outputPathWithoutAnExtension = arguments[index]
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output path without an extension option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
-					t = self.__parseRealNumber(self.__arguments[index])
+					t = Parser.__parseRealNumber(arguments[index])
 					if t is None:
 						flag = EOF
-						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(arguments[index])))
 					elif t >= 0:
 						waitingTime = t
 					else:
@@ -149,30 +158,37 @@ class Parser:
 			for buffer in buffers:
 				print(buffer)
 		return (flag, outputPathWithoutAnExtension, waitingTime, paths)
-	def disableConsoleEchoes(self:object) -> bool:
+	@staticmethod
+	def disableConsoleEchoes() -> bool:
 		if "posix" == name:
 			try:
-				if self.__originalConsoleAttributes is None:
-					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
-				if self.__echolessConsoleAttributes is None:
-					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
-					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
-				if self.__tcsetattr is None:
-					self.__tcsetattr = __import__("termios").tcsetattr
-				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
-			except:
-				return False
-		return True
-	def restoreConsoleEchoes(self:object) -> bool:
-		if "posix" == name:
-			try:
-				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
+				if Parser.__tcgetattr is None:
+					Parser.__tcgetattr = __import__("termios").tcgetattr
+				if Parser.__OriginalConsoleAttributes is None:
+					Parser.__OriginalConsoleAttributes = Parser.__tcgetattr(0)
+				if Parser.__ECHOLESSNESS is None:
+					Parser.__ECHOLESSNESS = ~__import__("termios").ECHO
+				if Parser.__EcholessConsoleAttributes is None:
+					Parser.__EcholessConsoleAttributes = Parser.__tcgetattr(0)
+					Parser.__EcholessConsoleAttributes[3] &= Parser.__ECHOLESSNESS
+				if Parser.__tcsetattr is None:
+					Parser.__tcsetattr = __import__("termios").tcsetattr
+				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
 			except:
 				return False
 		return True
 	@staticmethod
 	def getDefaultOutput() -> str:
 		return Parser.__DefaultOutput
+	@staticmethod
+	def restoreConsoleEchoes() -> bool:
+		if "posix" == name:
+			try:
+				Parser.__tcsetattr(0, 0, Parser.__OriginalConsoleAttributes)
+				Parser.__OriginalConsoleAttributes = None
+			except:
+				return False
+		return True
 
 class Builder:
 	__DefaultCompilationTimeout = 10
@@ -240,7 +256,7 @@ class Builder:
 			"No experiments were conducted. ", "Options (case-insensitive): ", "Original:", 
 			"Parameters: (N = {0}, n = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2}, lS = {3}, lR = {4})", 
 			"Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ", 
-			"Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ", 
+			"Parser: The output file path passed looks like a directory, which would be connected with the default file name {0}. ", 
 			"Parser: The path {0} exists not to be a regular file. ", "Please press the Enter key to exit ({0}). ", 
 			"Please install the libraries via the active Python package manager (e.g., pip). ", "Please refer to https://github.com/JHUISI/charm if necessary. ", 
 			"Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ", "Space:", 
@@ -625,9 +641,8 @@ class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFi
 
 
 def main() -> int:
-	parser = Parser(argv)
-	flag, outputPathWithoutAnExtension, waitingTime, paths = parser.parse()
-	parser.disableConsoleEchoes()
+	flag, outputPathWithoutAnExtension, waitingTime, paths = Parser.parse(argv)
+	Parser.disableConsoleEchoes()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((
 			Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
@@ -644,7 +659,9 @@ def main() -> int:
 				print()
 				successCount = builders.build()
 				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
-				print("Successfully built {0} / {1} {2} with a success rate of {3:.2f}%. ".format(successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount))
+				print("Successfully built {0} / {1} {2} with a success rate of {3:.2f}%. ".format(
+					successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount
+				))
 			else:
 				errorLevel = EOF
 				print("Nothing was built. ")
@@ -680,8 +697,7 @@ def main() -> int:
 			getpass("")
 		except:
 			print()
-	parser.restoreConsoleEchoes()
-	del parser
+	Parser.restoreConsoleEchoes()
 	return errorLevel
 
 

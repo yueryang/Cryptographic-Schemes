@@ -41,12 +41,13 @@ class Parser:
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
 	__DefaultTime = float("inf")
 	__OptionYes = ("y", "/y", "-y", "yes", "/yes", "--yes")
-	def __init__(self:object, arguments:tuple|list) -> object:
-		self.__arguments = tuple(argument for argument in arguments if isinstance(argument, str)) if isinstance(arguments, (tuple, list)) else ()
-		self.__originalConsoleAttributes = None
-		self.__echolessConsoleAttributes = None
-		self.__tcsetattr = None
-	def __formatOption(self:object, option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
+	__tcgetattr = None
+	__OriginalConsoleAttributes = None
+	__ECHOLESSNESS = None
+	__EcholessConsoleAttributes = None
+	__tcsetattr = None
+	@staticmethod
+	def __formatOption(option:tuple|list, pre:str = "[", sep:str = "|", suf:str = "]") -> str:
 		if isinstance(option, (tuple, list)) and all(isinstance(op, str) for op in option):
 			prefix = pre if isinstance(pre, str) else "["
 			separator = sep if isinstance(sep, str) else "|"
@@ -54,39 +55,49 @@ class Parser:
 			return prefix + separator.join(option) + suffix
 		else:
 			return ""
-	def __printHelp(self:object) -> None:
-		print("This is a possible implementation of the IBMECH cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
+	@staticmethod
+	def __printHelp() -> None:
+		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
 		print()
 		print("Options (case-insensitive): ")
-		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(self.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding))
-		print("\t{0}\t\tPrint this help document. ".format(self.__formatOption(Parser.__OptionHelp)))
+		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(
+			Parser.__formatOption(Parser.__OptionEncoding), Parser.__DefaultEncoding
+		))
+		print("\t{0}\t\tPrint this help document. ".format(Parser.__formatOption(Parser.__OptionHelp)))
 		print("\t{0} [|.|./{1}.xlsx|./{1}.csv|...]\t\tSpecify the output file path, leaving it empty for console output. The default value is {2}. ".format(
-			self.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)
+			Parser.__formatOption(Parser.__OptionOutput), Parser.__SchemeName, repr(Parser.__DefaultOutputFileName)
 		))
 		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(
-			self.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace)
-		)
-		print("\t{0}\t\tDisable the verbose console outputs. ".format(self.__formatOption(Parser.__OptionQuiet)))
-		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(self.__formatOption(Parser.__OptionRun), Parser.__DefaultRun))
+			Parser.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace
+		))
+		print("\t{0}\t\tDisable the verbose console outputs. ".format(Parser.__formatOption(Parser.__OptionQuiet)))
+		print("\t{0} [1|2|5|10|20|50|100|...]\t\tSpecify the run count, which must be a positive integer. The default value is {1}. ".format(
+			Parser.__formatOption(Parser.__OptionRun), Parser.__DefaultRun
+		))
 		print(
-			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(self.__formatOption(Parser.__OptionTime))
+			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(Parser.__formatOption(Parser.__OptionTime))
 			+ "Passing inf requires users to manually press the Enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)
 		)
-		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(self.__formatOption(Parser.__OptionYes)))
+		print("\t{0}\t\tIndicate to confirm the overwriting of the existing output file. ".format(Parser.__formatOption(Parser.__OptionYes)))
 		print()
-	def __handlePath(self:object, filePath:str) -> str:
+	@staticmethod
+	def __handlePath(filePath:str) -> str:
 		if isinstance(filePath, str):
 			if isdir(filePath) or filePath.endswith((sep, "/")):
-				print("Parser: The output file path passed looks like a folder, which would be connected with the default file name {0}. ".format(repr(Parser.__DefaultOutputFileName)))
-				return self.__handlePath(join(filePath, Parser.__DefaultOutputFileName))
+				print("Parser: The output file path passed looks like a directory, which would be connected with the default file name {0}. ".format(repr(Parser.__DefaultOutputFileName)))
+				return Parser.__handlePath(join(filePath, Parser.__DefaultOutputFileName))
 			elif splitext(basename(filePath))[1][1:].upper() in Parser.__ProtectedExtensionNames:
-				print("Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ".format(repr(self.__DefaultOutputExtension)))
-				return self.__handlePath(splitext(filePath)[0] + Parser.__DefaultOutputExtension)
+				print((
+					"Parser: The extension name of the output file path passed is one of the protected extension names, "
+					+ "which would be reset to the default extension {0}. "
+				).format(repr(Parser.__DefaultOutputExtension)))
+				return Parser.__handlePath(splitext(filePath)[0] + Parser.__DefaultOutputExtension)
 			else:
 				return filePath
 		else:
 			return Parser.__DefaultOutputFileName
-	def __parseRealNumber(self:object, string:str) -> int|float|None:
+	@staticmethod
+	def __parseRealNumber(string:str) -> int|float|None:
 		try:
 			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
@@ -143,47 +154,49 @@ class Parser:
 				return realNumber
 		except:
 			return None
-	def parse(self:object) -> tuple:
+	@staticmethod
+	def parse(args:tuple|list) -> tuple:
+		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
 		flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = (
 			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, True, Parser.__DefaultRun, Parser.__DefaultTime, False
 		)
-		index, argumentCount, buffers = 1, len(self.__arguments), []
+		index, argumentCount, buffers = 1, len(arguments), []
 		while index < argumentCount:
-			argument = self.__arguments[index].lower()
+			argument = arguments[index].lower()
 			if argument in Parser.__OptionEncoding:
 				index += 1
 				if index < argumentCount:
 					try:
-						lookup(self.__arguments[index])
-						encoding = self.__arguments[index]
+						lookup(arguments[index])
+						encoding = arguments[index]
 					except:
 						flag = EOF
-						buffers.append("Parser: The value [0] = {1} for the encoding option is invalid. ".format(index, repr(self.__arguments[index])))
+						buffers.append("Parser: The value [0] = {1} for the encoding option is invalid. ".format(index, repr(arguments[index])))
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the encoding option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionHelp:
-				self.__printHelp()
+				Parser.__printHelp()
 				flag = EXIT_SUCCESS
 				break
 			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
-					outputFilePath = self.__handlePath(self.__arguments[index])
+					outputFilePath = Parser.__handlePath(arguments[index])
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionPlace:
 				index += 1
 				if index < argumentCount:
-					decimalPlaceLower = self.__arguments[index].lower()
+					decimalPlaceLower = arguments[index].lower()
 					if decimalPlaceLower in Parser.__PlaceTranslations:
 						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
 					else:
-						p = self.__parseRealNumber(self.__arguments[index])
+						p = Parser.__parseRealNumber(arguments[index])
 						if p is None:
 							flag = EOF
-							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(self.__arguments[index])))
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(arguments[index])))
 						elif isinstance(p, int) and p >= 0:
 							decimalPlace = p
 						else:
@@ -198,10 +211,10 @@ class Parser:
 			elif argument in Parser.__OptionRun:
 				index += 1
 				if index < argumentCount:
-					r = self.__parseRealNumber(self.__arguments[index])
+					r = Parser.__parseRealNumber(arguments[index])
 					if r is None:
 						flag = EOF
-						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(self.__arguments[index])))
+						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(arguments[index])))
 					elif isinstance(r, int) and r >= 1:
 						runCount = r
 					else:
@@ -214,10 +227,10 @@ class Parser:
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
-					t = self.__parseRealNumber(self.__arguments[index])
+					t = Parser.__parseRealNumber(arguments[index])
 					if t is None:
 						flag = EOF
-						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(self.__arguments[index])))
+						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(arguments[index])))
 					elif t >= 0:
 						waitingTime = t
 					else:
@@ -231,13 +244,33 @@ class Parser:
 				overwritingConfirmed = True
 			else:
 				flag = EOF
-				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(self.__arguments[index])))
+				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(arguments[index])))
 			index += 1
 		if EOF == flag:
 			for buffer in buffers:
 				print(buffer)
 		return (flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed)
-	def checkOverwriting(self:object, outputFP:str, overwriting:bool) -> tuple:
+	@staticmethod
+	def disableConsoleEchoes() -> bool:
+		if "posix" == name:
+			try:
+				if Parser.__tcgetattr is None:
+					Parser.__tcgetattr = __import__("termios").tcgetattr
+				if Parser.__OriginalConsoleAttributes is None:
+					Parser.__OriginalConsoleAttributes = Parser.__tcgetattr(0)
+				if Parser.__ECHOLESSNESS is None:
+					Parser.__ECHOLESSNESS = ~__import__("termios").ECHO
+				if Parser.__EcholessConsoleAttributes is None:
+					Parser.__EcholessConsoleAttributes = Parser.__tcgetattr(0)
+					Parser.__EcholessConsoleAttributes[3] &= Parser.__ECHOLESSNESS
+				if Parser.__tcsetattr is None:
+					Parser.__tcsetattr = __import__("termios").tcsetattr
+				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
+			except:
+				return False
+		return True
+	@staticmethod
+	def checkOverwriting(outputFP:str, overwriting:bool) -> tuple:
 		if isinstance(outputFP, str) and isinstance(overwriting, bool):
 			outputFilePath, overwritingConfirmed, flag = outputFP, overwriting, False
 			while outputFilePath and exists(outputFilePath):
@@ -245,7 +278,9 @@ class Parser:
 					if not overwritingConfirmed:
 						flag = True
 						try:
-							overwritingConfirmed = input("The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))).upper() in ("Y", "YES", "1", "T", "TRUE")
+							overwritingConfirmed = input(
+								"The file {0} exists. Overwrite the file or not [yN]? ".format(repr(outputFilePath))
+							).upper() in ("Y", "YES", "1", "T", "TRUE")
 						except:
 							print()
 				else:
@@ -256,7 +291,7 @@ class Parser:
 				else:
 					flag = True
 					try:
-						outputFilePath = self.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
+						outputFilePath = Parser.__handlePath(input("Please specify a new output file path or leave it empty for console output: "))
 					except:
 						print()
 			if flag:
@@ -264,27 +299,6 @@ class Parser:
 			return (outputFilePath, overwritingConfirmed)
 		else:
 			return (outputFP, overwriting)
-	def disableConsoleEchoes(self:object) -> bool:
-		if "posix" == name:
-			try:
-				if self.__originalConsoleAttributes is None:
-					self.__originalConsoleAttributes = __import__("termios").tcgetattr(0)
-				if self.__echolessConsoleAttributes is None:
-					self.__echolessConsoleAttributes = __import__("termios").tcgetattr(0)
-					self.__echolessConsoleAttributes[3] &= ~__import__("termios").ECHO
-				if self.__tcsetattr is None:
-					self.__tcsetattr = __import__("termios").tcsetattr
-				self.__tcsetattr(0, 0, self.__echolessConsoleAttributes)
-			except:
-				return False
-		return True
-	def restoreConsoleEchoes(self:object) -> bool:
-		if "posix" == name:
-			try:
-				self.__tcsetattr(0, 0, self.__originalConsoleAttributes)
-			except:
-				return False
-		return True
 	@staticmethod
 	def getDefaultOutputFilePath() -> str:
 		return Parser.__DefaultOutputFileName
@@ -300,14 +314,25 @@ class Parser:
 	@staticmethod
 	def getProtectedExtensionNames() -> tuple:
 		return Parser.__ProtectedExtensionNames
+	@staticmethod
+	def restoreConsoleEchoes() -> bool:
+		if "posix" == name:
+			try:
+				Parser.__tcsetattr(0, 0, Parser.__OriginalConsoleAttributes)
+				Parser.__OriginalConsoleAttributes = None
+			except:
+				return False
+		return True
 
 class Saver:
-	def __init__(self:object, outputFilePath:str = Parser.getDefaultOutputFilePath(), columns:tuple|list = tuple(), decimalPlace:int = Parser.getDefaultPlace(), encoding:str = Parser.getDefaultEncoding()) -> object:
+	def __init__(
+		self:object, outputFilePath:str = Parser.getDefaultOutputFilePath(), columns:tuple|list = tuple(), decimalPlace:int = Parser.getDefaultPlace(), encoding:str = Parser.getDefaultEncoding()
+	) -> object:
 		self.__outputFilePath = outputFilePath if isinstance(outputFilePath, str) else Parser.getDefaultOutputFilePath()
 		self.__columns = tuple(column for column in columns if isinstance(column, str)) if isinstance(columns, (tuple, list)) else tuple()
 		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
-		self.__folderPath = dirname(self.__outputFilePath)
+		self.__directoryPath = dirname(self.__outputFilePath)
 		self.__extensionName = splitext(basename(self.__outputFilePath))[1][1:].upper()
 		self.__Writer = None # CSV/TSV
 		self.__escapeHTML = None # HTM/HTML
@@ -324,13 +349,13 @@ class Saver:
 		self.__escapeXLSX = None # XLSX
 		self.__escapeXML = None # XML
 	def __handleDirectory(self:object) -> bool:
-		if not self.__folderPath:
+		if not self.__directoryPath:
 			return True
-		elif exists(self.__folderPath):
-			return isdir(self.__folderPath)
+		elif exists(self.__directoryPath):
+			return isdir(self.__directoryPath)
 		else:
 			try:
-				makedirs(self.__folderPath)
+				makedirs(self.__directoryPath)
 				return True
 			except:
 				return False
@@ -395,7 +420,10 @@ class Saver:
 											for string in "".join(character for character in str(x) if ' ' <= character <= '~').split("\\")
 										)
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
-										maxLength = max(len(self.__columnsTEX) if isinstance(self.__columnsTEX, (tuple, list)) else 0, max(len(result) for result in results))
+										maxLength = max(
+											len(self.__columnsTEX) if isinstance(self.__columnsTEX, (tuple, list)) else 0, 
+											max(len(result) for result in results)
+										)
 										f.write("\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n")
 										f.write("\\usepackage{graphicx}\n\\usepackage{textcomp}\n\\usepackage{booktabs}\n\\usepackage{rotating}\n\n")
 										f.write("\\begin{document}\n\n\\begin{sidewaystable}\n\t\\caption{The comparison results. }\n")
@@ -453,7 +481,9 @@ class Saver:
 										worksheet.write(0, columnIndex, columnName, self.__styleXLSColumns)
 									for i, result in enumerate(results, start = 1):
 										for j, r in enumerate(result):
-											worksheet.write(i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLSValues)
+											worksheet.write(
+												i, j, "{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r, self.__styleXLSValues
+											)
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if self.__WorkbookXLSX is None:
@@ -531,7 +561,9 @@ class Saver:
 										else:
 											f.write("results: []")
 								elif self.__extensionName in Parser.getProtectedExtensionNames():
-									print("Saver: Failed to save the results to {0} since {1} is one of the protected extension names. ".format(repr(self.__outputFilePath), self.__extensionName))
+									print("Saver: Failed to save the results to {0} since {1} is one of the protected extension names. ".format(
+										repr(self.__outputFilePath), self.__extensionName
+									))
 									print("Saver: {0}".format({"columns":self.__columns, "results":results}))
 									return False
 								else:
@@ -555,7 +587,9 @@ class Saver:
 								continue
 							except BaseException as e:
 								if flag:
-									print("Saver: Failed to save the results to {0} due to the following exception(s). \n\t{1}".format(repr(self.__outputFilePath), repr(e)))
+									print("Saver: Failed to save the results to {0} due to the following exception(s). \n\t{1}".format(
+										repr(self.__outputFilePath), repr(e)
+									))
 								else:
 									print("\t{0}".format(e))
 								print("Saver: {0}".format({"columns":self.__columns, "results":results}))
@@ -859,17 +893,16 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	]
 
 def main() -> int:
-	parser = Parser(argv)
-	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = parser.parse()
+	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None, GaussEliminationinGroups is None)):
-			parser.disableConsoleEchoes()
+			Parser.disableConsoleEchoes()
 			print("The runtime environment of the Python Charm-Crypto framework is not correctly configured. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:
-			outputFilePath, overwritingConfirmed = parser.checkOverwriting(outputFilePath, overwritingConfirmed)
-			parser.disableConsoleEchoes()
+			outputFilePath, overwritingConfirmed = Parser.checkOverwriting(outputFilePath, overwritingConfirmed)
+			Parser.disableConsoleEchoes()
 			print("The execution has started. ")
 			print()
 			
@@ -927,10 +960,10 @@ def main() -> int:
 			) else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
-		parser.disableConsoleEchoes()
+		Parser.disableConsoleEchoes()
 	else:
 		errorLevel = EOF
-		parser.disableConsoleEchoes()
+		Parser.disableConsoleEchoes()
 	if 0 == waitingTime:
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
@@ -959,8 +992,7 @@ def main() -> int:
 			getpass("")
 		except:
 			print()
-	parser.restoreConsoleEchoes()
-	del parser
+	Parser.restoreConsoleEchoes()
 	return errorLevel
 
 

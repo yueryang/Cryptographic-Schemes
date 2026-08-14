@@ -162,7 +162,7 @@ final class Parser
 			final Path path = (requestedPath.isAbsolute() ? requestedPath : SCRIPT_DIRECTORY.resolve(requestedPath)).normalize();
 			if (Files.isDirectory(path) || filePath.endsWith("/") || filePath.endsWith("\\"))
 			{
-				System.out.println("Parser: The output path looks like a folder and will use the default file name " + escapeString(DEFAULT_OUTPUT_FILE_NAME) + ".");
+				System.out.println("Parser: The output path looks like a directory and will use the default file name " + escapeString(DEFAULT_OUTPUT_FILE_NAME) + ".");
 				return handlePath(path.resolve(DEFAULT_OUTPUT_FILE_NAME).toString());
 			}
 			final Path fileNamePath = path.getFileName();
@@ -490,7 +490,7 @@ final class Saver
 	private final List<String> columns;
 	private final int decimalPlace;
 	private final Charset encoding;
-	private final Path folderPath;
+	private final Path directoryPath;
 	private final String extensionName;
 
 	private static String escapeCsv(final Object value)
@@ -576,12 +576,12 @@ final class Saver
 
 	private boolean handleDirectory()
 	{
-		if (this.folderPath == null)
+		if (this.directoryPath == null)
 			return true;
 		try
 		{
-			Files.createDirectories(this.folderPath);
-			return Files.isDirectory(this.folderPath);
+			Files.createDirectories(this.directoryPath);
+			return Files.isDirectory(this.directoryPath);
 		}
 		catch (final IOException exception)
 		{
@@ -784,7 +784,7 @@ final class Saver
 		this.decimalPlace = decimalPlace >= 0 ? decimalPlace : Parser.getDefaultPlace();
 		this.encoding = encoding != null && Charset.isSupported(encoding) ? Charset.forName(encoding) : StandardCharsets.UTF_8;
 		final Path outputPath = this.outputFilePath.isEmpty() ? null : Paths.get(this.outputFilePath);
-		this.folderPath = outputPath == null ? null : outputPath.getParent();
+		this.directoryPath = outputPath == null ? null : outputPath.getParent();
 		final String fileName = outputPath == null || outputPath.getFileName() == null ? "" : outputPath.getFileName().toString();
 		final int dotIndex = fileName.lastIndexOf('.');
 		this.extensionName = dotIndex >= 0 ? fileName.substring(dotIndex + 1).toUpperCase(Locale.ROOT) : "TXT";
