@@ -307,6 +307,30 @@ jobs:
           echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
         env:
           TZ: 'Asia/Hong_Kong'
+
+  testLaTeXBuilder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install the dependencies
+        run: |
+          cd "${{ github.workspace }}"
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Test the LaTeX and PDF builder
+        run: |
+          cd "${{ github.workspace }}"
+          python -m unittest -v testBuildSchemeLaTeXPDFs.py
   
   runPython:
     if: ${{ needs.prepare.outputs.matrix != '[]' }}

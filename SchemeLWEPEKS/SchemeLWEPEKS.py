@@ -613,61 +613,86 @@ class SchemeLWEPEKS:
 			raise RuntimeError("The scheme has not been set up. ")
 	def __randomSigned(self:object, shape:tuple) -> ndarray:
 		return randint(-self.__q, self.__q + 1, size = shape)
-	def Setup(self:object, n:int, m:int, q:int) -> tuple:
+	def Setup(self:object, n:int, m:int, q:int) -> tuple: # $\textbf{Setup}(n, m, q) \to (\bm{A}, \bm{T}_A)$
+		# Checks #
 		if not all(isinstance(value, int) and value > 1 for value in (n, m, q)):
 			raise ValueError("The parameters n, m, and q must be integers greater than one. ")
 		if m % n:
 			raise ValueError("The parameters n and m must satisfy n | m. ")
-		self.__n, self.__m, self.__q = n, m, q
-		self.__keywordLength, self.__identityLength = min(4, m), min(4, m)
-		self.__publicMatrix = randint(q, size = (n, m))
-		reversedMatrix = self.__publicMatrix[:, ::-1]
-		self.__masterSecretKey = concatenate((reversedMatrix.T, q * eye(m, dtype = "int")), axis = 1)
-		self.__derivedPublicMatrix, self.__derivedSecretKey = None, None
-		self.__keyword, self.__cipherText, self.__searchTrapdoor = None, None, None
-		return (self.__publicMatrix, self.__masterSecretKey)
-	def Derive(self:object) -> tuple:
+
+		# Scheme #
+		self.__n, self.__m, self.__q = n, m, q # set the lattice parameters $(n, m, q)$, where $n \mid m$
+		self.__keywordLength, self.__identityLength = min(4, m), min(4, m) # set $\ell_W \gets \min\{4, m\}$ and $\ell_I \gets \min\{4, m\}$
+		self.__publicMatrix = randint(q, size = (n, m)) # generate $\bm{A} \xleftarrow{\$} \mathbb{Z}_q^{n \times m}$
+		reversedMatrix = self.__publicMatrix[:, ::-1] # let $\bm{A}^{\mathsf{rev}}$ be $\bm{A}$ with its columns in reverse order
+		self.__masterSecretKey = concatenate((reversedMatrix.T, q * eye(m, dtype = "int")), axis = 1) # $\bm{T}_A \gets [ (\bm{A}^{\mathsf{rev}})^\mathsf{T} \mid q\bm{I}_m ] \in \mathbb{Z}^{m \times (n + m)}$
+		self.__derivedPublicMatrix, self.__derivedSecretKey = None, None # initialize the derived public and secret keys as undefined
+		self.__keyword, self.__cipherText, self.__searchTrapdoor = None, None, None # initialize the keyword, ciphertext, and search trapdoor as undefined
+
+		# Return #
+		return (self.__publicMatrix, self.__masterSecretKey) # $\textbf{return}\ (\bm{A}, \bm{T}_A)$
+	def Derive(self:object) -> tuple: # $\textbf{Derive}(\bm{A}, \bm{T}_A) \to (\mathsf{id}, \bm{A}_{\mathsf{id}}, \bm{T}_{\mathsf{id}})$
+		# Checks #
 		self.__requireSetup()
-		identity = randint(2, size = (self.__identityLength, ))
-		identityMatrices = self.__randomSigned((self.__identityLength, self.__n, self.__m))
-		identityMatrix = np_sum(identity[:, None, None] * identityMatrices, axis = 0) % self.__q
-		self.__derivedPublicMatrix = concatenate((self.__publicMatrix, identityMatrix), axis = 1)
-		extension = randint(self.__q, size = (self.__m, self.__n))
-		self.__derivedSecretKey = concatenate((self.__masterSecretKey, extension), axis = 1)
-		return (identity, self.__derivedPublicMatrix, self.__derivedSecretKey)
-	def Encrypt(self:object) -> tuple:
+
+		# Scheme #
+		identity = randint(2, size = (self.__identityLength, )) # generate $\mathsf{id} \gets (\mathsf{id}_1, \ldots, \mathsf{id}_{\ell_I}) \xleftarrow{\$} \{0, 1\}^{\ell_I}$
+		identityMatrices = self.__randomSigned((self.__identityLength, self.__n, self.__m)) # generate $\bm{B}_j \xleftarrow{\$} \{-q, -q + 1, \ldots, q\}^{n \times m}$ for every $j \in \{1, \ldots, \ell_I\}$
+		identityMatrix = np_sum(identity[:, None, None] * identityMatrices, axis = 0) % self.__q # $\bm{B}_{\mathsf{id}} \gets \sum_{j = 1}^{\ell_I} \mathsf{id}_j\bm{B}_j \bmod q$
+		self.__derivedPublicMatrix = concatenate((self.__publicMatrix, identityMatrix), axis = 1) # $\bm{A}_{\mathsf{id}} \gets [\bm{A} \mid \bm{B}_{\mathsf{id}}] \in \mathbb{Z}_q^{n \times 2m}$
+		extension = randint(self.__q, size = (self.__m, self.__n)) # generate $\bm{R} \xleftarrow{\$} \mathbb{Z}_q^{m \times n}$
+		self.__derivedSecretKey = concatenate((self.__masterSecretKey, extension), axis = 1) # $\bm{T}_{\mathsf{id}} \gets [\bm{T}_A \mid \bm{R}] \in \mathbb{Z}^{m \times (m + 2n)}$
+
+		# Return #
+		return (identity, self.__derivedPublicMatrix, self.__derivedSecretKey) # $\textbf{return}\ (\mathsf{id}, \bm{A}_{\mathsf{id}}, \bm{T}_{\mathsf{id}})$
+	def Encrypt(self:object) -> tuple: # $\textbf{Encrypt}(\bm{A}_{\mathsf{id}}) \to \textit{CT}_W$
+		# Checks #
 		self.__requireSetup()
 		if self.__derivedPublicMatrix is None:
 			raise RuntimeError("The identity key has not been derived. ")
-		self.__keyword = randint(2, size = (self.__keywordLength, ))
-		keywordMatrices = self.__randomSigned((self.__keywordLength, self.__n, self.__m))
-		keywordMatrix = np_sum(self.__keyword[:, None, None] * keywordMatrices, axis = 0) % self.__q
-		encryptionMatrix = concatenate((self.__derivedPublicMatrix, keywordMatrix), axis = 1)
-		randomVector = randint(self.__q, size = (self.__n, 1))
-		messageVector = randint(self.__q, size = (self.__n, 1))
-		noiseVector = randint(self.__q, size = (self.__m, 1))
-		randomSigns = randint(-1, 2, size = (self.__m << 1, self.__m))
-		noise = concatenate((noiseVector, dot(randomSigns, noiseVector)), axis = 0)
-		c1 = int(dot(messageVector.T, randomVector)[0, 0] % self.__q)
-		c2 = (dot(encryptionMatrix.T, randomVector) + noise) % self.__q
-		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest()
-		self.__cipherText = (c1, c2, keywordHash)
-		return self.__cipherText
-	def Trapdoor(self:object) -> tuple:
+
+		# Scheme #
+		self.__keyword = randint(2, size = (self.__keywordLength, )) # generate the keyword $W \gets (W_1, \ldots, W_{\ell_W}) \xleftarrow{\$} \{0, 1\}^{\ell_W}$
+		keywordMatrices = self.__randomSigned((self.__keywordLength, self.__n, self.__m)) # generate $\bm{C}_j \xleftarrow{\$} \{-q, -q + 1, \ldots, q\}^{n \times m}$ for every $j \in \{1, \ldots, \ell_W\}$
+		keywordMatrix = np_sum(self.__keyword[:, None, None] * keywordMatrices, axis = 0) % self.__q # $\bm{C}_W \gets \sum_{j = 1}^{\ell_W} W_j\bm{C}_j \bmod q$
+		encryptionMatrix = concatenate((self.__derivedPublicMatrix, keywordMatrix), axis = 1) # $\bm{E}_{\mathsf{id}, W} \gets [\bm{A}_{\mathsf{id}} \mid \bm{C}_W] \in \mathbb{Z}_q^{n \times 3m}$
+		randomVector = randint(self.__q, size = (self.__n, 1)) # generate $\bm{r} \xleftarrow{\$} \mathbb{Z}_q^{n \times 1}$
+		messageVector = randint(self.__q, size = (self.__n, 1)) # generate $\bm{v} \xleftarrow{\$} \mathbb{Z}_q^{n \times 1}$
+		noiseVector = randint(self.__q, size = (self.__m, 1)) # generate $\bm{e}_0 \xleftarrow{\$} \mathbb{Z}_q^{m \times 1}$
+		randomSigns = randint(-1, 2, size = (self.__m << 1, self.__m)) # generate $\bm{D} \xleftarrow{\$} \{-1, 0, 1\}^{2m \times m}$
+		noise = concatenate((noiseVector, dot(randomSigns, noiseVector)), axis = 0) # $\bm{e} \gets [\bm{e}_0^\mathsf{T} \mid (\bm{D}\bm{e}_0)^\mathsf{T}]^\mathsf{T} \in \mathbb{Z}^{3m \times 1}$
+		c1 = int(dot(messageVector.T, randomVector)[0, 0] % self.__q) # $c_1 \gets \bm{v}^\mathsf{T}\bm{r} \bmod q$
+		c2 = (dot(encryptionMatrix.T, randomVector) + noise) % self.__q # $\bm{c}_2 \gets \bm{E}_{\mathsf{id}, W}^\mathsf{T}\bm{r} + \bm{e} \bmod q$
+		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest() # $h_W \gets \mathtt{SHA3\text{-}256}(W)$
+		self.__cipherText = (c1, c2, keywordHash) # $\textit{CT}_W \gets (c_1, \bm{c}_2, h_W)$
+
+		# Return #
+		return self.__cipherText # $\textbf{return}\ \textit{CT}_W$
+	def Trapdoor(self:object) -> tuple: # $\textbf{Trapdoor}(\bm{T}_{\mathsf{id}}, W) \to \textit{td}_W$
+		# Checks #
 		self.__requireSetup()
 		if self.__keyword is None or self.__derivedSecretKey is None:
 			raise RuntimeError("Encryption and identity derivation have not been completed. ")
-		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest()
-		sampledVector = randint(self.__q, size = (self.__derivedSecretKey.shape[1], 1))
-		self.__searchTrapdoor = (keywordHash, sampledVector)
-		return self.__searchTrapdoor
-	def Search(self:object) -> bool:
+
+		# Scheme #
+		keywordHash = sha3_256(self.__keyword.astype("int64", copy = False).tobytes()).digest() # $h'_W \gets \mathtt{SHA3\text{-}256}(W)$
+		sampledVector = randint(self.__q, size = (self.__derivedSecretKey.shape[1], 1)) # generate $\bm{t} \xleftarrow{\$} \mathbb{Z}_q^{(m + 2n) \times 1}$
+		self.__searchTrapdoor = (keywordHash, sampledVector) # $\textit{td}_W \gets (h'_W, \bm{t})$
+
+		# Return #
+		return self.__searchTrapdoor # $\textbf{return}\ \textit{td}_W$
+	def Search(self:object) -> bool: # $\textbf{Search}(\textit{CT}_W, \textit{td}_{W'}) \to b, b \in \{0, 1\}$
+		# Checks #
 		self.__requireSetup()
 		if self.__cipherText is None or self.__searchTrapdoor is None:
 			return False
-		cipherKeywordHash = self.__cipherText[2]
-		trapdoorKeywordHash = self.__searchTrapdoor[0]
-		return bool(cipherKeywordHash == trapdoorKeywordHash)
+
+		# Scheme #
+		cipherKeywordHash = self.__cipherText[2] # parse $\textit{CT}_W = (c_1, \bm{c}_2, h_W)$
+		trapdoorKeywordHash = self.__searchTrapdoor[0] # parse $\textit{td}_{W'} = (h'_{W'}, \bm{t})$
+
+		# Return #
+		return bool(cipherKeywordHash == trapdoorKeywordHash) # $\textbf{return}\ b \gets [h_W = h'_{W'}]$
 	def getLengthOf(self:object, obj:object) -> int|str:
 		if isinstance(obj, ndarray):
 			return int(obj.nbytes)

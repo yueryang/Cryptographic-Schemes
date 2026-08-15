@@ -257,6 +257,14 @@ class Builder:
 			"Is the system valid? Yes. ", "Is the tracing verified? {0}. ", "Is tracing 1 verified (M1 == message1)? {0}. ", "Is tracing 2 verified (M2 == message2)? {0}. ", 
 			"N/A", "No experiments were conducted. ", "Options (case-insensitive): ", "Original:",
 			"Parameters: (N = {0}, n = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2})", "Parameters: (n = {0}, m = {1}, q = {2}, lS = {3}, lR = {4})", 
+			"Parser: The option [{0}] = {1} is unknown. ", "Parser: The type of the value [{0}] = {1} for the run count option is invalid. ",
+			"Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ", "Parser: The value [0] = {1} for the encoding option is invalid. ",
+			"Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ",
+			"Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ",
+			"Parser: The value [{0}] = {1} for the run count option should be a positive integer. ",
+			"Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ",
+			"Parser: The value for the encoding option is missing at [{0}]. ", "Parser: The value for the output file path option is missing at [{0}]. ",
+			"Parser: The value for the run count option is missing at [{0}]. ", "Parser: The value for the waiting time option is missing at [{0}]. ",
 			"Parser: The extension name of the output file path passed is one of the protected extension names, which would be reset to the default extension {0}. ", 
 			"Parser: The output file path passed looks like a directory, which would be connected with the default file name {0}. ", 
 			"Parser: The path {0} exists not to be a regular file. ", "Please press the Enter key to exit ({0}). ", 
@@ -387,6 +395,13 @@ class Builder:
 							for argument in element.args:
 								for string in self.__evaluateStrings(argument.value):
 									self.__checkString(string)
+						elif (
+							isinstance(element, Call) and isinstance(element.func, Attribute) and "append" == element.func.attr.value
+							and isinstance(element.func.value, Name) and "buffers" == element.func.value.value
+						):
+							for argument in element.args:
+								for string in self.__evaluateStrings(argument.value):
+									self.__checkString(string)
 						elif isinstance(element, ClassDef) and "Saver" == element.name.value:
 							s, descriptor = [element], element.name.value + ": "
 							while s:
@@ -470,7 +485,7 @@ class Builder:
 										elif isinstance(ele, CSTNode):
 											s.extend(reversed(list(ele.children)))
 									if isPublicFunction and not hasDocumentation:
-										f.write("\\begin{verbatim}\n" + tree.code_for_node(item) + "\\end{verbatim}\n\n")
+										raise ValueError("The public procedure {0}.{1} has no LaTeX scheme description. ".format(element.name.value, item.name.value))
 								elif isinstance(item, CSTNode):
 									stack.extend(reversed(list(item.children)))
 						elif isinstance(element, CSTNode):

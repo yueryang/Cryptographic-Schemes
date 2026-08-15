@@ -651,107 +651,136 @@ class SchemeFSMUAEKS:
 	def __hashMatrix(self:object, pkS:tuple, pkR:tuple, value:ndarray) -> ndarray:
 		message = concatenate((*pkS, *pkR, value), axis = 1)
 		return asarray(Matrix(self.__H1(message, self.__m)).inv()).astype("int") % self.__q
-	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM, q:int = __DefaultQ, lS:int = __DefaultLS, lR:int = __DefaultLR) -> tuple:
+	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM, q:int = __DefaultQ, lS:int = __DefaultLS, lR:int = __DefaultLR) -> tuple: # $\textbf{Setup}(n, m, q, \ell_S, \ell_R) \to \textit{pp}$
 		if not all(isinstance(value, int) and value >= 1 for value in (n, m, lS, lR)) or not isinstance(q, int) or q <= 1:
 			raise ValueError("The parameters n, m, q, lS, and lR must be positive integers, and q must be greater than one. ")
 		if m % (n << 1):
 			raise ValueError("The parameters n and m must satisfy 2n | m. ")
-		self.__n, self.__m, self.__q, self.__lS, self.__lR = n, m, q, lS, lR
-		self.__B = randint(q, size = (6, n, m))
-		self.__pkS, self.__skS, self.__pkR, self.__skR = (None, ) * 4
-		self.__Ft, self.__cipherText, self.__trapdoor = (None, ) * 3
-		return (n, m, q, lS, lR, self.__B)
-	def KeyGenS(self:object) -> tuple:
+
+		# Scheme #
+		self.__n, self.__m, self.__q, self.__lS, self.__lR = n, m, q, lS, lR # $(n, m, q, \ell_S, \ell_R) \gets (n, m, q, \ell_S, \ell_R)$
+		self.__B = randint(q, size = (6, n, m)) # generate $\bm{B}_0, \bm{B}_1, \ldots, \bm{B}_5 \in \mathbb{Z}_q^{n \times m}$ uniformly at random
+		self.__pkS, self.__skS, self.__pkR, self.__skR = (None, ) * 4 # $(\textit{pk}_S, \textit{sk}_S, \textit{pk}_R, \textit{sk}_R) \gets (\perp, \perp, \perp, \perp)$
+		self.__Ft, self.__cipherText, self.__trapdoor = (None, ) * 3 # $(\bm{F}_t, \textit{CT}, \textit{td}) \gets (\perp, \perp, \perp)$
+
+		# Return #
+		return (n, m, q, lS, lR, self.__B) # $\textbf{return}\ \textit{pp} \gets (n, m, q, \ell_S, \ell_R, (\bm{B}_i)_{i = 0}^{5})$
+	def KeyGenS(self:object) -> tuple: # $\textbf{KeyGenS}(\textit{pp}) \to (\textit{pk}_S, \textit{sk}_S)$
 		self.__requireSetup()
-		A, TA = self.__TrapGen()
-		US = randint(self.__q, size = (self.__n, self.__n))
-		DA = randint(self.__q, size = (self.__n, self.__m))
-		AW = randint(self.__q, size = (self.__n, self.__m))
-		self.__pkS, self.__skS = (A, US, DA, AW), TA
-		return (self.__pkS, self.__skS)
-	def KeyGenR(self:object) -> tuple:
+
+		# Scheme #
+		A, TA = self.__TrapGen() # $(\bm{A}, \bm{T}_A) \gets \textbf{TrapGen}(n, m, q)$
+		US = randint(self.__q, size = (self.__n, self.__n)) # generate $\bm{U}_S \in \mathbb{Z}_q^{n \times n}$ uniformly at random
+		DA = randint(self.__q, size = (self.__n, self.__m)) # generate $\bm{D}_A \in \mathbb{Z}_q^{n \times m}$ uniformly at random
+		AW = randint(self.__q, size = (self.__n, self.__m)) # generate $\bm{A}_W \in \mathbb{Z}_q^{n \times m}$ uniformly at random
+		self.__pkS, self.__skS = (A, US, DA, AW), TA # $(\textit{pk}_S, \textit{sk}_S) \gets ((\bm{A}, \bm{U}_S, \bm{D}_A, \bm{A}_W), \bm{T}_A)$
+
+		# Return #
+		return (self.__pkS, self.__skS) # $\textbf{return}\ (\textit{pk}_S, \textit{sk}_S)$
+	def KeyGenR(self:object) -> tuple: # $\textbf{KeyGenR}(\textit{pp}) \to (\textit{pk}_R, \textit{sk}_R)$
 		self.__requireSetup()
-		B0, TB0 = self.__TrapGen()
-		UR = randint(self.__q, size = (self.__n, self.__n))
-		DB = randint(self.__q, size = (self.__n, self.__m))
-		BW = randint(self.__q, size = (self.__n, self.__m))
-		self.__pkR, self.__skR = (B0, UR, DB, BW), TB0
-		return (self.__pkR, self.__skR)
-	def KeyUpdate(self:object) -> tuple:
+
+		# Scheme #
+		B0, TB0 = self.__TrapGen() # $(\bm{B}_0', \bm{T}_{B_0'}) \gets \textbf{TrapGen}(n, m, q)$
+		UR = randint(self.__q, size = (self.__n, self.__n)) # generate $\bm{U}_R \in \mathbb{Z}_q^{n \times n}$ uniformly at random
+		DB = randint(self.__q, size = (self.__n, self.__m)) # generate $\bm{D}_B \in \mathbb{Z}_q^{n \times m}$ uniformly at random
+		BW = randint(self.__q, size = (self.__n, self.__m)) # generate $\bm{B}_W \in \mathbb{Z}_q^{n \times m}$ uniformly at random
+		self.__pkR, self.__skR = (B0, UR, DB, BW), TB0 # $(\textit{pk}_R, \textit{sk}_R) \gets ((\bm{B}_0', \bm{U}_R, \bm{D}_B, \bm{B}_W), \bm{T}_{B_0'})$
+
+		# Return #
+		return (self.__pkR, self.__skR) # $\textbf{return}\ (\textit{pk}_R, \textit{sk}_R)$
+	def KeyUpdate(self:object) -> tuple: # $\textbf{KeyUpdate}(\textit{pp}, \textit{pk}_R, \textit{sk}_R) \to (\textit{fsk}_t, \bm{F}_t)$
 		self.__requireSetup()
 		if self.__pkR is None or self.__skR is None:
 			raise RuntimeError("The receiver keys have not been generated. ")
-		B0, B, q = self.__pkR[0], self.__B, self.__q
-		F001 = concatenate((B0, B[0], B[2], B[5]), axis = 1)
-		F01 = concatenate((B0, B[0], B[3]), axis = 1)
-		F1 = concatenate((B0, B[1]), axis = 1)
-		F011 = concatenate((B0, B[0], B[3], B[5]), axis = 1)
-		F101 = concatenate((B0, B[1], B[2], B[5]), axis = 1)
-		F11 = concatenate((B0, B[1], B[3]), axis = 1)
-		F111 = concatenate((B0, B[1], B[3], B[5]), axis = 1)
-		F = (F001, F01, F1, F011, F101, F11, F111)
-		T001 = self.__ExtBasis(F001, self.__skR, B0, q)
-		T01 = self.__ExtBasis(F01, self.__skR, B0, q)
-		T1 = self.__ExtBasis(F1, self.__skR, B0, q)
-		T011 = self.__ExtBasis(F011, self.__skR, B0, q)
-		T101 = self.__ExtBasis(F101, self.__skR, B0, q)
-		T11 = self.__ExtBasis(F11, self.__skR, B0, q)
-		T111 = self.__ExtBasis(F111, self.__skR, B0, q)
-		forwardSecretKeys = ((T001, T01, T1), (T01, T1), (T011, T1), (T1, ), (T101, T11), (T11, ), (T111, ))
-		index = randint(len(F))
-		self.__Ft = F[index]
-		return (forwardSecretKeys[index], self.__Ft)
-	def Encryption(self:object) -> tuple:
+
+		# Scheme #
+		B0, B, q = self.__pkR[0], self.__B, self.__q # $(\bm{B}_0', (\bm{B}_i)_{i = 0}^{5}, q) \gets (\textit{pk}_R[0], \textit{pp}.\bm{B}, \textit{pp}.q)$
+		F001 = concatenate((B0, B[0], B[2], B[5]), axis = 1) # $\bm{F}_{001} \gets [\bm{B}_0' \mid \bm{B}_0 \mid \bm{B}_2 \mid \bm{B}_5]$
+		F01 = concatenate((B0, B[0], B[3]), axis = 1) # $\bm{F}_{01} \gets [\bm{B}_0' \mid \bm{B}_0 \mid \bm{B}_3]$
+		F1 = concatenate((B0, B[1]), axis = 1) # $\bm{F}_{1} \gets [\bm{B}_0' \mid \bm{B}_1]$
+		F011 = concatenate((B0, B[0], B[3], B[5]), axis = 1) # $\bm{F}_{011} \gets [\bm{B}_0' \mid \bm{B}_0 \mid \bm{B}_3 \mid \bm{B}_5]$
+		F101 = concatenate((B0, B[1], B[2], B[5]), axis = 1) # $\bm{F}_{101} \gets [\bm{B}_0' \mid \bm{B}_1 \mid \bm{B}_2 \mid \bm{B}_5]$
+		F11 = concatenate((B0, B[1], B[3]), axis = 1) # $\bm{F}_{11} \gets [\bm{B}_0' \mid \bm{B}_1 \mid \bm{B}_3]$
+		F111 = concatenate((B0, B[1], B[3], B[5]), axis = 1) # $\bm{F}_{111} \gets [\bm{B}_0' \mid \bm{B}_1 \mid \bm{B}_3 \mid \bm{B}_5]$
+		F = (F001, F01, F1, F011, F101, F11, F111) # $\mathcal{F} \gets (\bm{F}_{001}, \bm{F}_{01}, \bm{F}_{1}, \bm{F}_{011}, \bm{F}_{101}, \bm{F}_{11}, \bm{F}_{111})$
+		T001 = self.__ExtBasis(F001, self.__skR, B0, q) # $\bm{T}_{001} \gets \textbf{ExtBasis}(\bm{F}_{001}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T01 = self.__ExtBasis(F01, self.__skR, B0, q) # $\bm{T}_{01} \gets \textbf{ExtBasis}(\bm{F}_{01}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T1 = self.__ExtBasis(F1, self.__skR, B0, q) # $\bm{T}_{1} \gets \textbf{ExtBasis}(\bm{F}_{1}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T011 = self.__ExtBasis(F011, self.__skR, B0, q) # $\bm{T}_{011} \gets \textbf{ExtBasis}(\bm{F}_{011}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T101 = self.__ExtBasis(F101, self.__skR, B0, q) # $\bm{T}_{101} \gets \textbf{ExtBasis}(\bm{F}_{101}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T11 = self.__ExtBasis(F11, self.__skR, B0, q) # $\bm{T}_{11} \gets \textbf{ExtBasis}(\bm{F}_{11}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		T111 = self.__ExtBasis(F111, self.__skR, B0, q) # $\bm{T}_{111} \gets \textbf{ExtBasis}(\bm{F}_{111}, \bm{T}_{B_0'}, \bm{B}_0', q)$
+		forwardSecretKeys = ((T001, T01, T1), (T01, T1), (T011, T1), (T1, ), (T101, T11), (T11, ), (T111, )) # $(\textit{fsk}_{001}, \textit{fsk}_{01}, \textit{fsk}_{1}, \textit{fsk}_{011}, \textit{fsk}_{101}, \textit{fsk}_{11}, \textit{fsk}_{111}) \gets ((\bm{T}_{001}, \bm{T}_{01}, \bm{T}_{1}), (\bm{T}_{01}, \bm{T}_{1}), (\bm{T}_{011}, \bm{T}_{1}), (\bm{T}_{1}), (\bm{T}_{101}, \bm{T}_{11}), (\bm{T}_{11}), (\bm{T}_{111}))$
+		index = randint(len(F)) # generate $t \in \{001, 01, 1, 011, 101, 11, 111\}$ uniformly at random
+		self.__Ft = F[index] # $\bm{F}_t \gets \mathcal{F}[t]$
+
+		# Return #
+		return (forwardSecretKeys[index], self.__Ft) # $\textbf{return}\ (\textit{fsk}_t, \bm{F}_t)$
+	def Encryption(self:object) -> tuple: # $\textbf{Encryption}(\textit{pp}, \textit{pk}_S, \textit{pk}_R, \bm{F}_t) \to \textit{CT}$
 		self.__requireSetup()
 		if any(value is None for value in (self.__pkS, self.__skS, self.__pkR, self.__Ft)):
 			raise RuntimeError("The sender keys, receiver keys, and forward key must be generated before encryption. ")
-		n, m, q, lS = self.__n, self.__m, self.__q, self.__lS
-		A, US, DA, AW = self.__pkS
-		DB, BW = self.__pkR[2], self.__pkR[3]
-		EW, SS, ck = randint(q, size = (m, lS)), randint(q, size = (n, lS)), randint(q, size = (n, 1))
-		hashMatrix = self.__hashMatrix(self.__pkS, self.__pkR, ck)
-		Cw = (EW + dot((dot(AW, hashMatrix) % q).T, SS) % q) % q
-		RA = (randint(2, size = (m, m)) << 1) - 1
-		RC = (randint(2, size = (m, m)) << 1) - 1
-		Ca = (dot(A.T, SS) % q + dot(RA, EW) % q) % q
-		Cc = (dot(DA.T, SS) % q + dot(RC, EW) % q) % q
-		RB = (randint(2, size = (self.__Ft.shape[1], m)) << 1) - 1
-		EU = randint(q, size = (n, lS))
-		Cb = (dot(self.__Ft.T, SS) % q + dot(RB, EW) % q) % q
-		Cu = (dot(US, SS) % q + EU) % q
-		ES = self.__SampleLeft(A, Cu, q)
-		self.__cipherText = (Cw, Ca, Cb, Cc, ES)
-		return self.__cipherText
-	def Trapdoor(self:object) -> tuple:
+
+		# Scheme #
+		n, m, q, lS = self.__n, self.__m, self.__q, self.__lS # $(n, m, q, \ell_S) \gets \textit{pp}.(n, m, q, \ell_S)$
+		A, US, DA, AW = self.__pkS # $(\bm{A}, \bm{U}_S, \bm{D}_A, \bm{A}_W) \gets \textit{pk}_S$
+		DB, BW = self.__pkR[2], self.__pkR[3] # $(\bm{D}_B, \bm{B}_W) \gets (\textit{pk}_R[2], \textit{pk}_R[3])$
+		EW, SS, ck = randint(q, size = (m, lS)), randint(q, size = (n, lS)), randint(q, size = (n, 1)) # generate $\bm{E}_W \in \mathbb{Z}_q^{m \times \ell_S}$, $\bm{S}_S \in \mathbb{Z}_q^{n \times \ell_S}$, and $\textit{ck} \in \mathbb{Z}_q^{n \times 1}$ uniformly at random
+		hashMatrix = self.__hashMatrix(self.__pkS, self.__pkR, ck) # $\bm{H}_{\textit{ck}} \gets H_1(\textit{pk}_S \Vert \textit{pk}_R \Vert \textit{ck})^{-1} \bmod q$
+		Cw = (EW + dot((dot(AW, hashMatrix) % q).T, SS) % q) % q # $\bm{C}_w \gets \bm{E}_W + (\bm{A}_W \bm{H}_{\textit{ck}})^{\mathsf{T}} \bm{S}_S \bmod q$
+		RA = (randint(2, size = (m, m)) << 1) - 1 # generate $\bm{R}_A \in \{-1, 1\}^{m \times m}$ uniformly at random
+		RC = (randint(2, size = (m, m)) << 1) - 1 # generate $\bm{R}_C \in \{-1, 1\}^{m \times m}$ uniformly at random
+		Ca = (dot(A.T, SS) % q + dot(RA, EW) % q) % q # $\bm{C}_a \gets \bm{A}^{\mathsf{T}} \bm{S}_S + \bm{R}_A \bm{E}_W \bmod q$
+		Cc = (dot(DA.T, SS) % q + dot(RC, EW) % q) % q # $\bm{C}_c \gets \bm{D}_A^{\mathsf{T}} \bm{S}_S + \bm{R}_C \bm{E}_W \bmod q$
+		RB = (randint(2, size = (self.__Ft.shape[1], m)) << 1) - 1 # generate $\bm{R}_B \in \{-1, 1\}^{\operatorname{cols}(\bm{F}_t) \times m}$ uniformly at random
+		EU = randint(q, size = (n, lS)) # generate $\bm{E}_U \in \mathbb{Z}_q^{n \times \ell_S}$ uniformly at random
+		Cb = (dot(self.__Ft.T, SS) % q + dot(RB, EW) % q) % q # $\bm{C}_b \gets \bm{F}_t^{\mathsf{T}} \bm{S}_S + \bm{R}_B \bm{E}_W \bmod q$
+		Cu = (dot(US, SS) % q + EU) % q # $\bm{C}_u \gets \bm{U}_S \bm{S}_S + \bm{E}_U \bmod q$
+		ES = self.__SampleLeft(A, Cu, q) # $\bm{E}_S \gets \textbf{SampleLeft}(\bm{A}, \bm{C}_u, q)$ such that $\bm{A}\bm{E}_S = \bm{C}_u \bmod q$
+		self.__cipherText = (Cw, Ca, Cb, Cc, ES) # $\textit{CT} \gets (\bm{C}_w, \bm{C}_a, \bm{C}_b, \bm{C}_c, \bm{E}_S)$
+
+		# Return #
+		return self.__cipherText # $\textbf{return}\ \textit{CT}$
+	def Trapdoor(self:object) -> tuple: # $\textbf{Trapdoor}(\textit{pp}, \textit{pk}_S, \textit{pk}_R, \textit{sk}_R, \bm{F}_t) \to \textit{td}$
 		self.__requireSetup()
 		if any(value is None for value in (self.__pkS, self.__pkR, self.__skR, self.__Ft)):
 			raise RuntimeError("The sender keys, receiver keys, and forward key must be generated before trapdoor generation. ")
-		n, m, q, lR = self.__n, self.__m, self.__q, self.__lR
-		A, US, DA, AW = self.__pkS
-		DB, BW = self.__pkR[2], self.__pkR[3]
-		SR, EDoubleW, tk = randint(q, size = (n, lR)), randint(q, size = (m, lR)), randint(q, size = (n, 1))
-		hashMatrix = self.__hashMatrix(self.__pkS, self.__pkR, tk)
-		Tw = (EDoubleW + dot((dot(BW, hashMatrix) % q).T, SR) % q) % q
-		RDoubleA = (randint(2, size = (m, m)) << 1) - 1
-		RDoubleB = (randint(2, size = (self.__Ft.shape[1], m)) << 1) - 1
-		RDoubleC = (randint(2, size = (m, m)) << 1) - 1
-		Ta = (dot(A.T, SR) % q + dot(RDoubleA, EDoubleW) % q) % q
-		Tb = (dot(self.__Ft.T, SR) % q + dot(RDoubleB, EDoubleW) % q) % q
-		Tc = (dot(DB.T, SR) % q + dot(RDoubleC, EDoubleW) % q) % q
-		EDoubleU = randint(q, size = (n, lR))
-		Tu = (dot(US, SR) % q + EDoubleU) % q
-		ER = self.__SampleLeft(self.__Ft, Tu, q)
-		self.__trapdoor = (Tw, Ta, Tb, Tc, ER)
-		return self.__trapdoor
-	def Test(self:object) -> bool:
+
+		# Scheme #
+		n, m, q, lR = self.__n, self.__m, self.__q, self.__lR # $(n, m, q, \ell_R) \gets \textit{pp}.(n, m, q, \ell_R)$
+		A, US, DA, AW = self.__pkS # $(\bm{A}, \bm{U}_S, \bm{D}_A, \bm{A}_W) \gets \textit{pk}_S$
+		DB, BW = self.__pkR[2], self.__pkR[3] # $(\bm{D}_B, \bm{B}_W) \gets (\textit{pk}_R[2], \textit{pk}_R[3])$
+		SR, EDoubleW, tk = randint(q, size = (n, lR)), randint(q, size = (m, lR)), randint(q, size = (n, 1)) # generate $\bm{S}_R \in \mathbb{Z}_q^{n \times \ell_R}$, $\bm{E}'_W \in \mathbb{Z}_q^{m \times \ell_R}$, and $\textit{tk} \in \mathbb{Z}_q^{n \times 1}$ uniformly at random
+		hashMatrix = self.__hashMatrix(self.__pkS, self.__pkR, tk) # $\bm{H}_{\textit{tk}} \gets H_1(\textit{pk}_S \Vert \textit{pk}_R \Vert \textit{tk})^{-1} \bmod q$
+		Tw = (EDoubleW + dot((dot(BW, hashMatrix) % q).T, SR) % q) % q # $\bm{T}_w \gets \bm{E}'_W + (\bm{B}_W \bm{H}_{\textit{tk}})^{\mathsf{T}} \bm{S}_R \bmod q$
+		RDoubleA = (randint(2, size = (m, m)) << 1) - 1 # generate $\bm{R}'_A \in \{-1, 1\}^{m \times m}$ uniformly at random
+		RDoubleB = (randint(2, size = (self.__Ft.shape[1], m)) << 1) - 1 # generate $\bm{R}'_B \in \{-1, 1\}^{\operatorname{cols}(\bm{F}_t) \times m}$ uniformly at random
+		RDoubleC = (randint(2, size = (m, m)) << 1) - 1 # generate $\bm{R}'_C \in \{-1, 1\}^{m \times m}$ uniformly at random
+		Ta = (dot(A.T, SR) % q + dot(RDoubleA, EDoubleW) % q) % q # $\bm{T}_a \gets \bm{A}^{\mathsf{T}} \bm{S}_R + \bm{R}'_A \bm{E}'_W \bmod q$
+		Tb = (dot(self.__Ft.T, SR) % q + dot(RDoubleB, EDoubleW) % q) % q # $\bm{T}_b \gets \bm{F}_t^{\mathsf{T}} \bm{S}_R + \bm{R}'_B \bm{E}'_W \bmod q$
+		Tc = (dot(DB.T, SR) % q + dot(RDoubleC, EDoubleW) % q) % q # $\bm{T}_c \gets \bm{D}_B^{\mathsf{T}} \bm{S}_R + \bm{R}'_C \bm{E}'_W \bmod q$
+		EDoubleU = randint(q, size = (n, lR)) # generate $\bm{E}'_U \in \mathbb{Z}_q^{n \times \ell_R}$ uniformly at random
+		Tu = (dot(US, SR) % q + EDoubleU) % q # $\bm{T}_u \gets \bm{U}_S \bm{S}_R + \bm{E}'_U \bmod q$
+		ER = self.__SampleLeft(self.__Ft, Tu, q) # $\bm{E}_R \gets \textbf{SampleLeft}(\bm{F}_t, \bm{T}_u, q)$ such that $\bm{F}_t\bm{E}_R = \bm{T}_u \bmod q$
+		self.__trapdoor = (Tw, Ta, Tb, Tc, ER) # $\textit{td} \gets (\bm{T}_w, \bm{T}_a, \bm{T}_b, \bm{T}_c, \bm{E}_R)$
+
+		# Return #
+		return self.__trapdoor # $\textbf{return}\ \textit{td}$
+	def Test(self:object) -> bool: # $\textbf{Test}(\textit{pp}, \textit{CT}, \textit{td}) \to y,\ y \in \{0, 1\}$
 		self.__requireSetup()
-		if self.__cipherText is None or self.__trapdoor is None:
-			return False
-		Cb, ES = self.__cipherText[2], self.__cipherText[4]
-		Ta, ER = self.__trapdoor[1], self.__trapdoor[4]
-		value = (dot(ER.T, Cb) % self.__q - dot(Ta.T, ES) % self.__q) % self.__q
-		centeredValue = minimum(value, self.__q - value)
-		return bool((centeredValue < self.__q >> 2).all())
+
+		# Scheme #
+		if self.__cipherText is None or self.__trapdoor is None: # $\textbf{if}\ \textit{CT} = \perp \lor \textit{td} = \perp\ \textbf{then}$
+			return False # $\quad \textbf{return}\ 0$
+		# $\textbf{end if}$
+		Cb, ES = self.__cipherText[2], self.__cipherText[4] # $(\bm{C}_b, \bm{E}_S) \gets (\textit{CT}[2], \textit{CT}[4])$
+		Ta, ER = self.__trapdoor[1], self.__trapdoor[4] # $(\bm{T}_a, \bm{E}_R) \gets (\textit{td}[1], \textit{td}[4])$
+		value = (dot(ER.T, Cb) % self.__q - dot(Ta.T, ES) % self.__q) % self.__q # $\bm{V} \gets \bm{E}_R^{\mathsf{T}}\bm{C}_b - \bm{T}_a^{\mathsf{T}}\bm{E}_S \bmod q$
+		centeredValue = minimum(value, self.__q - value) # $\overline{\bm{V}} \gets \min(\bm{V}, q - \bm{V})$ component-wise
+
+		# Return #
+		return bool((centeredValue < self.__q >> 2).all()) # $\textbf{return}\ \bigwedge_{i,j} [\overline{V}_{i,j} < \lfloor q / 4 \rfloor]$
 	def getLengthOf(self:object, obj:object) -> int|str:
 		if isinstance(obj, ndarray):
 			return int(obj.nbytes)

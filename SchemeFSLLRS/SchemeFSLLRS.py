@@ -618,56 +618,77 @@ class SchemeFSLLRS:
 			hashObject.update(len(encoded).to_bytes(8, byteorder = "big"))
 			hashObject.update(encoded)
 		return int.from_bytes(hashObject.digest(), byteorder = "big") % self.__modulus
-	def LLRSSetup(self:object, ringSize:int, dimension:int, modulus:int) -> tuple:
+	def LLRSSetup(self:object, ringSize:int, dimension:int, modulus:int) -> tuple: # $\textbf{LLRSSetup}(N, n, q) \to \textit{pp}$
+		# Checks #
 		if not all(isinstance(value, int) and value > 1 for value in (ringSize, dimension, modulus)):
 			raise ValueError("The ring size, dimension, and modulus must be integers greater than one. ")
 		if ringSize & (ringSize - 1):
 			raise ValueError("The ring size must be a power of two. ")
-		self.__ringSize, self.__dimension, self.__modulus = ringSize, dimension, modulus
-		diagonal = randint(1, modulus, size = (dimension, ))
-		self.__ringMatrix = eye(dimension, dtype = "int") * diagonal
-		self.__secretKeys, self.__publicKeys, self.__signer, self.__epoch = None, None, None, 0
-		self.__message, self.__ringSignature, self.__linkedSignature = None, None, None
-		return (self.__ringMatrix, ringSize, dimension, modulus)
-	def KeyExtract(self:object) -> tuple:
+
+		# Scheme #
+		self.__ringSize, self.__dimension, self.__modulus = ringSize, dimension, modulus # set $(N, n, q) \gets (\textit{ringSize}, \textit{dimension}, \textit{modulus})$, where $N$ is a power of two
+		diagonal = randint(1, modulus, size = (dimension, )) # generate $\bm{d} \gets (d_1, d_2, \ldots, d_n) \xleftarrow{\$} \{1, 2, \ldots, q - 1\}^n$
+		self.__ringMatrix = eye(dimension, dtype = "int") * diagonal # $\bm{A} \gets \operatorname{diag}(d_1, d_2, \ldots, d_n) \in \mathbb{Z}_q^{n \times n}$
+		self.__secretKeys, self.__publicKeys, self.__signer, self.__epoch = None, None, None, 0 # initialize the ring keys and signer as undefined and set the epoch $\tau \gets 0$
+		self.__message, self.__ringSignature, self.__linkedSignature = None, None, None # initialize the message and signature state as undefined
+
+		# Return #
+		return (self.__ringMatrix, ringSize, dimension, modulus) # $\textbf{return}\ \textit{pp} \gets (\bm{A}, N, n, q)$
+	def KeyExtract(self:object) -> tuple: # $\textbf{KeyExtract}(\textit{pp}) \to (\bm{P}, \bm{S})$
+		# Checks #
 		if self.__ringMatrix is None:
 			raise RuntimeError("The scheme has not been set up. ")
-		self.__secretKeys = randint(1, self.__modulus, size = (self.__ringSize, self.__dimension))
-		self.__publicKeys = dot(self.__secretKeys, self.__ringMatrix.T) % self.__modulus
-		return (self.__publicKeys, self.__secretKeys)
-	def KeyUpdate(self:object) -> tuple:
+
+		# Scheme #
+		self.__secretKeys = randint(1, self.__modulus, size = (self.__ringSize, self.__dimension)) # generate $\bm{S} \gets (\bm{s}_0^\mathsf{T}, \ldots, \bm{s}_{N - 1}^\mathsf{T})^\mathsf{T} \xleftarrow{\$} \{1, 2, \ldots, q - 1\}^{N \times n}$
+		self.__publicKeys = dot(self.__secretKeys, self.__ringMatrix.T) % self.__modulus # $\bm{P} \gets \bm{S}\bm{A}^\mathsf{T} \bmod q$, where row $i$ is $\bm{p}_i^\mathsf{T}$
+
+		# Return #
+		return (self.__publicKeys, self.__secretKeys) # $\textbf{return}\ (\bm{P}, \bm{S})$
+	def KeyUpdate(self:object) -> tuple: # $\textbf{KeyUpdate}(\bm{S}, \bm{P}, \tau) \to (i, \tau', \bm{s}'_i)$
+		# Checks #
 		if self.__secretKeys is None:
 			raise RuntimeError("The ring keys have not been extracted. ")
-		self.__signer = int(randint(self.__ringSize))
-		self.__epoch += 1
+
+		# Scheme #
+		self.__signer = int(randint(self.__ringSize)) # generate the signer index $i \xleftarrow{\$} \{0, 1, \ldots, N - 1\}$
+		self.__epoch += 1 # $\tau' \gets \tau + 1$
 		updatedSecret = array([
 			self.__hashScalar(self.__secretKeys[self.__signer], self.__epoch, index) or 1
 			for index in range(self.__dimension)
-		], dtype = "int")
-		self.__secretKeys[self.__signer] = updatedSecret
-		self.__publicKeys[self.__signer] = dot(self.__ringMatrix, updatedSecret) % self.__modulus
-		return (self.__signer, self.__epoch, updatedSecret)
-	def Sign(self:object, message:bytes|None = None) -> tuple:
+		], dtype = "int") # set $s'_{i,j} \gets H_q(\bm{s}_i, \tau', j)$ for every $j \in \{0, 1, \ldots, n - 1\}$, replacing the value $0$ by $1$, where $H_q: \{0, 1\}^* \to \mathbb{Z}_q$ is SHA3-256 reduced modulo $q$
+		self.__secretKeys[self.__signer] = updatedSecret # $\bm{s}_i \gets \bm{s}'_i$
+		self.__publicKeys[self.__signer] = dot(self.__ringMatrix, updatedSecret) % self.__modulus # $\bm{p}_i \gets \bm{A}\bm{s}'_i \bmod q$
+
+		# Return #
+		return (self.__signer, self.__epoch, updatedSecret) # $\textbf{return}\ (i, \tau', \bm{s}'_i)$
+	def Sign(self:object, message:bytes|None = None) -> tuple: # $\textbf{Sign}(\bm{S}, \bm{P}, m) \to \sigma$
+		# Checks #
 		if self.__signer is None or self.__publicKeys is None or self.__secretKeys is None:
 			raise RuntimeError("The signer key has not been updated. ")
-		q, ringSize, dimension, signer = self.__modulus, self.__ringSize, self.__dimension, self.__signer
-		self.__message = message if isinstance(message, bytes) else randint(0, 256, size = (32, ), dtype = "uint8").tobytes()
-		challenges = randint(q, size = (ringSize, ))
-		responses = randint(q, size = (ringSize, dimension))
-		commitments = zeros((ringSize, dimension), dtype = "int")
-		witness = randint(q, size = (dimension, ))
-		for index in range(ringSize):
-			if index == signer:
-				commitments[index] = dot(self.__ringMatrix, witness) % q
-			else:
-				commitments[index] = (dot(self.__ringMatrix, responses[index]) - challenges[index] * self.__publicKeys[index]) % q
-		challenge = self.__hashScalar(self.__message, self.__publicKeys, commitments)
-		challenges[signer] = (challenge - np_sum(challenges) + challenges[signer]) % q
-		responses[signer] = (witness + challenges[signer] * self.__secretKeys[signer]) % q
-		tag = sha3_256(self.__secretKeys[signer].astype("int64", copy = False).tobytes()).digest()
-		self.__ringSignature = (challenges, responses, tag)
-		return self.__ringSignature
-	def Verify(self:object, signature:tuple|None = None, message:bytes|None = None) -> bool:
+
+		# Scheme #
+		q, ringSize, dimension, signer = self.__modulus, self.__ringSize, self.__dimension, self.__signer # let $(q, N, n, i)$ denote the modulus, ring size, dimension, and signer index
+		self.__message = message if isinstance(message, bytes) else randint(0, 256, size = (32, ), dtype = "uint8").tobytes() # use the input $m$, or generate $m \xleftarrow{\$} \{0, 1\}^{256}$ when no message is supplied
+		challenges = randint(q, size = (ringSize, )) # generate $c_k \xleftarrow{\$} \mathbb{Z}_q$ for every $k \in \{0, 1, \ldots, N - 1\}$
+		responses = randint(q, size = (ringSize, dimension)) # generate $\bm{z}_k \xleftarrow{\$} \mathbb{Z}_q^n$ for every $k \in \{0, 1, \ldots, N - 1\}$
+		commitments = zeros((ringSize, dimension), dtype = "int") # initialize $\bm{T} \gets (\bm{t}_0^\mathsf{T}, \ldots, \bm{t}_{N - 1}^\mathsf{T})^\mathsf{T} \in \mathbb{Z}_q^{N \times n}$
+		witness = randint(q, size = (dimension, )) # generate $\bm{w} \xleftarrow{\$} \mathbb{Z}_q^n$
+		for index in range(ringSize): # for every $k \in \{0, 1, \ldots, N - 1\}$
+			if index == signer: # if $k = i$
+				commitments[index] = dot(self.__ringMatrix, witness) % q # set $\bm{t}_i \gets \bm{A}\bm{w} \bmod q$
+			else: # otherwise
+				commitments[index] = (dot(self.__ringMatrix, responses[index]) - challenges[index] * self.__publicKeys[index]) % q # set $\bm{t}_k \gets \bm{A}\bm{z}_k - c_k\bm{p}_k \bmod q$
+		challenge = self.__hashScalar(self.__message, self.__publicKeys, commitments) # $c \gets H_q(m, \bm{P}, \bm{T})$
+		challenges[signer] = (challenge - np_sum(challenges) + challenges[signer]) % q # $c_i \gets c - \sum_{k \ne i} c_k \bmod q$
+		responses[signer] = (witness + challenges[signer] * self.__secretKeys[signer]) % q # $\bm{z}_i \gets \bm{w} + c_i\bm{s}_i \bmod q$
+		tag = sha3_256(self.__secretKeys[signer].astype("int64", copy = False).tobytes()).digest() # $\eta \gets \mathtt{SHA3\text{-}256}(\bm{s}_i)$
+		self.__ringSignature = (challenges, responses, tag) # $\sigma \gets (\bm{c}, \bm{Z}, \eta)$
+
+		# Return #
+		return self.__ringSignature # $\textbf{return}\ \sigma$
+	def Verify(self:object, signature:tuple|None = None, message:bytes|None = None) -> bool: # $\textbf{Verify}(\bm{P}, m, \sigma) \to b, b \in \{0, 1\}$
+		# Checks #
 		if self.__publicKeys is None or self.__ringMatrix is None:
 			return False
 		checkedSignature = signature if isinstance(signature, tuple) else self.__ringSignature
@@ -681,17 +702,26 @@ class SchemeFSLLRS:
 			return False
 		if not isinstance(tag, bytes):
 			return False
-		commitments = zeros((self.__ringSize, self.__dimension), dtype = "int")
-		for index in range(self.__ringSize):
-			commitments[index] = (dot(self.__ringMatrix, responses[index]) - challenges[index] * self.__publicKeys[index]) % self.__modulus
-		return bool(np_sum(challenges) % self.__modulus == self.__hashScalar(checkedMessage, self.__publicKeys, commitments))
-	def Link(self:object) -> bool:
+
+		# Scheme #
+		commitments = zeros((self.__ringSize, self.__dimension), dtype = "int") # initialize $\bm{T} \gets (\bm{t}_0^\mathsf{T}, \ldots, \bm{t}_{N - 1}^\mathsf{T})^\mathsf{T} \in \mathbb{Z}_q^{N \times n}$
+		for index in range(self.__ringSize): # for every $k \in \{0, 1, \ldots, N - 1\}$
+			commitments[index] = (dot(self.__ringMatrix, responses[index]) - challenges[index] * self.__publicKeys[index]) % self.__modulus # $\bm{t}_k \gets \bm{A}\bm{z}_k - c_k\bm{p}_k \bmod q$
+
+		# Return #
+		return bool(np_sum(challenges) % self.__modulus == self.__hashScalar(checkedMessage, self.__publicKeys, commitments)) # $\textbf{return}\ b \gets [\sum_{k = 0}^{N - 1} c_k \bmod q = H_q(m, \bm{P}, \bm{T})]$
+	def Link(self:object) -> bool: # $\textbf{Link}(\sigma_1) \to b, b \in \{0, 1\}$
+		# Checks #
 		if self.__ringSignature is None:
 			return False
-		firstSignature = self.__ringSignature
-		secondSignature = self.Sign()
-		self.__linkedSignature = secondSignature
-		return bool(firstSignature[2] == secondSignature[2] and self.Verify(secondSignature, self.__message))
+
+		# Scheme #
+		firstSignature = self.__ringSignature # parse the current signature as $\sigma_1 = (\bm{c}_1, \bm{Z}_1, \eta_1)$
+		secondSignature = self.Sign() # generate a fresh message $m_2 \xleftarrow{\$} \{0, 1\}^{256}$ and compute $\sigma_2 \gets \textbf{Sign}(\bm{S}, \bm{P}, m_2)$
+		self.__linkedSignature = secondSignature # parse $\sigma_2 = (\bm{c}_2, \bm{Z}_2, \eta_2)$ and retain it as the linked signature
+
+		# Return #
+		return bool(firstSignature[2] == secondSignature[2] and self.Verify(secondSignature, self.__message)) # $\textbf{return}\ b \gets [\eta_1 = \eta_2] \land \textbf{Verify}(\bm{P}, m_2, \sigma_2)$
 	def getLengthOf(self:object, obj:object) -> int|str:
 		if isinstance(obj, ndarray):
 			return int(obj.nbytes)

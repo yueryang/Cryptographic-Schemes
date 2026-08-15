@@ -816,10 +816,10 @@ class SchemeCANIPSI:
 		
 		# Scheme #
 		try:
-			VPrime_i = H2(pair(T0_i, C0_i) * pair(T1_i, C1_i) * pair(T2_i, C2_i) * pair(T3_i, C3_i) * pair(T4_i, C4_i))
-			return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0)
+			VPrime_i = H2(pair(T0_i, C0_i) * pair(T1_i, C1_i) * pair(T2_i, C2_i) * pair(T3_i, C3_i) * pair(T4_i, C4_i)) # $V'_i \gets H_2(e(T_{0_i}, C_{0_i}) e(T_{1_i}, C_{1_i}) e(T_{2_i}, C_{2_i}) e(T_{3_i}, C_{3_i}) e(T_{4_i}, C_{4_i}))$
+			return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # \textbf{return} $1$ if $f(V'_i) = 0$; otherwise, \textbf{return} $0$
 		except Exception:
-			return False
+			return False # \textbf{return} $0$
 	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM) -> tuple: # $\textbf{Setup}(n, m) \to (\textit{mpk}, \textit{msk})$
 		# Checks #
 		self.__flag = False
@@ -996,12 +996,12 @@ class SchemeCANIPSI:
 		
 		# Scheme #
 		try:
-			VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n))
-			aVec = self.__computeCoefficients(VVec)
-			VPrime_i = H2(pair(C0_i, T0_i) * pair(T1_i, C1_i) * pair(T2_i, C2_i) * pair(T3_i, C3_i) * pair(T4_i, C4_i))
-			return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0)
+			VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
+			aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots, a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+			VPrime_i = H2(pair(C0_i, T0_i) * pair(T1_i, C1_i) * pair(T2_i, C2_i) * pair(T3_i, C3_i) * pair(T4_i, C4_i)) # $V'_i \gets H_2(e(C_{0_i}, T_{0_i}) e(T_{1_i}, C_{1_i}) e(T_{2_i}, C_{2_i}) e(T_{3_i}, C_{3_i}) e(T_{4_i}, C_{4_i}))$
+			return self.__computePolynomial(VPrime_i, aVec) == self.__group.init(ZR, 0) # \textbf{return} $1$ if $f(V'_i) = 0$; otherwise, \textbf{return} $0$
 		except Exception:
-			return False
+			return False # \textbf{return} $0$
 	def Trace(self:object, CTTPi:tuple, _L:list) -> tuple|bool: # $\textbf{Trace}(\textit{TP}_{\textit{TP}_i}, L) \to \textit{identity}$
 		# Checks #
 		if not self.__flag:
@@ -1019,15 +1019,15 @@ class SchemeCANIPSI:
 		
 		# Scheme #
 		try:
-			tag_i = H4(C2 / (C1 ** t))
+			tag_i = H4(C2 / (C1 ** t)) # $\textit{tag}_i \gets H_4(C_2 / C_1^t)$
 		except Exception:
-			return False
+			return False # \textbf{return} $0$
 		for element in _L:
 			if isinstance(element, tuple) and len(element) == 3 and tag_i == element[2]:
-				return element
+				return element # \textbf{return} $(\textit{ID}_i, k_i, \textit{tag}_i) \in L$ such that $\textit{tag}_i = H_4(C_2 / C_1^t)$
 		
 		# Return #
-		return False
+		return False # \textbf{return} $0$
 	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict|str) -> int|str:
 		if isinstance(obj, Element):
 			return len(self.__group.serialize(obj))

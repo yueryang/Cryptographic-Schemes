@@ -666,85 +666,113 @@ class SchemeLBPEAKS:
 		return total % self.__q
 	def __F(self:object, secretKey:ndarray, keywordSetU:ndarray, keywordSetW:ndarray, message:ndarray) -> ndarray:
 		return (self.__f1(secretKey, keywordSetU, message) - self.__f1(secretKey, keywordSetW, message)) % self.__q
-	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM, q:int = __DefaultQ) -> tuple:
+	def Setup(self:object, n:int = __DefaultN, m:int = __DefaultM, q:int = __DefaultQ) -> tuple: # $\textbf{Setup}(n, m, q) \to \textit{pp}$
 		if not all(isinstance(value, int) and value > 1 for value in (n, m, q)):
 			raise ValueError("The parameters n, m, and q must be integers greater than one. ")
 		if m % (n << 1):
 			raise ValueError("The parameters n and m must satisfy 2n | m. ")
-		self.__n, self.__m, self.__q = n, m, q
-		for _ in range(32):
-			A, TA = self.__TrapGen()
-			try:
-				Matrix(dot(A, A.T)).inv_mod(q)
-				break
-			except:
-				A, TA = None, None
-		if A is None or TA is None:
-			raise RuntimeError("Failed to generate an invertible lattice basis. ")
-		self.__A, self.__TA = A, TA
-		self.__B = randint(q, size = (n, m << 1))
-		self.__k = randint(self.__RandomLowerBound, min(m, self.__RandomUpperBound))
-		self.__keyword = randint(2, size = (self.__k, 1))
-		self.__U = randint(q, size = (n, self.__k))
-		self.__matrixVector = randint(q, size = (self.__k, n, m << 1))
-		self.__identity, self.__secretKey, self.__authorizedKey, self.__y = (None, ) * 4
-		self.__signature, self.__cipherText, self.__trapdoor = (None, ) * 3
-		return (A, self.__B, self.__U, self.__matrixVector, self.__keyword)
-	def KeyGen(self:object) -> tuple:
+
+		# Scheme #
+		self.__n, self.__m, self.__q = n, m, q # $(n, m, q) \gets (n, m, q)$
+		for _ in range(32): # $\textbf{repeat}\ \text{at most } 32 \text{ times}$
+			A, TA = self.__TrapGen() # $\quad (\bm{A}, \bm{T}_A) \gets \textbf{TrapGen}(n, m, q)$
+			try: # $\quad \textbf{if}\ \bm{A}\bm{A}^{\mathsf{T}} \text{ is invertible over } \mathbb{Z}_q\ \textbf{then}$
+				Matrix(dot(A, A.T)).inv_mod(q) # $\qquad \bm{Q} \gets (\bm{A}\bm{A}^{\mathsf{T}})^{-1} \bmod q$
+				break # $\qquad \textbf{break}$
+			except: # $\quad \textbf{else}$
+				A, TA = None, None # $\qquad (\bm{A}, \bm{T}_A) \gets (\perp, \perp)$
+			# $\quad \textbf{end if}$
+		# $\textbf{end repeat}$
+		if A is None or TA is None: # $\textbf{if}\ (\bm{A}, \bm{T}_A) = (\perp, \perp)\ \textbf{then}$
+			raise RuntimeError("Failed to generate an invertible lattice basis. ") # $\quad \textbf{return}\ \perp$
+		# $\textbf{end if}$
+		self.__A, self.__TA = A, TA # $(\bm{A}, \bm{T}_A) \gets (\bm{A}, \bm{T}_A)$
+		self.__B = randint(q, size = (n, m << 1)) # generate $\bm{B} \in \mathbb{Z}_q^{n \times 2m}$ uniformly at random
+		self.__k = randint(self.__RandomLowerBound, min(m, self.__RandomUpperBound)) # generate $k \in \{1, 2, \ldots, \min(m, 16) - 1\}$ uniformly at random
+		self.__keyword = randint(2, size = (self.__k, 1)) # generate the keyword $\bm{w} \in \{0, 1\}^{k \times 1}$ uniformly at random
+		self.__U = randint(q, size = (n, self.__k)) # generate $\bm{U} \in \mathbb{Z}_q^{n \times k}$ uniformly at random
+		self.__matrixVector = randint(q, size = (self.__k, n, m << 1)) # generate $(\bm{M}_i)_{i = 1}^{k}$ with $\bm{M}_i \in \mathbb{Z}_q^{n \times 2m}$ uniformly at random
+		self.__identity, self.__secretKey, self.__authorizedKey, self.__y = (None, ) * 4 # $(\textit{id}, \textit{sk}_{\textit{id}}, \textit{ak}, \bm{y}) \gets (\perp, \perp, \perp, \perp)$
+		self.__signature, self.__cipherText, self.__trapdoor = (None, ) * 3 # $(\sigma, \textit{CT}, \textit{td}) \gets (\perp, \perp, \perp)$
+
+		# Return #
+		return (A, self.__B, self.__U, self.__matrixVector, self.__keyword) # $\textbf{return}\ \textit{pp} \gets (\bm{A}, \bm{B}, \bm{U}, (\bm{M}_i)_{i = 1}^{k}, \bm{w})$
+	def KeyGen(self:object) -> tuple: # $\textbf{KeyGen}(\textit{pp}) \to (\textit{id}, \textit{sk}_{\textit{id}})$
 		self.__requireSetup()
-		length = randint(self.__RandomLowerBound, min(self.__n, self.__RandomUpperBound))
-		self.__identity = (randint(2, size = (length, 1)) << 1) - 1
-		self.__secretKey = self.__SamplePre(self.__A, self.__H1(self.__identity))
-		return (self.__identity, self.__secretKey)
-	def Authorize(self:object) -> tuple:
+
+		# Scheme #
+		length = randint(self.__RandomLowerBound, min(self.__n, self.__RandomUpperBound)) # generate $d_{\textit{id}} \in \{1, 2, \ldots, \min(n, 16) - 1\}$ uniformly at random
+		self.__identity = (randint(2, size = (length, 1)) << 1) - 1 # generate $\textit{id} \in \{-1, 1\}^{d_{\textit{id}} \times 1}$ uniformly at random
+		self.__secretKey = self.__SamplePre(self.__A, self.__H1(self.__identity)) # $\textit{sk}_{\textit{id}} \gets \textbf{SamplePre}(\bm{A}, H_1(\textit{id}))$ such that $\bm{A}\textit{sk}_{\textit{id}} = H_1(\textit{id}) \bmod q$
+
+		# Return #
+		return (self.__identity, self.__secretKey) # $\textbf{return}\ (\textit{id}, \textit{sk}_{\textit{id}})$
+	def Authorize(self:object) -> tuple: # $\textbf{Authorize}(\textit{pp}, \textit{sk}_{\textit{id}}) \to (\textit{ak}, \sigma, \bm{y})$
 		self.__requireSetup()
 		if self.__secretKey is None:
 			raise RuntimeError("The identity secret key has not been generated. ")
-		keywordSetW = randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), self.__k))
-		keywordSetU = concatenate((keywordSetW, randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), self.__k))), axis = 0)
-		message = concatenate((randint(2, size = (self.__k, 1)), randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), 1))), axis = 0)
-		self.__authorizedKey = self.__H3(self.__F(self.__secretKey, keywordSetU, keywordSetW, message))
-		self.__y = randint(self.__q, size = (self.__m, 1))
-		h = self.__H2(concatenate((dot(self.__A, self.__y) % self.__q, dot(self.__authorizedKey, self.__y) % self.__q), axis = 0))
-		z = (self.__secretKey * h % self.__q + self.__y) % self.__q
-		self.__signature = (h, z)
-		return (self.__authorizedKey, self.__signature, self.__y)
-	def Encrypt(self:object) -> tuple:
+
+		# Scheme #
+		keywordSetW = randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), self.__k)) # generate $W \subseteq \{0, 1\}^{k}$ with $1 \leq |W| \leq 15$ uniformly at random
+		keywordSetU = concatenate((keywordSetW, randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), self.__k))), axis = 0) # generate $U \gets W \Vert W'$ where $W' \subseteq \{0, 1\}^{k}$ and $1 \leq |W'| \leq 15$ uniformly at random
+		message = concatenate((randint(2, size = (self.__k, 1)), randint(2, size = (randint(self.__RandomLowerBound, self.__RandomUpperBound), 1))), axis = 0) # generate $\bm{\mu} \in \{0, 1\}^{k + d_{\mu}}$ with $1 \leq d_{\mu} \leq 15$ uniformly at random
+		self.__authorizedKey = self.__H3(self.__F(self.__secretKey, keywordSetU, keywordSetW, message)) # $\textit{ak} \gets H_3(F(\textit{sk}_{\textit{id}}, U, W, \bm{\mu}))$
+		self.__y = randint(self.__q, size = (self.__m, 1)) # generate $\bm{y} \in \mathbb{Z}_q^{m \times 1}$ uniformly at random
+		h = self.__H2(concatenate((dot(self.__A, self.__y) % self.__q, dot(self.__authorizedKey, self.__y) % self.__q), axis = 0)) # $h \gets H_2(\bm{A}\bm{y} \Vert \textit{ak}\bm{y})$
+		z = (self.__secretKey * h % self.__q + self.__y) % self.__q # $\bm{z} \gets h \cdot \textit{sk}_{\textit{id}} + \bm{y} \bmod q$
+		self.__signature = (h, z) # $\sigma \gets (h, \bm{z})$
+
+		# Return #
+		return (self.__authorizedKey, self.__signature, self.__y) # $\textbf{return}\ (\textit{ak}, \sigma, \bm{y})$
+	def Encrypt(self:object) -> tuple: # $\textbf{Encrypt}(\textit{pp}, \textit{id}, \bm{w}) \to \textit{CT}$
 		self.__requireSetup()
 		if self.__identity is None:
 			raise RuntimeError("The identity has not been generated. ")
-		q, m = self.__q, self.__m
-		AKeyword = (np_sum(self.__keyword[:, :, None] * self.__matrixVector, axis = 0) % q + self.__B) % q
-		AIdentity = concatenate((self.__A, self.__H4(self.__identity)), axis = 1)
-		AIdentityKeyword = concatenate((AIdentity, AKeyword), axis = 1)
-		R = (randint(2, size = (self.__k, m << 1, m << 1)) << 1) - 1
-		RKeyword = np_sum(self.__keyword[:, :, None] * R, axis = 0) % q
-		noise, noiseVector, randomVector = randint(q), randint(q, size = (m << 1, 1)), randint(q, size = (self.__n, 1))
-		c0 = (dot(self.__U.T, randomVector) % q + noise) % q
-		c1 = (dot(AIdentityKeyword.T, randomVector) % q + concatenate((noiseVector, dot(RKeyword.T, noiseVector) % q), axis = 0)) % q
-		self.__cipherText = (c0, c1)
-		return self.__cipherText
-	def Trapdoor(self:object) -> tuple:
+
+		# Scheme #
+		q, m = self.__q, self.__m # $(q, m) \gets \textit{pp}.(q, m)$
+		AKeyword = (np_sum(self.__keyword[:, :, None] * self.__matrixVector, axis = 0) % q + self.__B) % q # $\bm{A}_{\bm{w}} \gets \bm{B} + \sum_{i = 1}^{k} w_i \bm{M}_i \bmod q$
+		AIdentity = concatenate((self.__A, self.__H4(self.__identity)), axis = 1) # $\bm{A}_{\textit{id}} \gets [\bm{A} \mid H_4(\textit{id})]$
+		AIdentityKeyword = concatenate((AIdentity, AKeyword), axis = 1) # $\bm{A}_{\textit{id}, \bm{w}} \gets [\bm{A}_{\textit{id}} \mid \bm{A}_{\bm{w}}]$
+		R = (randint(2, size = (self.__k, m << 1, m << 1)) << 1) - 1 # generate $(\bm{R}_i)_{i = 1}^{k}$ with $\bm{R}_i \in \{-1, 1\}^{2m \times 2m}$ uniformly at random
+		RKeyword = np_sum(self.__keyword[:, :, None] * R, axis = 0) % q # $\bm{R}_{\bm{w}} \gets \sum_{i = 1}^{k} w_i \bm{R}_i \bmod q$
+		noise, noiseVector, randomVector = randint(q), randint(q, size = (m << 1, 1)), randint(q, size = (self.__n, 1)) # generate $e \in \mathbb{Z}_q$, $\bm{e} \in \mathbb{Z}_q^{2m \times 1}$, and $\bm{s} \in \mathbb{Z}_q^{n \times 1}$ uniformly at random
+		c0 = (dot(self.__U.T, randomVector) % q + noise) % q # $\bm{c}_0 \gets \bm{U}^{\mathsf{T}}\bm{s} + e\bm{1}_k \bmod q$
+		c1 = (dot(AIdentityKeyword.T, randomVector) % q + concatenate((noiseVector, dot(RKeyword.T, noiseVector) % q), axis = 0)) % q # $\bm{c}_1 \gets \bm{A}_{\textit{id}, \bm{w}}^{\mathsf{T}}\bm{s} + [\bm{e}^{\mathsf{T}} \mid (\bm{R}_{\bm{w}}^{\mathsf{T}}\bm{e})^{\mathsf{T}}]^{\mathsf{T}} \bmod q$
+		self.__cipherText = (c0, c1) # $\textit{CT} \gets (\bm{c}_0, \bm{c}_1)$
+
+		# Return #
+		return self.__cipherText # $\textbf{return}\ \textit{CT}$
+	def Trapdoor(self:object) -> tuple: # $\textbf{Trapdoor}(\textit{pp}, \textit{id}, \textit{ak}, \sigma, \bm{y}) \to \textit{td}$
 		self.__requireSetup()
 		if any(value is None for value in (self.__identity, self.__authorizedKey, self.__y, self.__signature)):
 			raise RuntimeError("Authorization has not been completed. ")
-		q, m = self.__q, self.__m
-		AKeyword = (np_sum(self.__keyword[:, :, None] * self.__matrixVector, axis = 0) % q + self.__B) % q
-		AIdentity = concatenate((self.__A, self.__H4(self.__identity)), axis = 1) % q
-		trap1 = dot(self.__authorizedKey, self.__y) % q
-		trap2 = randint(q, size = (m << 2, 1))
-		self.__trapdoor = (trap1, trap2, self.__signature, AIdentity, AKeyword)
-		return self.__trapdoor
-	def Test(self:object) -> bool:
+
+		# Scheme #
+		q, m = self.__q, self.__m # $(q, m) \gets \textit{pp}.(q, m)$
+		AKeyword = (np_sum(self.__keyword[:, :, None] * self.__matrixVector, axis = 0) % q + self.__B) % q # $\bm{A}_{\bm{w}} \gets \bm{B} + \sum_{i = 1}^{k} w_i \bm{M}_i \bmod q$
+		AIdentity = concatenate((self.__A, self.__H4(self.__identity)), axis = 1) % q # $\bm{A}_{\textit{id}} \gets [\bm{A} \mid H_4(\textit{id})] \bmod q$
+		trap1 = dot(self.__authorizedKey, self.__y) % q # $\bm{t}_1 \gets \textit{ak}\bm{y} \bmod q$
+		trap2 = randint(q, size = (m << 2, 1)) # generate $\bm{t}_2 \in \mathbb{Z}_q^{4m \times 1}$ uniformly at random
+		self.__trapdoor = (trap1, trap2, self.__signature, AIdentity, AKeyword) # $\textit{td} \gets (\bm{t}_1, \bm{t}_2, \sigma, \bm{A}_{\textit{id}}, \bm{A}_{\bm{w}})$
+
+		# Return #
+		return self.__trapdoor # $\textbf{return}\ \textit{td}$
+	def Test(self:object) -> bool: # $\textbf{Test}(\textit{pp}, \textit{id}, \textit{CT}, \textit{td}) \to y,\ y \in \{0, 1\}$
 		self.__requireSetup()
-		if self.__cipherText is None or self.__trapdoor is None:
-			return False
-		c0, c1 = self.__cipherText
-		trap1, trap2, signature = self.__trapdoor[:3]
-		h, z = signature
-		verified = h == self.__H2(concatenate(((dot(self.__A, z) - self.__H1(self.__identity) * h % self.__q) % self.__q, trap1), axis = 0))
-		rankVerified = matrix_rank((c0 - dot(trap2.T, c1) % self.__q) % self.__q) <= self.__q >> 2
-		return bool(verified and rankVerified)
+
+		# Scheme #
+		if self.__cipherText is None or self.__trapdoor is None: # $\textbf{if}\ \textit{CT} = \perp \lor \textit{td} = \perp\ \textbf{then}$
+			return False # $\quad \textbf{return}\ 0$
+		# $\textbf{end if}$
+		c0, c1 = self.__cipherText # $(\bm{c}_0, \bm{c}_1) \gets \textit{CT}$
+		trap1, trap2, signature = self.__trapdoor[:3] # $(\bm{t}_1, \bm{t}_2, \sigma) \gets (\textit{td}[0], \textit{td}[1], \textit{td}[2])$
+		h, z = signature # $(h, \bm{z}) \gets \sigma$
+		verified = h == self.__H2(concatenate(((dot(self.__A, z) - self.__H1(self.__identity) * h % self.__q) % self.__q, trap1), axis = 0)) # $b_1 \gets [h = H_2((\bm{A}\bm{z} - hH_1(\textit{id}) \bmod q) \Vert \bm{t}_1)]$
+		rankVerified = matrix_rank((c0 - dot(trap2.T, c1) % self.__q) % self.__q) <= self.__q >> 2 # $b_2 \gets [\operatorname{rank}(\bm{c}_0 - \bm{t}_2^{\mathsf{T}}\bm{c}_1 \bmod q) \leq \lfloor q / 4 \rfloor]$
+
+		# Return #
+		return bool(verified and rankVerified) # $\textbf{return}\ b_1 \land b_2$
 	def getLengthOf(self:object, obj:object) -> int|str:
 		if isinstance(obj, ndarray):
 			return int(obj.nbytes)
