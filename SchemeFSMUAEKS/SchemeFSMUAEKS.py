@@ -788,7 +788,7 @@ def __conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bo
 		nString, mString, qString, lSString, lRString = n, m, q, lS, lR
 	if isinstance(run, int) and run >= 1:
 		runString = run
-	if not isinstance(isVerbose, bool) or isVerbose:
+	if isVerbose is not False:
 		print("Parameters: (n = {0}, m = {1}, q = {2}, lS = {3}, lR = {4})".format(nString, mString, qString, lSString, lRString))
 		print("run:", runString)
 	try:
@@ -823,14 +823,14 @@ def __conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bo
 		sizeForwardKey = scheme.getLengthOf((forwardSecretKey, forwardKey))
 		sizeCipherText, sizeTrapdoor = scheme.getLengthOf(cipherText), scheme.getLengthOf(trapdoor)
 		isCompleted = True
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Is the system valid? Yes. ")
 			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeKeyGenS, timeKeyGenR, timeKeyUpdate, timeEncryption, timeTrapdoor, timeTest))
 			print("Space:", (sizeParams, sizePkS, sizeSkS, sizePkR, sizeSkR, sizeForwardKey, sizeCipherText, sizeTrapdoor))
 			print()
 	except BaseException as e:
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Is the system valid? No. The execution failed due to {0}. ".format(repr(e)))
 			print()
 	return ([

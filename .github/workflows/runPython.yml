@@ -394,8 +394,8 @@ jobs:
           if [[ -f buildSchemeLaTeXPDFs.py && -f "${{ matrix.cryptographicScheme }}" ]];
           then
             formatString='%p/%nLaTeX/%n-${{ needs.prepare.outputs.timeString }}'
-            echo "\$ python buildSchemeLaTeXPDFs.py -h"
-            python buildSchemeLaTeXPDFs.py -h
+            echo "\$ python buildSchemeLaTeXPDFs.py -t 0 -h"
+            python buildSchemeLaTeXPDFs.py -t 0 -h
             echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatString}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
             python buildSchemeLaTeXPDFs.py -o "${formatString}" -t 0 -- "${{ matrix.cryptographicScheme }}"
           else

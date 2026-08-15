@@ -1,20 +1,18 @@
-from os import chdir, makedirs, name, sep
-from os.path import abspath, basename, dirname, exists, isfile, isdir, join, split, splitext
-from sys import argv, exit
-try:
-	from charm.toolbox.pairinggroup import PairingGroup, G1, G2, GT, ZR, pair, pc_element as Element
-except:
-	PairingGroup, G1, G2, GT, ZR, pair, Element = (None, ) * 7
+import ast
 from codecs import lookup
+from copy import deepcopy
 from getpass import getpass
-from hashlib import md5, sha1, sha3_224, sha3_256, sha3_384, sha3_512
-from secrets import randbelow
+from inspect import getsource
+from itertools import combinations
+from os import chdir, getcwd, makedirs, name, sep, walk
+from os.path import abspath, basename, dirname, exists, isdir, isfile, islink, join, split, splitext
+from sys import argv, exit
+from textwrap import dedent
 from time import perf_counter, sleep
-from warnings import filterwarnings
-filterwarnings(
-	"ignore", category = DeprecationWarning, 
-	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
-)
+try:
+	from charm.toolbox.pairinggroup import PairingGroup, ZR, pc_element as Element
+except:
+	PairingGroup, ZR, Element = (None, ) * 3
 try:
 	chdir(abspath(dirname(__file__)))
 except:
@@ -22,10 +20,11 @@ except:
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 EOF = (-1)
+TABLE_HEADER = ("target", "curveName", "one", "scheme", "runCount", "correctness", "time consumption")
 
 
 class Parser:
-	__SchemeName = "SchemeVLPSICA" # splitext(basename(__file__))[0]
+	__SchemeName = "SchemeCoefficientComputation" # splitext(basename(__file__))[0]
 	__OptionEncoding = ("e", "/e", "-e", "encoding", "/encoding", "--encoding")
 	__DefaultEncoding = "utf-8"
 	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
@@ -58,7 +57,7 @@ class Parser:
 			return ""
 	@staticmethod
 	def __printHelp() -> None:
-		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
+		print("This is a coefficient computation API comparator for Python implementations based on the Python Charm-Crypto framework. ")
 		print()
 		print("Options (case-insensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(
@@ -606,393 +605,429 @@ class Saver:
 			print("Saver: The results are invalid. ")
 			return False
 
-class SchemeVLPSICA:
-	__DefaultM, __DefaultN, __DefaultD = 10, 10, 10
-	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
-		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
-		if self.__group.secparam < 1:
-			self.__group = PairingGroup(self.__group.groupType())
-			print("Init: The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
-		self.__m = SchemeVLPSICA.__DefaultM
-		self.__n = SchemeVLPSICA.__DefaultN
-		self.__d = SchemeVLPSICA.__DefaultD
-		self.__mpk = None
-		self.__msk = None
-		self.__flag = False # to indicate whether it has already set up
-	def __product(self:object, elements:object) -> Element:
-		try:
-			if isinstance(elements, (tuple, list)):
-				result = elements[0]
-				for element in elements[1:]:
-					result *= element
+class Solutions:
+	class Constant2Highest: # These functions output the coefficients from the constant term to the highest-order term (from $c_0$ to $c_n$). 
+		@staticmethod
+		def __computeCombinationalCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(r, Element) and r.type == roots[0].type for r in roots):
+					flag = True
+					one = group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(r, (int, float)) for r in roots):
+					flag = True
+					one = 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				coefficients = [None] * (n + 1)
+				coefficients[n] = one
+				for m in range(1, n + 1):
+					e_m = None
+					for combo in combinations(roots, m):
+						prod = one
+						for root in combo:
+							prod = prod * root
+						if e_m is None:
+							e_m = prod
+						else:
+							e_m += prod
+					if m % 2 == 1:
+						e_m = -e_m
+					coefficients[n - m] = e_m
+				if offset is not None:
+					coefficients[0] += offset
+				return tuple(coefficients)
 			else:
-				it = iter(elements)
-				result = next(it)
-				for element in it:
-					result *= element
-			return result if isinstance(result, Element) else self.__group.init(ZR, result)
-		except Exception:
-			return self.__group.init(ZR, 1)
-	def __computeLagrangeCoefficients(self:object, xPoints:tuple|list, yPoints:tuple|list, x:Element) -> Element:
+				return (k, )
+		@staticmethod
+		def __computePowerCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
+			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+				n = len(roots)
+				coefficients = [group.init(ZR, 0)] * n + [group.init(ZR, 1)]
+				for r in roots:
+					for i in range(n):
+						coefficients[i] += r * coefficients[i + 1]
+				coefficients = [(-1) ** (n - i) * coefficients[i] for i in range(n + 1)]
+				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
+					coefficients[0] += k
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
+			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+				n = len(roots)
+				cnt = n - 1
+				coefficients = [group.init(ZR, 0)] * n + [group.init(ZR, 1)]
+				for r in roots:
+					for i in range(cnt, n):
+						coefficients[i] += r * coefficients[i + 1]
+					cnt -= 1
+				coefficients = [-coefficients[i] if (n - i) & 1 else coefficients[i] for i in range(n + 1)]
+				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
+					coefficients[0] += k
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag, coefficients = True, [None] * (n - 1) + [roots[0], group.init(roots[0].type, 1)]
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag, coefficients = True, [None] * (n - 1) + [roots[0], 1]
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				cnt = n - 2
+				for r in roots[1:]:
+					coefficients[cnt] = r * coefficients[cnt + 1]
+					for i in range(cnt + 1, n - 1):
+						coefficients[i] += r * coefficients[i + 1]
+					coefficients[n - 1] += r
+					cnt -= 1
+				for i in range(n - 1, -1, -2):
+					coefficients[i] = -coefficients[i]
+				if offset is not None:
+					coefficients[0] += offset
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def getAllSolutions() -> tuple:
+			return (
+				Solutions.Constant2Highest.__computeCombinationalCoefficients, Solutions.Constant2Highest.__computePowerCoefficients, 
+				Solutions.Constant2Highest.__computeBitwiseAndCoefficients, Solutions.Constant2Highest.__computeCoefficients
+			)
+	class Highest2Constant: # These functions output the coefficients from the highest-order term to the constant term (from $c_n$ to $c_0$). 
+		@staticmethod
+		def __computeCombinationalCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(r, Element) and r.type == roots[0].type for r in roots):
+					flag = True
+					one = group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(r, (int, float)) for r in roots):
+					flag = True
+					one = 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				coefficients = [None] * (n + 1)
+				coefficients[0] = one
+				for m in range(1, n + 1):
+					e_m = None
+					for combo in combinations(roots, m):
+						prod = one
+						for root in combo:
+							prod = prod * root
+						if e_m is None:
+							e_m = prod
+						else:
+							e_m += prod
+					if m % 2 == 1:
+						e_m = -e_m
+					coefficients[m] = e_m
+				if offset is not None:
+					coefficients[-1] += offset
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computePowerCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
+			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+				n = len(roots)
+				coefficients = [group.init(ZR, 1)] + [group.init(ZR, 0)] * n
+				for r in roots:
+					for i in range(n, 0, -1):
+						coefficients[i] += r * coefficients[i - 1]
+				coefficients = [(-1) ** i * coefficients[i] for i in range(n + 1)]
+				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
+					coefficients[-1] += k
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
+			if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+				n = len(roots)
+				cnt = 1
+				coefficients = [group.init(ZR, 1)] + [group.init(ZR, 0)] * n
+				for r in roots:
+					for i in range(cnt, 0, -1):
+						coefficients[i] += r * coefficients[i - 1]
+					cnt += 1
+				coefficients = [-coefficients[i] if i & 1 else coefficients[i] for i in range(n + 1)]
+				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
+					coefficients[-1] += k
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag, coefficients = True, [group.init(roots[0].type, 1), roots[0]] + [None] * (n - 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag, coefficients = True, [1, roots[0]] + [None] * (n - 1)
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				cnt = 2
+				for r in roots[1:]:
+					coefficients[cnt] = r * coefficients[cnt - 1]
+					for i in range(cnt - 1, 1, -1):
+						coefficients[i] += r * coefficients[i - 1]
+					coefficients[1] += r
+					cnt += 1
+				for i in range(1, n + 1, 2):
+					coefficients[i] = -coefficients[i]
+				if offset is not None:
+					coefficients[-1] += offset
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def getAllSolutions() -> tuple:
+			return (
+				Solutions.Highest2Constant.__computeCombinationalCoefficients, Solutions.Highest2Constant.__computePowerCoefficients, 
+				Solutions.Highest2Constant.__computeBitwiseAndCoefficients, Solutions.Highest2Constant.__computeCoefficients
+			)
+
+
+class _CoefficientMethodReplacer(ast.NodeTransformer):
+	def __init__(self:object, solution:object) -> object:
+		self.__replacementBody = deepcopy(next(node for node in ast.walk(ast.parse(dedent(getsource(solution)))) if isinstance(node, ast.FunctionDef)).body)
+		self.target = None
+		self.replacementCount = 0
+	def visit_ClassDef(self:object, node:ast.ClassDef) -> ast.ClassDef:
+		for statement in node.body:
+			if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and statement.name == "__computeCoefficients":
+				assignment = ast.parse("group = self.__group").body[0]
+				statement.body = [assignment] + deepcopy(self.__replacementBody)
+				self.target = node.name
+				self.replacementCount += 1
+		return self.generic_visit(node)
+
+
+class _FaultyOneInjector(ast.NodeTransformer):
+	def __init__(self:object) -> object:
+		self.__insideConductScheme = False
+		self.injectionCount = 0
+	def visit_FunctionDef(self:object, node:ast.FunctionDef) -> ast.FunctionDef:
+		wasInsideConductScheme = self.__insideConductScheme
+		if node.name == "conductScheme":
+			self.__insideConductScheme = True
+		node = self.generic_visit(node)
+		self.__insideConductScheme = wasInsideConductScheme
+		return node
+	def visit_Assign(self:object, node:ast.Assign) -> ast.Assign|list:
+		node = self.generic_visit(node)
 		if (
-			isinstance(xPoints, (tuple, list)) and isinstance(yPoints, (tuple, list)) and len(xPoints) == len(yPoints) and all(isinstance(ele, Element) and ele.type == ZR for ele in xPoints)
-			and all(isinstance(ele, Element) and ele.type == ZR for ele in yPoints) and isinstance(x, Element) and x.type == ZR
+			self.__insideConductScheme and any(isinstance(target, ast.Name) and target.id == "group" for target in node.targets)
+			and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == "PairingGroup"
 		):
-			n, result = len(xPoints), self.__group.init(ZR, 1)
-			for i in range(n):
-				L_i = self.__group.init(ZR, 1)
-				for j in range(n):
-					if i != j:
-						L_i *= (x - xPoints[j]) / (xPoints[i] - xPoints[j])
-				result += yPoints[i] * L_i
-			return result
-		else:
-			return self.__init(ZR, 0)
-	def __generateRandomNonZeroZRElement(self:object) -> Element:
-		element = self.__group.random(ZR)
-		while element == self.__group.init(ZR, 0):
-			element = self.__group.random(ZR)
-		return element
-	def Setup(self:object, m:int = __DefaultM, n:int = __DefaultN, d:int = __DefaultD) -> tuple: # $\textbf{Setup}(m, n, d) \to (\textit{mpk}, \textit{msk})$
-		# Checks #
-		self.__flag = False
-		if isinstance(m, int) and m >= 1:
-			self.__m = m
-		else:
-			self.__m = SchemeVLPSICA.__DefaultM
-			print("Setup: The variable $m$ should be a positive integer, but it is not, which has been defaulted to ${0}$. ".format(SchemeVLPSICA.__DefaultM))
-		if isinstance(n, int) and n >= 1:
-			self.__n = n
-		else:
-			self.__n = SchemeVLPSICA.__DefaultN
-			print("Setup: The variable $n$ should be a positive integer, but it is not, which has been defaulted to ${0}$. ".format(SchemeVLPSICA.__DefaultN))
-		if isinstance(d, int) and d >= 1:
-			self.__d = d
-		else:
-			self.__d = SchemeVLPSICA.__DefaultD
-			print("Setup: The variable $d$ should be a positive integer, but it is not, which has been defaulted to ${0}$. ".format(SchemeVLPSICA.__DefaultD))
-		
-		# Scheme #
-		g1 = self.__group.init(G1, 1) # $g_1 \gets 1_{\mathbb{G}_1}$
-		g2 = self.__group.init(G2, 1) # $g_2 \gets 1_{\mathbb{G}_2}$
-		s = self.__generateRandomNonZeroZRElement() # generate $s \in \mathbb{Z}_p^*$ randomly
-		SVec = tuple(g2 ** (s ** i) for i in range(self.__m + self.__d + 1)) # $\vec{S} \gets (S_0, S_1, \cdots, S_{m + d}) = (g_2^{s_0}, g_2^{s_1}, \cdots, g_2^{s^{m + d}})$
-		SPrime = g1 ** s # $S' \gets g_1^s \in \mathbb{G}_1$
-		if 512 == self.__group.secparam:
-			H = lambda x:int.from_bytes(sha3_512(self.__group.serialize(x)).digest(), byteorder = "big")
-		elif 384 == self.__group.secparam:
-			H = lambda x:int.from_bytes(sha3_384(self.__group.serialize(x)).digest(), byteorder = "big")
-		elif 256 == self.__group.secparam:
-			H = lambda x:int.from_bytes(sha3_256(self.__group.serialize(x)).digest(), byteorder = "big")
-		elif 224 == self.__group.secparam:
-			H = lambda x:int.from_bytes(sha3_224(self.__group.serialize(x)).digest(), byteorder = "big")
-		elif 160 == self.__group.secparam:
-			H = lambda x:int.from_bytes(sha1(self.__group.serialize(x)).digest(), byteorder = "big")
-		elif 128 == self.__group.secparam:
-			H = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
-		else:
-			H = lambda x:int.from_bytes(sha3_512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $H: \mathbb{G}_T \to \{0, 1\}^\lambda$
-			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 224, 256, 384, 512, or 1024 as the security parameter. ".format(self.__group.secparam))
-		self.__mpk = (g1, SPrime, H) # $\textit{mpk} \gets (g_1, S', H)$
-		self.__msk = (g2, SVec) # $\textit{msk} \gets (g_2, \vec{S})$
-		
-		# Flag #
-		self.__flag = True
-		return (self.__mpk, self.__msk) # \textbf{return} $(\textit{mpk}, \textit{msk})$
-	def Sender(self:object, _vVec:tuple, _YVec:tuple) -> tuple: # $\textbf{Sender}(\vec{v}, \vec{Y}) \to (\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
-		# Checks #
-		if not self.__flag:
-			print("Sender: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Sender`` subsequently. ")
-			self.Setup()
-		if isinstance(_vVec, tuple) and len(_vVec) == self.__d and all(isinstance(ele, Element) and ele.type == ZR for ele in _vVec): # hybrid check
-			vVec = _vVec
-		else:
-			vVec = tuple(self.__group.random(ZR) for _ in range(self.__d))
-			print("Sender: The variable $\\vec{v}$ should be a tuple containing $d$ elements of $\\mathbb{Z}_r$, but it is not, which has been generated randomly. ")
-		if isinstance(_YVec, tuple) and len(_YVec) == self.__n and all(isinstance(ele, Element) and ele.type == ZR for ele in _YVec): # hybrid check
-			YVec = _YVec
-		else:
-			YVec = tuple(self.__group.random(ZR) for _ in range(self.__n))
-			print("Sender: The variable $\\vec{Y}$ should be a tuple containing $n$ elements of $\\mathbb{Z}_r$, but it is not, which has been generated randomly. ")
-		
-		# Unpack #
-		g1, SPrime = self.__mpk[0], self.__mpk[1]
-		
-		# Scheme #
-		k = randbelow(self.__n) # generate $k \in \mathbb{N}* \cap [0, n)$ randomly
-		pi = lambda x:(x + k) % self.__n # $\pi: x \to (x + k) \% n$
-		tVec = tuple(self.__group.random(ZR) for j in range(self.__n)) # generate $\vec{t} \gets (t_1, t_2, \cdots, t_n) \in \mathbb{Z}_r^n$ randomly
-		TVec = tuple(g1 ** tVec[j] for j in range(self.__n)) # $\vec{T} \gets (T_1, T_2, \cdots, T_n) = (g_1^{t_1}, g_1^{t_2}, \cdots, g_1^{t_n})$
-		UVec = tuple(SPrime * g1 ** (-YVec[pi(j)]) for j in range(self.__n)) # $\vec{U} \gets (U_1, U_2, \cdots, U_n) = (S' \cdot (g_1^{-y_{\pi(1)}}), S' \cdot (g_1^{-y_{\pi(2)}}), \cdots, S' \cdot (g_1^{-y_{\pi(n)}}))$
-		tPrimeVec = tuple(self.__group.random(ZR) for _ in range(self.__d)) # generate $\vec{t}' = (t'_1, t'_2, \cdots, t'_d) \in \mathbb{Z}_r^d$ randomly
-		TPrimeVec = tuple(g1 ** tPrimeVec[j] for j in range(self.__d)) # $\vec{T}' \gets (T'_1, T'_2, \cdots, T'_d) = (g_1^{t'_1}, g_1^{t'_2}, \cdots, g_1^{t'_d})$
-		UPrimeVec = tuple(SPrime * g1 ** (-vVec[j]) ** tPrimeVec[j] for j in range(self.__d)) # $\vec{U}' \gets (U'_1, U'_2, \cdots, U'_d) = (S' \cdot (g_1^{-v_1})^{t'_1}, S' \cdot (g_1^{-v_2})^{t'_2}, \cdots, S' \cdot (g_1^{-v_d})^{t'_d})$
-		
-		# Return #
-		return (TVec + TPrimeVec, UVec + UPrimeVec) # \textbf{return} $(\vec{T} || \vec{T}', \vec{U} || \vec{U}')$
-	def Receiver(self:object, _vVec:tuple, _XVec:tuple) -> tuple: # $\textbf{Receiver}(\vec{v}, \vec{X}) \to (R, \vec{R}')$
-		# Checks #
-		if not self.__flag:
-			print("Receiver: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Receiver`` subsequently. ")
-			self.Setup()
-		if isinstance(_vVec, tuple) and len(_vVec) == self.__d and all(isinstance(ele, Element) and ele.type == ZR for ele in _vVec): # hybrid check
-			vVec = _vVec
-		else:
-			vVec = tuple(self.__group.random(ZR) for _ in range(self.__d))
-			print("Receiver: The variable $\\vec{v}$ should be a tuple containing $d$ elements of $\\mathbb{Z}_r$, but it is not, which has been generated randomly. ")
-		if isinstance(_XVec, tuple) and len(_XVec) == self.__m and all(isinstance(ele, Element) and ele.type == ZR for ele in _XVec): # hybrid check
-			XVec = _XVec
-		else:
-			XVec = tuple(self.__group.random(ZR) for _ in range(self.__m))
-			print("Receiver: The variable $\\vec{X}$ should be a tuple containing $m$ elements of $\\mathbb{Z}_r$, but it is not, which has been generated randomly. ")
-		
-		# Unpack #
-		SVec = self.__msk[1]
-		
-		# Scheme #
-		XPrimeVec = XVec + vVec # $\vec{X}' \gets (\vec{X} || \vec{v}) \in \mathbb{Z}_r^{m + d}$
-		r = self.__group.random(ZR) # generate $r \in \mathbb{Z}_r$ randomly
-		xPoints, yPoints = tuple(self.__group.init(ZR, j) for j in range(1, self.__m + self.__d + 1)), XPrimeVec
-		R = self.__product(tuple(SVec[j] ** self.__computeLagrangeCoefficients(xPoints, yPoints, self.__group.init(ZR, j)) for j in range(self.__m + self.__d + 1))) ** r # $R \gets \left(\prod\limits_{j = 0}^{m + d} S_j^{p(X', j)}\right)^r$
-		RPrimeVec = tuple(
-			self.__product(tuple(SVec[j] ** self.__computeLagrangeCoefficients(xPoints, yPoints, self.__group.init(ZR, j)) for j in range(self.__m + self.__d))) ** r for i in range(self.__m + self.__d)
-		) # $R_{-i} \gets \left(\prod\limits_{j = 0}^{m + d - 1} S_j^{p(X'_{-i}, j)}\right)^r, \forall i \in {1, 2, \cdots, m + d}$
-		del xPoints, yPoints
-		
-		# Return #
-		return (R, RPrimeVec) # \textbf{return} $(R, \vec{R}')$
-	def Cloud1(self:object, _TTPrime:tuple, _R:Element) -> tuple: # $\textbf{Cloud1}((\vec{T}, \vec{T}'), R) \to \vec{W}$
-		# Checks #
-		if not self.__flag:
-			print("Cloud1: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud1`` subsequently. ")
-			self.Setup()
-		if isinstance(_TTPrime, tuple) and len(_TTPrime) == self.__n + self.__d and all(isinstance(ele, Element) and ele.type == G1 for ele in _TTPrime): # hybrid check
-			TTPrime = _TTPrime
-		else:
-			TTPrime = tuple(self.__group.random(G1) for _ in range(self.__n + self.__d))
-			print("Cloud1: The variable $\\vec{{T}} || \\vec{{T}}'$ should be a tuple containing $n + d = {0} + {1} = {2}$ elements of $\\mathbb{{G}}_1$, but it is not, which has been generated randomly. ".format(self.__n, self.__d, self.__n + self.__d))
-		if isinstance(_R, Element) and _R.type == G2: # type check
-			R = _R
-		else:
-			R = self.__group.random(G2)
-			print("Cloud1: The variable $R$ should be an element of $\\mathbb{G}_2$, but it is not, which has been generated randomly. ")
-		
-		# Unpack #
-		H = self.__mpk[2]
-		
-		# Scheme #
-		WVec = tuple(H(pair(TTPrime[j], R)) for j in range(self.__n + self.__d)) # $W_j \gets H(e((\vec{T} || \vec{T}')_j, R)), \forall j \in {1, 2, \cdots, n + d}$
-		k1 = randbelow(self.__n + self.__d) # generate $k_1 \in \mathbb{N}* \cap [0, n + d)$ randomly
-		pi1 = lambda x:(x + k1) % (self.__n + self.__d) # $\pi_1: x \to (x + k_1) \% (n + d)$
-		WVec = tuple(WVec[pi1(j)] for j in range(self.__n + self.__d)) # $\vec{W} \gets \{\vec{W}_{\pi_1(j)}\}_j$
-		
-		# Return #
-		return WVec # \textbf{return} $\vec{W}$
-	def Cloud2(self:object, _UUPrime:tuple, _RPrimeVec:tuple) -> tuple: # $\textbf{Cloud2}(\vec{U}, R') \to \vec{K}$
-		# Checks #
-		if not self.__flag:
-			print("Cloud2: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Cloud2`` subsequently. ")
-			self.Setup()
-		if isinstance(_UUPrime, tuple) and len(_UUPrime) == self.__n + self.__d and all(isinstance(ele, Element) and ele.type == G1 for ele in _UUPrime): # hybrid check
-			UUPrime = _UUPrime
-		else:
-			UUPrime = tuple(self.__group.random(G1) for _ in range(self.__n + self.__d))
-			print("Cloud2: The variable $\\vec{{U}} || \\vec{{U}}'$ should be a tuple containing $n + d = {0} + {1} = {2}$ elements of $\\mathbb{{G}}_1$, but it is not, which has been generated randomly. ".format(self.__n, self.__d, self.__n + self.__d))
-		if isinstance(_RPrimeVec, tuple) and len(_RPrimeVec) == self.__m + self.__d and all(isinstance(ele, Element) and ele.type == G2 for ele in _RPrimeVec): # hybrid check
-			RPrimeVec = _RPrimeVec
-		else:
-			RPrimeVec = tuple(self.__group.random(G2) for _ in range(self.__m + self.__d))
-			print("Cloud2: The variable $\\vec{{R}}'$ should be a tuple containing $m + d = {0} + {1} = {2}$ elements of $\\mathbb{{G}}_1$, but it is not, which has been generated randomly. ".format(self.__m, self.__d, self.__m + self.__d))
-		
-		# Unpack #
-		H = self.__mpk[2]
-		
-		# Scheme #
-		KVec = tuple(H(pair(UUPrime[j], RPrimeVec[i])) for i in range(self.__m + self.__d) for j in range(self.__n + self.__d)) # $\vec{K}_{i(n + d) + j} \gets H(e((\vec{U} || \vec{U}')_j, R'_i)), \forall i \in {1, 2, \cdots, m + d}, \forall j \in {1, 2, \cdots, n + d}$
-		k2 = randbelow((self.__m + self.__d) * (self.__n + self.__d)) # generate $k_2 \in \mathbb{N}* \cap [0, (m + d)(n + d))$ randomly
-		pi2 = lambda i, j:(i * (self.__n + self.__d) + j + k2) % ((self.__m + self.__d) * (self.__n + self.__d)) # $\pi_2: i, j \to (i(n + d) + j + k_2) \% (m + d)(n + d)$
-		KVec = tuple(KVec[pi2(i, j)] for i in range(self.__m + self.__d) for j in range(self.__n + self.__d)) # $\vec{K} \gets \{\vec{K}_{\pi_2(i, j)}\}_{i, j}$
-		
-		# Return #
-		return KVec # \textbf{return} $\vec{K}$
-	def Verify(self:object, _KVec:tuple, _WVec:tuple) -> int|bool: # $\textbf{Verify}(\vec{K}, \vec{W}) \to \textit{result}$
-		# Checks #
-		if not self.__flag:
-			print("Verify: The ``Setup`` procedure has not been called yet. The program will call the ``Setup`` first and finish the ``Verify`` subsequently. ")
-			self.Setup()
-		if isinstance(_KVec, tuple) and len(_KVec) == (self.__m + self.__d) * (self.__n + self.__d) and all(isinstance(ele, int) for ele in _KVec): # hybrid check
-			KVec = _KVec
-		else:
-			KVec = self.Cloud2(tuple(self.__group.random(G1) for _ in range(self.__n + self.__d)), tuple(self.__group.random(G2) for _ in range(self.__m + self.__d)))
-			print("Verify: The variable $\\vec{{K}}$ should be a tuple containing $(m + d)(n + d) = {0}$ integers, but it is not, which has been generated randomly. ".format((self.__m + self.__d) * (self.__n + self.__d)))
-		if isinstance(_WVec, tuple) and len(_WVec) == self.__n + self.__d and all(isinstance(ele, int) for ele in _WVec): # hybrid check
-			WVec = _WVec
-		else:
-			WVec = self.Cloud1(tuple(self.__group.random(G1) for _ in range(self.__n + self.__d)), self.__group.random(G2))
-			print("Verify: The variable $\\vec{{W}}$ should be a tuple containing $n + d = {0} + {1} = {2}$ integers, but it is not, which has been generated randomly. ".format(self.__n, self.__d, self.__n + self.__d))
-		
-		# Unpack #
-		pass
-		
-		# Scheme #
-		if set(WVec) <= set(KVec): # \textbf{if} $\vec{W} \subseteq \vec{K}$ \textbf{then}
-			result = self.__n # \quad$\textit{result} \gets |\vec{K} \cap \vec{W}| - d = |\vec{W}| - d = n + d - d = n$
-		else: # \textbf{else}
-			result = False # \quad$\textit{result} \gets \perp$
-		# \textbf{end if}
-		
-		# Return #
-		return result # \textbf{return} $\textit{result}$
-	def getLengthOf(self:object, obj:Element|int|bytes|tuple|list|set|dict) -> int|str:
-		if isinstance(obj, Element):
-			return len(self.__group.serialize(obj))
-		elif isinstance(obj, int) or callable(obj):
-			return (self.__group.secparam + 7) >> 3
-		elif isinstance(obj, bytes):
-			return len(obj)
-		elif isinstance(obj, (tuple, list, set)):
-			sizes = tuple(self.getLengthOf(o) for o in obj)
-			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
-		elif isinstance(obj, dict):
-			sizes = tuple(self.getLengthOf(value) for value in obj.values())
-			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
-		else:
-			return "N/A"
+			self.injectionCount += 1
+			patch = ast.parse("group.init = lambda elementType, value:group.random(elementType)").body[0]
+			return [node, patch]
+		return node
 
 
-def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect = False, False
-	timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify = ("N/A", ) * 6
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec = ("N/A", ) * 8
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(m, int) and m >= 1:
-		mString = m
-	else:
-		flag = False
-	if isinstance(n, int) and n >= 1:
-		nString = n
-	else:
-		flag = False
-	if isinstance(d, int) and d >= 1:
-		dString = d
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$m$:", mString)
-		print("$n$:", nString)
-		print("$d$:", dString)
-		print("run:", runString)
-	if flag:
+class SchemeCoefficientComputation:
+	__DefaultRunCount = 10
+	def __init__(self:object, *paths:tuple) -> object: # This scheme is a coefficient computation API comparator. 
+		self.__filePaths = []
+		self.__curveTypes = ("MNT201", "MNT224", "BN254")
+		self.updateFilePaths(*paths)
+	@staticmethod
+	def __solutionName(solution:object) -> str:
+		name = getattr(solution, "__qualname__", getattr(solution, "__name__", str(solution)))
+		return name.split("Solutions.", 1)[-1]
+	@staticmethod
+	def __isSchemeResultCorrect(result:object) -> bool:
+		validators = tuple(value for value in result if type(value) is bool) if isinstance(result, (tuple, list)) else tuple()
+		return bool(validators) and all(validators)
+	@staticmethod
+	def __printResults(results:tuple|list) -> None:
+		print("\t".join(TABLE_HEADER))
+		for result in results:
+			print("\t".join(str(value) for value in result))
+	def updateFilePaths(self:object, *paths:tuple) -> int:
+		originalLength, stack = len(self.__filePaths), list(reversed(paths))
+		while stack:
+			element = stack.pop()
+			if isinstance(element, (tuple, list)):
+				stack.extend(reversed(element))
+			elif isinstance(element, set):
+				stack.extend(sorted(element, reverse = True))
+			elif isinstance(element, str) or hasattr(element, "__fspath__"):
+				element = str(element)
+				if not islink(element):
+					if isdir(element):
+						filePaths = []
+						for root, directoryNames, fileNames in walk(element):
+							for fileName in fileNames:
+								absoluteFilePath = abspath(join(root, fileName))
+								if (
+									not islink(absoluteFilePath) and isfile(absoluteFilePath) and splitext(fileName)[1] == ".py"
+									and fileName.startswith("Scheme") and absoluteFilePath not in self.__filePaths
+								):
+									filePaths.append(absoluteFilePath)
+						filePaths.sort()
+						self.__filePaths.extend(filePaths)
+					elif isfile(element):
+						fileName = basename(element)
+						if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
+							absoluteFilePath = abspath(element)
+							if absoluteFilePath not in self.__filePaths:
+								self.__filePaths.append(absoluteFilePath)
+		currentLength = len(self.__filePaths)
+		return currentLength - originalLength
+	def __conductBasicScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
+		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
+		for curveType in self.__curveTypes:
+			try:
+				group = PairingGroup(curveType)
+				roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
+				k = group.init(ZR, 7)
+				answer2Constant2Highest = tuple(group.init(ZR, value) for value in (-23, 31, -10, 1))
+				answer2Highest2Constant = tuple(reversed(answer2Constant2Highest))
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Basic: Failed to initialize curve {0} due to {1}. ".format(repr(curveType), repr(e)))
+				continue
+			
+			# Normal #
+			for constant2HighestSolution in Solutions.Constant2Highest.getAllSolutions():
+				correctness = 0
+				startTime = perf_counter()
+				try:
+					for run in range(runCount):
+						coefficients = constant2HighestSolution(group, roots, k)
+						correctness += coefficients == answer2Constant2Highest
+				except BaseException as e:
+					if isVerbose is not False:
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
+					raise e########
+				endTime = perf_counter()
+				results.append(["Dry run", curveType, "Reliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
+				startTime = perf_counter()
+				try:
+					for run in range(runCount):
+						coefficients = highest2ConstantSolution(group, roots, k)
+						correctness += coefficients == answer2Highest2Constant
+				except BaseException as e:
+					if isVerbose is not False:
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
+				endTime = perf_counter()
+				results.append(["Dry run", curveType, "Reliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+			
+			# Flawed #
+			group.init = lambda a, b:group.random(a) # Patch the ``group.init`` to simulate the issue
+			for constant2HighestSolution in Solutions.Constant2Highest.getAllSolutions():
+				correctness = 0
+				startTime = perf_counter()
+				try:
+					for run in range(runCount):
+						coefficients = constant2HighestSolution(group, roots, k)
+						correctness += coefficients == answer2Constant2Highest
+				except BaseException as e:
+					if isVerbose is not False:
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
+				endTime = perf_counter()
+				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
+				startTime = perf_counter()
+				try:
+					for run in range(runCount):
+						coefficients = highest2ConstantSolution(group, roots, k)
+						correctness += coefficients == answer2Highest2Constant
+				except BaseException as e:
+					if isVerbose is not False:
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
+				endTime = perf_counter()
+				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+		return results
+	@staticmethod
+	def __buildPatchedNamespace(filePath:str, sourceTree:ast.Module, solution:object, one:bool) -> tuple:
+		tree = deepcopy(sourceTree)
+		replacer = _CoefficientMethodReplacer(solution)
+		tree = replacer.visit(tree)
+		if replacer.replacementCount != 1 or not isinstance(replacer.target, str):
+			raise ValueError("Exactly one __computeCoefficients method is required. ")
+		if not one:
+			injector = _FaultyOneInjector()
+			tree = injector.visit(tree)
+			if injector.injectionCount < 1:
+				raise ValueError("The PairingGroup construction in conductScheme was not found. ")
+		ast.fix_missing_locations(tree)
+		namespace = {"__file__":filePath, "__name__":"__coefficient_computation_device__", "combinations":combinations}
+		originalDirectory = getcwd()
 		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $m$, $n$, and $d$ should be three positive integers. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeVLPSICA = SchemeVLPSICA(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (
-			schemeVLPSICA.getLengthOf(group.random(ZR)), schemeVLPSICA.getLengthOf(group.random(G1)), 
-			schemeVLPSICA.getLengthOf(group.random(G2)), schemeVLPSICA.getLengthOf(group.random(GT))
-		)
-		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeVLPSICA.Setup(m = m, n = n, d = d)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeVLPSICA.getLengthOf(mpk), schemeVLPSICA.getLengthOf(msk)
-		
-		# Sender #
-		startTime = perf_counter()
-		vVec = tuple(group.random(ZR) for _ in range(d))
-		YVec = tuple(group.random(ZR) for _ in range(n))
-		TTPrime, UUPrime = schemeVLPSICA.Sender(vVec, YVec)
-		endTime = perf_counter()
-		timeSender = endTime - startTime
-		sizeTTPrime, sizeUUPrime = schemeVLPSICA.getLengthOf(TTPrime), schemeVLPSICA.getLengthOf(UUPrime)
-		
-		# Receiver #
-		startTime = perf_counter()
-		XVec = tuple(group.random(ZR) for _ in range(m))
-		R, RPrimeVec = schemeVLPSICA.Receiver(vVec, XVec)
-		endTime = perf_counter()
-		timeReceiver = endTime - startTime
-		sizeR, sizeRPrimeVec = schemeVLPSICA.getLengthOf(R), schemeVLPSICA.getLengthOf(RPrimeVec)
-		
-		# Cloud1 #
-		startTime = perf_counter()
-		WVec = schemeVLPSICA.Cloud1(TTPrime, R)
-		endTime = perf_counter()
-		timeCloud1 = endTime - startTime
-		sizeWVec = schemeVLPSICA.getLengthOf(WVec)
-		
-		# Cloud2 #
-		startTime = perf_counter()
-		KVec = schemeVLPSICA.Cloud2(UUPrime, RPrimeVec)
-		endTime = perf_counter()
-		timeCloud2 = endTime - startTime
-		sizeKVec = schemeVLPSICA.getLengthOf(KVec)
-		
-		# Verify #
-		startTime = perf_counter()
-		result = schemeVLPSICA.Verify(KVec, WVec)
-		endTime = perf_counter()
-		isSchemeCorrect = result is not False
-		timeVerify = endTime - startTime
-		
-		# Destruction #
-		del schemeVLPSICA
+			exec(compile(tree, filePath, "exec"), namespace)
+		finally:
+			chdir(originalDirectory)
+		conduct = namespace.get("conductScheme")
+		if not callable(conduct):
+			raise ValueError("The module-level conductScheme function was not found. ")
+		return replacer.target, conduct
+	def __conductDeviceScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
+		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
+		for filePath in self.__filePaths:
+			try:
+				with open(filePath, "r", encoding = "utf-8") as f:
+					sourceTree = ast.parse(f.read(), filename = filePath)
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Device: Failed to parse {0} due to {1}. ".format(repr(filePath), repr(e)))
+				continue
+			for solution in Solutions.Constant2Highest.getAllSolutions():
+				for one in (True, False):
+					try:
+						target, conduct = self.__buildPatchedNamespace(filePath, sourceTree, solution, one)
+					except BaseException as e:
+						if isVerbose is not False:
+							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__solutionName(solution), repr(e)))
+						continue
+					for curveType in self.__curveTypes:
+						correctness, startTime = 0, perf_counter()
+						for run in range(1, runCount + 1):
+							try:
+								result = conduct(curveType, run = run, isVerbose = False)
+								correctness += self.__isSchemeResultCorrect(result)
+							except BaseException as e:
+								if isVerbose is not False:
+									print("Device: {0} failed on {1} due to {2}. ".format(target, curveType, repr(e)))
+						endTime = perf_counter()
+						results.append([target, curveType, one, self.__solutionName(solution), runCount, correctness, (endTime - startTime) / runCount])
+		return results
+	def conductScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
+		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
+		results.extend(self.__conductBasicScheme(r = runCount, isVerbose = isVerbose))
+		results.extend(self.__conductDeviceScheme(r = runCount, isVerbose = isVerbose))
 		if isVerbose is not False:
-			print("Verify:", result)
-			print("Is the scheme correct (result is not False)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
-			print()
-	
-	# End #
-	return [
-		curveName, securityParameter, mString, nString, dString, runString, 
-		isSystemValid, isSchemeCorrect, 
-		timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec
-	]
+			self.__printResults(results)
+		return results
+
+
+def getResultStatus(results:tuple|list) -> int:
+	return EXIT_SUCCESS if isinstance(results, (tuple, list)) and results and all(
+		isinstance(result, (tuple, list)) and len(result) == len(TABLE_HEADER) and result[5] == result[4] for result in results
+	) else EXIT_FAILURE
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
 	if flag > EXIT_SUCCESS and flag > EOF:
-		if any((PairingGroup is None, G1 is None, G2 is None, GT is None, ZR is None, pair is None, Element is None)):
+		if any((PairingGroup is None, ZR is None, Element is None)):
 			Parser.disableConsoleEchoes()
 			print("The runtime environment of the Python Charm-Crypto framework is not correctly configured. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
@@ -1004,60 +1039,23 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("curveParameter", "secparam", "m", "n", "d", "runCount")
-			validators = ("isSystemValid", "isSchemeCorrect")
-			metrics = (
-				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)", 
-				"elementOfZR (B)", "elementOfG1 (B)", "elementOfG2 (B)", "elementOfGT (B)", 
-				"mpk (B)", "msk (B)", "(T, T') (B)", "(U, U') (B)", "R (B)", "R' (B)", "W (B)", "K (B)"
-			)
-			getValidatorJudges = lambda x:x[queryLength:queryValidatorLength]
-			getMetricJudges = lambda x:x[queryValidatorLength:]
+			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
 			
 			# Scheme #
-			columns, queryLength, results = queries + validators + metrics, len(queries), []
-			length, queryValidatorLength, runCountIndex = len(columns), queryLength + len(validators), queryLength - 1
-			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
+			results = []
 			try:
-				for curveParameter in curveParameters:
-					for m in range(5, 31, 5):
-						for n in range(5, 31, 5):
-							for d in range(5, 31, 5):
-								averages = conductScheme(curveParameter, m = m, n = n, d = d, run = 1, isVerbose = isVerbose)
-								for run in range(2, runCount + 1):
-									result = conductScheme(curveParameter, m = m, n = n, d = d, run = run, isVerbose = isVerbose)
-									for index in range(queryLength, queryValidatorLength):
-										averages[index] += result[index]
-									for index in range(queryValidatorLength, length):
-										averages[index] = averages[index] + result[index] if isinstance(averages[index], (float, int)) and averages[index] > 0 and result[index] > 0 else "N/A"
-								averages[runCountIndex] = runCount
-								for index in range(queryValidatorLength, length):
-									if isinstance(averages[index], (float, int)) and averages[index] > 0:
-										averages[index] /= runCount
-										if isinstance(averages[index], float) and averages[index].is_integer():
-											averages[index] = int(averages[index])
-									else:
-										averages[index] = "N/A"
-								results.append(averages)
-								saver.save(results)
-								if isVerbose:
-									print()
-				if not results:
-					print("No experiments were conducted. ")
-				elif not isVerbose:
-					print()
+				schemeCoefficientComputation = SchemeCoefficientComputation(filePaths)
+				results = schemeCoefficientComputation.conductScheme(r = runCount, isVerbose = isVerbose)
+				saver = Saver(outputFilePath, TABLE_HEADER, decimalPlace = decimalPlace, encoding = encoding)
+				saver.save(results)
 			except KeyboardInterrupt:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = EXIT_SUCCESS if results and all(
-				all(r == runCount for r in getValidatorJudges(result))
-				and all(isinstance(r, (float, int)) and r > 0 for r in getMetricJudges(result))
-				for result in results
-			) else EXIT_FAILURE
+				raise e#########
+			errorLevel = getResultStatus(results)
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		Parser.disableConsoleEchoes()
@@ -1073,17 +1071,17 @@ def main() -> int:
 		if "e" in timeString:
 			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing Ctrl + C ({1}). ".format(timeString, errorLevel))
 		try:
-			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			print("\rThe countdown is {0} second(s). ".format(timeString), end = "")
 			sleep(decimalTime)
 			while integerTime >= 1:
-				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime), end = "")
 				sleep(1)
 				integerTime -= 1
 		except:
 			pass
-		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0))
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
 	else:

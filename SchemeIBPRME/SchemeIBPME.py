@@ -971,17 +971,17 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 	flag = True
 	if isinstance(run, int) and run >= 1:
 		runString = run
-	if not isinstance(isVerbose, bool) or isVerbose:
+	if isVerbose is not False:
 		print("Curve: ({0}, {1})".format(curveName, securityParameter))
 		print("run:", runString)
 	if flag:
 		try:
 			group = PairingGroup(curveName, secparam = securityParameter)
 			isSystemValid = True
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? Yes. ")
 		except BaseException as e:
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 				print()
 	
@@ -1056,7 +1056,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVer
 		
 		# Destruction #
 		del schemeIBPME
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Original:", message)
 			print("Dec1:", m)
 			print("Dec2:", mPrime)

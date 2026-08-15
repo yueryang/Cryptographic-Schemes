@@ -1001,7 +1001,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 		flag = False
 	if isinstance(run, int) and run >= 1:
 		runString = run
-	if not isinstance(isVerbose, bool) or isVerbose:
+	if isVerbose is not False:
 		print("Curve: ({0}, {1})".format(curveName, securityParameter))
 		print("$d$:", dString)
 		print("run:", runString)
@@ -1010,13 +1010,13 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 			group = PairingGroup(curveName, secparam = securityParameter)
 			pair(group.random(G1), group.random(G1))
 			isSystemValid = True
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? Yes. ")
 		except BaseException as e:
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 			print()
-	elif not isinstance(isVerbose, bool) or isVerbose:
+	elif isVerbose is not False:
 		print("Is the system valid? No. The parameter $d$ should be a positive integer. ")
 		print()
 	
@@ -1079,7 +1079,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, d:int = 30, run:int|None =
 		
 		# Destruction #
 		del schemeIBMEMR
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Original:", message)
 			print("Decrypted:", m)
 			print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))

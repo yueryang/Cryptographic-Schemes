@@ -512,8 +512,8 @@ without duplication or omission. Thus, we have the following method. The method 
 
 ```
 # This function outputs the coefficients from the constant term to the highest-order term (from $c_0$ to $c_n$). 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-	if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+def __computeCoefficients(self:object, roots:tuple|list, k:None|Element = None) -> tuple:
+	if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
 		n = len(roots)
 		coefficients = [self.__group.init(ZR, 0)] * n + [self.__group.init(ZR, 1)]
 		for r in roots:
@@ -527,8 +527,8 @@ def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = No
 		return (self.__group.init(ZR, 1), )
 
 # This function outputs the coefficients from the highest-order term to the constant term (from $c_n$ to $c_0$). 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-	if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+def __computeCoefficients(self:object, roots:tuple|list, k:None|Element = None) -> tuple:
+	if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
 		n = len(roots)
 		coefficients = [self.__group.init(ZR, 1)] + [self.__group.init(ZR, 0)] * n
 		for r in roots:
@@ -547,8 +547,8 @@ we can use the ``cnt`` to optimize the method to $O\left(\cfrac{n(n + 1)}{2}\rig
 
 ```
 # This function outputs the coefficients from the constant term to the highest-order term (from $c_0$ to $c_n$). 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-	if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+def __computeCoefficients(self:object, roots:tuple|list, k:None|Element = None) -> tuple:
+	if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
 		n = len(roots)
 		cnt = n - 1
 		coefficients = [self.__group.init(ZR, 0)] * n + [self.__group.init(ZR, 1)]
@@ -564,8 +564,8 @@ def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = No
 		return (k, )
 
 # This function outputs the coefficients from the highest-order term to the constant term (from $c_n$ to $c_0$). 
-def __computeCoefficients(self:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-	if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+def __computeCoefficients(self:object, roots:tuple|list, k:None|Element = None) -> tuple:
+	if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
 		n = len(roots)
 		cnt = 1
 		coefficients = [self.__group.init(ZR, 1)] + [self.__group.init(ZR, 0)] * n
@@ -766,7 +766,7 @@ Apart from these two core measurements, the time and space complexities are the 
 
 #### 1.3.1 Time complexity
 
-To compute the time consumption (time complexity) of a code set, please refer to the following lines. 
+To compute the time consumption (time complexity) of a code block, please refer to the following lines. 
 Remember to perform a division if a procedure contains computation for multiple objects, while only the computation procedure of one of those objects should be counted. 
 
 ```

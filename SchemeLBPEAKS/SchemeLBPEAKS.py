@@ -781,7 +781,7 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 		nString, mString, qString = n, m, q
 	if isinstance(run, int) and run >= 1:
 		runString = run
-	if not isinstance(isVerbose, bool) or isVerbose:
+	if isVerbose is not False:
 		print("Parameters: (n = {0}, m = {1}, q = {2})".format(nString, mString, qString))
 		print("run:", runString)
 	try:
@@ -811,14 +811,14 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 		sizeMasterSecretKey = scheme.getLengthOf(publicParameters[0])
 		sizeSecretKey, sizeToken = scheme.getLengthOf((identity, secretKey)), scheme.getLengthOf(token)
 		sizeCipherText, sizeTrapdoor = scheme.getLengthOf(cipherText), scheme.getLengthOf(trapdoor)
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Is the system valid? Yes. ")
 			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
 			print("Time:", (timeSetup, timeKeyGen, timeAuthorize, timeEncrypt, timeTrapdoor, timeTest))
 			print("Space:", (sizePublicParameters, sizeMasterSecretKey, sizeSecretKey, sizeToken, sizeCipherText, sizeTrapdoor))
 			print()
 	except BaseException as e:
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("Is the system valid? No. The execution failed due to {0}. ".format(repr(e)))
 			print()
 	return [

@@ -1081,7 +1081,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 		flag = False
 	if isinstance(run, int) and run >= 1:
 		runString = run
-	if not isinstance(isVerbose, bool) or isVerbose:
+	if isVerbose is not False:
 		print("Curve: ({0}, {1})".format(curveName, securityParameter))
 		print("$n$:", nString)
 		print("$m$:", mString)
@@ -1091,13 +1091,13 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 			group = PairingGroup(curveName, secparam = securityParameter)
 			pair(group.random(G1), group.random(G2))
 			isSystemValid = True
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? Yes. ")
 		except BaseException as e:
-			if not isinstance(isVerbose, bool) or isVerbose:
+			if isVerbose is not False:
 				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
 				print()
-	elif not isinstance(isVerbose, bool) or isVerbose:
+	elif isVerbose is not False:
 		print("Is the system valid? No. The parameters $m$ and $n$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$. ")
 		print()
 	
@@ -1225,7 +1225,7 @@ def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, ru
 		
 		# Destruction #
 		del scheme
-		if not isinstance(isVerbose, bool) or isVerbose:
+		if isVerbose is not False:
 			print("bys:", "N/A" if isAsymmetric else bys)
 			print("ys:", ys)
 			print("identities:", identities)
