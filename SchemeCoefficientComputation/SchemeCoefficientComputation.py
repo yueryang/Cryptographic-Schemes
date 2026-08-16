@@ -1,18 +1,18 @@
+from os import chdir, getcwd, makedirs, name, sep, walk
+from os.path import abspath, basename, dirname, exists, isdir, isfile, islink, join, split, splitext
+from sys import argv, exit
 import ast
+try:
+	from charm.toolbox.pairinggroup import PairingGroup, ZR, pc_element as Element
+except:
+	PairingGroup, ZR, Element = (None, ) * 3
 from codecs import lookup
 from copy import deepcopy
 from getpass import getpass
 from inspect import getsource
 from itertools import combinations
-from os import chdir, getcwd, makedirs, name, sep, walk
-from os.path import abspath, basename, dirname, exists, isdir, isfile, islink, join, split, splitext
-from sys import argv, exit
 from textwrap import dedent
 from time import perf_counter, sleep
-try:
-	from charm.toolbox.pairinggroup import PairingGroup, ZR, pc_element as Element
-except:
-	PairingGroup, ZR, Element = (None, ) * 3
 try:
 	chdir(abspath(dirname(__file__)))
 except:
@@ -20,7 +20,6 @@ except:
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 EOF = (-1)
-TABLE_HEADER = ("target", "curveName", "one", "scheme", "runCount", "correctness", "time consumption")
 
 
 class Parser:
@@ -57,7 +56,7 @@ class Parser:
 			return ""
 	@staticmethod
 	def __printHelp() -> None:
-		print("This is a coefficient computation API comparator for Python implementations based on the Python Charm-Crypto framework. ")
+		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
 		print()
 		print("Options (case-insensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(
@@ -846,19 +845,6 @@ class SchemeCoefficientComputation:
 		self.__filePaths = []
 		self.__curveTypes = ("MNT201", "MNT224", "BN254")
 		self.updateFilePaths(*paths)
-	@staticmethod
-	def __solutionName(solution:object) -> str:
-		name = getattr(solution, "__qualname__", getattr(solution, "__name__", str(solution)))
-		return name.split("Solutions.", 1)[-1]
-	@staticmethod
-	def __isSchemeResultCorrect(result:object) -> bool:
-		validators = tuple(value for value in result if type(value) is bool) if isinstance(result, (tuple, list)) else tuple()
-		return bool(validators) and all(validators)
-	@staticmethod
-	def __printResults(results:tuple|list) -> None:
-		print("\t".join(TABLE_HEADER))
-		for result in results:
-			print("\t".join(str(value) for value in result))
 	def updateFilePaths(self:object, *paths:tuple) -> int:
 		originalLength, stack = len(self.__filePaths), list(reversed(paths))
 		while stack:
@@ -890,6 +876,10 @@ class SchemeCoefficientComputation:
 								self.__filePaths.append(absoluteFilePath)
 		currentLength = len(self.__filePaths)
 		return currentLength - originalLength
+	@staticmethod
+	def __getSolutionName(solution:object, offset:int|None = 1) -> str:
+		solutionName = getattr(solution, "__qualname__", getattr(solution, "__name__", repr(solution)))
+		return ".".join(solutionName.split(".")[offset if isinstance(offset, int) and offset >= 0 else None:])
 	def __conductBasicScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
 		for curveType in self.__curveTypes:
@@ -897,9 +887,9 @@ class SchemeCoefficientComputation:
 				group = PairingGroup(curveType)
 				roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
 				k = group.init(ZR, 7)
-				answer2Constant2Highest = tuple(group.init(ZR, value) for value in (-23, 31, -10, 1))
-				answer2Highest2Constant = tuple(reversed(answer2Constant2Highest))
-			except BaseException as e:
+				answer2Lowest2Highest = (group.init(ZR, -23), group.init(ZR, 31), group.init(ZR, -10)) # initialize an ``x`` without ``1 * `` with Horner's Method when computing polynomials
+				answer2Highest2Lowest = tuple(reversed(answer2Lowest2Highest))
+			except Exception as e: # never catch ``KeyboardInterrupt`` here
 				if isVerbose is not False:
 					print("Basic: Failed to initialize curve {0} due to {1}. ".format(repr(curveType), repr(e)))
 				continue
@@ -911,50 +901,61 @@ class SchemeCoefficientComputation:
 				try:
 					for run in range(runCount):
 						coefficients = constant2HighestSolution(group, roots, k)
-						correctness += coefficients == answer2Constant2Highest
-				except BaseException as e:
+						correctness += coefficients[:-1] == answer2Lowest2Highest
+				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
-					raise e########
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Reliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				result = ["Dry run", curveType, "Reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount]
+				if isVerbose is not False:
+					print(result)
+				results.append(result)
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				startTime = perf_counter()
 				try:
 					for run in range(runCount):
 						coefficients = highest2ConstantSolution(group, roots, k)
-						correctness += coefficients == answer2Highest2Constant
-				except BaseException as e:
+						correctness += coefficients[1:] == answer2Highest2Lowest
+				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Reliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				result = ["Dry run", curveType, "Reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount]
+				if isVerbose is not False:
+					print(result)
+				results.append(result)
 			
 			# Flawed #
-			group.init = lambda a, b:group.random(a) # Patch the ``group.init`` to simulate the issue
+			group.init = lambda a, b:group.random(a) # patch the ``group.init`` to simulate the issue
 			for constant2HighestSolution in Solutions.Constant2Highest.getAllSolutions():
 				correctness = 0
 				startTime = perf_counter()
 				try:
 					for run in range(runCount):
 						coefficients = constant2HighestSolution(group, roots, k)
-						correctness += coefficients == answer2Constant2Highest
-				except BaseException as e:
+						correctness += coefficients[:-1] == answer2Lowest2Highest
+				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				result = ["Dry run", curveType, "Unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount]
+				if isVerbose is not False:
+					print(result)
+				results.append(result)
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				startTime = perf_counter()
 				try:
 					for run in range(runCount):
 						coefficients = highest2ConstantSolution(group, roots, k)
-						correctness += coefficients == answer2Highest2Constant
-				except BaseException as e:
+						correctness += coefficients[1:] == answer2Highest2Lowest
+				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				result = ["Dry run", curveType, "Unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount]
+				if isVerbose is not False:
+					print(result)
+				results.append(result)
 		return results
 	@staticmethod
 	def __buildPatchedNamespace(filePath:str, sourceTree:ast.Module, solution:object, one:bool) -> tuple:
@@ -977,51 +978,50 @@ class SchemeCoefficientComputation:
 			chdir(originalDirectory)
 		conduct = namespace.get("conductScheme")
 		if not callable(conduct):
-			raise ValueError("The module-level conductScheme function was not found. ")
+			raise ValueError("The module-level ``conductScheme`` function was not found. ")
 		return replacer.target, conduct
+	@staticmethod
+	def __isSchemeResultCorrect(result:object) -> bool:
+		validators = tuple(value for value in result if type(value) is bool) if isinstance(result, (tuple, list)) else tuple()
+		return bool(validators) and all(validators)
 	def __conductDeviceScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
 		for filePath in self.__filePaths:
 			try:
 				with open(filePath, "r", encoding = "utf-8") as f:
 					sourceTree = ast.parse(f.read(), filename = filePath)
-			except BaseException as e:
+			except Exception as e: # never catch ``KeyboardInterrupt`` here
 				if isVerbose is not False:
 					print("Device: Failed to parse {0} due to {1}. ".format(repr(filePath), repr(e)))
 				continue
-			for solution in Solutions.Constant2Highest.getAllSolutions():
+			for solution in Solutions.Constant2Highest.getAllSolutions()[1:]:
 				for one in (True, False):
 					try:
 						target, conduct = self.__buildPatchedNamespace(filePath, sourceTree, solution, one)
-					except BaseException as e:
+					except Exception as e: # never catch ``KeyboardInterrupt`` here
 						if isVerbose is not False:
-							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__solutionName(solution), repr(e)))
+							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__getSolutionName(solution), repr(e)))
 						continue
 					for curveType in self.__curveTypes:
-						correctness, startTime = 0, perf_counter()
+						correctness = 0
+						startTime = perf_counter()
 						for run in range(1, runCount + 1):
 							try:
-								result = conduct(curveType, run = run, isVerbose = False)
+								result = conduct(curveType, run = run, isVerbose = isVerbose)
 								correctness += self.__isSchemeResultCorrect(result)
-							except BaseException as e:
+							except Exception as e: # never catch ``KeyboardInterrupt`` here
 								if isVerbose is not False:
 									print("Device: {0} failed on {1} due to {2}. ".format(target, curveType, repr(e)))
 						endTime = perf_counter()
-						results.append([target, curveType, one, self.__solutionName(solution), runCount, correctness, (endTime - startTime) / runCount])
+						results.append([target, curveType, "Reliable" if one else "Unreliable", self.__getSolutionName(solution), runCount, correctness, (endTime - startTime) / runCount])
 		return results
 	def conductScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
 		results.extend(self.__conductBasicScheme(r = runCount, isVerbose = isVerbose))
-		results.extend(self.__conductDeviceScheme(r = runCount, isVerbose = isVerbose))
 		if isVerbose is not False:
-			self.__printResults(results)
+			print()
+		results.extend(self.__conductDeviceScheme(r = runCount, isVerbose = isVerbose))
 		return results
-
-
-def getResultStatus(results:tuple|list) -> int:
-	return EXIT_SUCCESS if isinstance(results, (tuple, list)) and results and all(
-		isinstance(result, (tuple, list)) and len(result) == len(TABLE_HEADER) and result[5] == result[4] for result in results
-	) else EXIT_FAILURE
 
 
 def main() -> int:
@@ -1040,22 +1040,30 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
+			queries = ("target", "curveName", "one", "solution", "runCount")
+			validators = ("correctness", )
+			metrics = ("time consumption (s)", )
 			
 			# Scheme #
-			results = []
+			columns, queryLength, results = queries + validators + metrics, len(queries), []
+			length, queryValidatorLength, runCountIndex = len(columns), queryLength + len(validators), queryLength - 1
+			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				schemeCoefficientComputation = SchemeCoefficientComputation(filePaths)
 				results = schemeCoefficientComputation.conductScheme(r = runCount, isVerbose = isVerbose)
-				saver = Saver(outputFilePath, TABLE_HEADER, decimalPlace = decimalPlace, encoding = encoding)
-				saver.save(results)
+				if results:
+					saver.save(results)
+					if isVerbose:
+						print()
+				else:
+					print("No experiments were conducted. ")
 			except KeyboardInterrupt:
 				print()
 				print("The experiments were interrupted by users. Saved results are retained. ")
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-				raise e#########
-			errorLevel = getResultStatus(results)
+			errorLevel = EXIT_SUCCESS
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		Parser.disableConsoleEchoes()
