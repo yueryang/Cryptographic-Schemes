@@ -855,10 +855,22 @@ class SchemeCoefficientComputation:
 		validators = tuple(value for value in result if type(value) is bool) if isinstance(result, (tuple, list)) else tuple()
 		return bool(validators) and all(validators)
 	@staticmethod
-	def __printResults(results:tuple|list) -> None:
-		print("\t".join(TABLE_HEADER))
-		for result in results:
-			print("\t".join(str(value) for value in result))
+	def __printResult(result:tuple|list) -> None:
+		if isinstance(result, (tuple, list)) and len(result) == len(TABLE_HEADER):
+			one = result[2] is True or result[2] == "Reliable"
+			print("Target: {0}".format(result[0]))
+			print("Curve: {0}".format(result[1]))
+			print("Is ``group.init(type, 1)`` reliable? {0}.".format("Yes" if one else "No"))
+			print("Scheme: {0}".format(result[3]))
+			print("run: {0}".format(result[4]))
+			print("Correctness: {0} / {1}".format(result[5], result[4]))
+			print("Time: {0}".format(result[6]))
+			print(flush = True)
+	@staticmethod
+	def __recordResult(results:list, result:list, isVerbose:bool) -> None:
+		results.append(result)
+		if isVerbose is not False:
+			SchemeCoefficientComputation.__printResult(result)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
 		originalLength, stack = len(self.__filePaths), list(reversed(paths))
 		while stack:
@@ -917,7 +929,9 @@ class SchemeCoefficientComputation:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
 					raise e########
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Reliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				self.__recordResult(
+					results, ["Dry run", curveType, "Reliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount], isVerbose
+				)
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				startTime = perf_counter()
 				try:
@@ -928,7 +942,9 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Reliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				self.__recordResult(
+					results, ["Dry run", curveType, "Reliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount], isVerbose
+				)
 			
 			# Flawed #
 			group.init = lambda a, b:group.random(a) # Patch the ``group.init`` to simulate the issue
@@ -943,7 +959,9 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(constant2HighestSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				self.__recordResult(
+					results, ["Dry run", curveType, "Unreliable", self.__solutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount], isVerbose
+				)
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				startTime = perf_counter()
 				try:
@@ -954,7 +972,9 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__solutionName(highest2ConstantSolution), curveType, repr(e)))
 				endTime = perf_counter()
-				results.append(["Dry run", curveType, "Unreliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				self.__recordResult(
+					results, ["Dry run", curveType, "Unreliable", self.__solutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount], isVerbose
+				)
 		return results
 	@staticmethod
 	def __buildPatchedNamespace(filePath:str, sourceTree:ast.Module, solution:object, one:bool) -> tuple:
@@ -1007,14 +1027,14 @@ class SchemeCoefficientComputation:
 								if isVerbose is not False:
 									print("Device: {0} failed on {1} due to {2}. ".format(target, curveType, repr(e)))
 						endTime = perf_counter()
-						results.append([target, curveType, one, self.__solutionName(solution), runCount, correctness, (endTime - startTime) / runCount])
+						self.__recordResult(
+							results, [target, curveType, one, self.__solutionName(solution), runCount, correctness, (endTime - startTime) / runCount], isVerbose
+						)
 		return results
 	def conductScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
 		results.extend(self.__conductBasicScheme(r = runCount, isVerbose = isVerbose))
 		results.extend(self.__conductDeviceScheme(r = runCount, isVerbose = isVerbose))
-		if isVerbose is not False:
-			self.__printResults(results)
 		return results
 
 
