@@ -11,8 +11,18 @@ from copy import deepcopy
 from getpass import getpass
 from inspect import getsource
 from itertools import combinations
+try:
+	from numpy.polynomial.polynomial import polyfromroots
+except:
+	polyfromroots = None
+from secrets import randbelow
 from textwrap import dedent
 from time import perf_counter, sleep
+from warnings import filterwarnings
+filterwarnings(
+	"ignore", category = DeprecationWarning, 
+	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+)
 try:
 	chdir(abspath(dirname(__file__)))
 except:
@@ -607,7 +617,7 @@ class Saver:
 class Solutions:
 	class Constant2Highest: # These functions output the coefficients from the constant term to the highest-order term (from $c_0$ to $c_n$). 
 		@staticmethod
-		def __computeCombinationalCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
+		def __computeCombinationCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
 			flag = False
 			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
@@ -625,16 +635,34 @@ class Solutions:
 				for m in range(1, n + 1):
 					e_m = None
 					for combo in combinations(roots, m):
-						prod = one
+						product = one
 						for root in combo:
-							prod = prod * root
+							product *= root
 						if e_m is None:
-							e_m = prod
+							e_m = product
 						else:
-							e_m += prod
+							e_m += product
 					if m % 2 == 1:
 						e_m = -e_m
 					coefficients[n - m] = e_m
+				if offset is not None:
+					coefficients[0] += offset
+				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeNumPyCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+					coefficients = polyfromroots(tuple(int(root) for root in roots)).astype(int).tolist()
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					offset = k if isinstance(k, (int, float)) else None
+					coefficients = polyfromroots(roots).tolist()
+			if flag:
 				if offset is not None:
 					coefficients[0] += offset
 				return tuple(coefficients)
@@ -697,14 +725,19 @@ class Solutions:
 			else:
 				return (k, )
 		@staticmethod
-		def getAllSolutions() -> tuple:
-			return (
-				Solutions.Constant2Highest.__computeCombinationalCoefficients, Solutions.Constant2Highest.__computePowerCoefficients, 
-				Solutions.Constant2Highest.__computeBitwiseAndCoefficients, Solutions.Constant2Highest.__computeCoefficients
+		def getAllSolutions(isCombinationEnabled:bool = True, isNumPyEnabled:bool = True) -> tuple:
+			solutions = []
+			if isCombinationEnabled is not False:
+				solutions.append(Solutions.Constant2Highest.__computeCombinationCoefficients)
+			if isNumPyEnabled is not False:
+				solutions.append(Solutions.Constant2Highest.__computeNumPyCoefficients)
+			return tuple(solutions) + (
+				Solutions.Constant2Highest.__computePowerCoefficients, Solutions.Constant2Highest.__computeBitwiseAndCoefficients, 
+				Solutions.Constant2Highest.__computeCoefficients
 			)
 	class Highest2Constant: # These functions output the coefficients from the highest-order term to the constant term (from $c_n$ to $c_0$). 
 		@staticmethod
-		def __computeCombinationalCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
+		def __computeCombinationCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
 			flag = False
 			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
@@ -722,19 +755,37 @@ class Solutions:
 				for m in range(1, n + 1):
 					e_m = None
 					for combo in combinations(roots, m):
-						prod = one
+						product = one
 						for root in combo:
-							prod = prod * root
+							product *= root
 						if e_m is None:
-							e_m = prod
+							e_m = product
 						else:
-							e_m += prod
+							e_m += product
 					if m % 2 == 1:
 						e_m = -e_m
 					coefficients[m] = e_m
 				if offset is not None:
 					coefficients[-1] += offset
 				return tuple(coefficients)
+			else:
+				return (k, )
+		@staticmethod
+		def __computeNumPyCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+					coefficients = polyfromroots(tuple(int(root) for root in roots)).astype(int).tolist()
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					offset = k if isinstance(k, (int, float)) else None
+					coefficients = polyfromroots(roots).tolist()
+			if flag:
+				if offset is not None:
+					coefficients[0] += offset
+				return tuple(reversed(coefficients))
 			else:
 				return (k, )
 		@staticmethod
@@ -794,56 +845,59 @@ class Solutions:
 			else:
 				return (k, )
 		@staticmethod
-		def getAllSolutions() -> tuple:
-			return (
-				Solutions.Highest2Constant.__computeCombinationalCoefficients, Solutions.Highest2Constant.__computePowerCoefficients, 
-				Solutions.Highest2Constant.__computeBitwiseAndCoefficients, Solutions.Highest2Constant.__computeCoefficients
+		def getAllSolutions(isCombinationEnabled:bool = True, isNumPyEnabled:bool = True) -> tuple:
+			solutions = []
+			if isCombinationEnabled is not False:
+				solutions.append(Solutions.Highest2Constant.__computeCombinationCoefficients)
+			if isNumPyEnabled is not False:
+				solutions.append(Solutions.Highest2Constant.__computeNumPyCoefficients)
+			return tuple(solutions) + (
+				Solutions.Highest2Constant.__computePowerCoefficients, Solutions.Highest2Constant.__computeBitwiseAndCoefficients, 
+				Solutions.Highest2Constant.__computeCoefficients
 			)
 
-
-class _CoefficientMethodReplacer(ast.NodeTransformer):
-	def __init__(self:object, solution:object) -> object:
+class Patcher(ast.NodeTransformer):
+	def __init__(self:object, solution:object, faulty:bool = False) -> object:
 		self.__replacementBody = deepcopy(next(node for node in ast.walk(ast.parse(dedent(getsource(solution)))) if isinstance(node, ast.FunctionDef)).body)
-		self.target = None
-		self.replacementCount = 0
+		self.__faulty = faulty is True
+		self.__replacementCount = 0
+		self.__nodeName = None
 	def visit_ClassDef(self:object, node:ast.ClassDef) -> ast.ClassDef:
 		for statement in node.body:
 			if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and statement.name == "__computeCoefficients":
 				assignment = ast.parse("group = self.__group").body[0]
-				statement.body = [assignment] + deepcopy(self.__replacementBody)
-				self.target = node.name
-				self.replacementCount += 1
+				if self.__faulty:
+					fault_inject_code = (
+                        			"group.__construct = group.init\n"
+						"group.init = lambda elementType, value:group.random(elementType) if elementType == ZR else group.__construct(elementType, value)\n"
+					)
+					fault_restore_code = "group.init = group.__construct\n"
+					fault_inject_ast = ast.parse(fault_inject_code).body
+					fault_restore_ast = ast.parse(fault_restore_code).body[0]
+					try_finally = ast.Try(
+						body=deepcopy(self.__replacementBody),
+						handlers=[],
+						orelse=[],
+						finalbody=[fault_restore_ast]
+					)
+					statement.body = [assignment] + fault_inject_ast + [try_finally]
+				else:
+					statement.body = [assignment] + deepcopy(self.__replacementBody)
+				self.__replacementCount += 1
+				self.__nodeName = node.name
 		return self.generic_visit(node)
-
-
-class _FaultyOneInjector(ast.NodeTransformer):
-	def __init__(self:object) -> object:
-		self.__insideConductScheme = False
-		self.injectionCount = 0
-	def visit_FunctionDef(self:object, node:ast.FunctionDef) -> ast.FunctionDef:
-		wasInsideConductScheme = self.__insideConductScheme
-		if node.name == "conductScheme":
-			self.__insideConductScheme = True
-		node = self.generic_visit(node)
-		self.__insideConductScheme = wasInsideConductScheme
-		return node
-	def visit_Assign(self:object, node:ast.Assign) -> ast.Assign|list:
-		node = self.generic_visit(node)
-		if (
-			self.__insideConductScheme and any(isinstance(target, ast.Name) and target.id == "group" for target in node.targets)
-			and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == "PairingGroup"
-		):
-			self.injectionCount += 1
-			patch = ast.parse("group.init = lambda elementType, value:group.random(elementType)").body[0]
-			return [node, patch]
-		return node
-
+	def getReplacementCount(self:object) -> int:
+		return self.__replacementCount
+	def getNodeName(self:object) -> str|None:
+		return self.__nodeName
 
 class SchemeCoefficientComputation:
 	__DefaultRunCount = 10
+	__DefaultHint = "only applicable to symmetric groups"
 	def __init__(self:object, *paths:tuple) -> object: # This scheme is a coefficient computation API comparator. 
 		self.__filePaths = []
-		self.__curveTypes = ("MNT201", "MNT224", "BN254")
+		self.__symmetricCurveNames = ("SS512", "SS1024")
+		self.__curveNames = ("MNT201", "MNT224", "BN254") + self.__symmetricCurveNames
 		self.updateFilePaths(*paths)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
 		originalLength, stack = len(self.__filePaths), list(reversed(paths))
@@ -882,16 +936,22 @@ class SchemeCoefficientComputation:
 		return ".".join(solutionName.split(".")[offset if isinstance(offset, int) and offset >= 0 else None:])
 	def __conductBasicScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
-		for curveType in self.__curveTypes:
+		if isVerbose is not False:
+			print("scheme: base")
+			print("curveNames: {0}".format(self.__curveNames))
+			print("one: {0}".format(("reliable", "unreliable")))
+			print("solution: {0}".format(tuple(self.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
+			print("runCount: {0}".format(runCount))
+		for curveName in self.__curveNames:
 			try:
-				group = PairingGroup(curveType)
+				group = PairingGroup(curveName)
 				roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
 				k = group.init(ZR, 7)
 				answer2Lowest2Highest = (group.init(ZR, -23), group.init(ZR, 31), group.init(ZR, -10)) # initialize an ``x`` without ``1 * `` with Horner's Method when computing polynomials
 				answer2Highest2Lowest = tuple(reversed(answer2Lowest2Highest))
 			except Exception as e: # never catch ``KeyboardInterrupt`` here
 				if isVerbose is not False:
-					print("Basic: Failed to initialize curve {0} due to {1}. ".format(repr(curveType), repr(e)))
+					print("Basic: Failed to initialize the curve with name {0} due to {1}. ".format(repr(curveName), repr(e)))
 				continue
 			
 			# Normal #
@@ -904,13 +964,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[:-1] == answer2Lowest2Highest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				result = ["Dry run", curveType, "Reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount]
-				if isVerbose is not False:
-					print(result)
-				results.append(result)
+				results.append(["Base", curveName, "reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
+				correctness = 0
 				startTime = perf_counter()
 				try:
 					for run in range(runCount):
@@ -918,15 +976,13 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[1:] == answer2Highest2Lowest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				result = ["Dry run", curveType, "Reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount]
-				if isVerbose is not False:
-					print(result)
-				results.append(result)
+				results.append(["Base", curveName, "reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
 			
-			# Flawed #
-			group.init = lambda a, b:group.random(a) # patch the ``group.init`` to simulate the issue
+			# Faulty #
+			group.__construct = group.init
+			group.init = lambda elementType, value:group.random(elementType) if elementType == ZR else group.__construct(elementType, value) # patch the ``group.init`` to simulate the issue
 			for constant2HighestSolution in Solutions.Constant2Highest.getAllSolutions():
 				correctness = 0
 				startTime = perf_counter()
@@ -936,13 +992,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[:-1] == answer2Lowest2Highest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				result = ["Dry run", curveType, "Unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount]
-				if isVerbose is not False:
-					print(result)
-				results.append(result)
+				results.append(["Base", curveName, "unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
+				correctness = 0
 				startTime = perf_counter()
 				try:
 					for run in range(runCount):
@@ -950,27 +1004,29 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[1:] == answer2Highest2Lowest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveType, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				result = ["Dry run", curveType, "Unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount]
-				if isVerbose is not False:
-					print(result)
-				results.append(result)
+				results.append(["Base", curveName, "unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+		if isVerbose is not False:
+			print()
 		return results
+	@staticmethod
+	def __containingSymmetricHint(tree:ast.AST, h:str = __DefaultHint) -> bool:
+		hint = h if isinstance(h, str) else SchemeCoefficientComputation.__DefaultHint
+		for node in ast.walk(tree):
+			if isinstance(node, ast.Constant) and isinstance(node.value, str) and hint in node.value:
+				return True
+		return False
 	@staticmethod
 	def __buildPatchedNamespace(filePath:str, sourceTree:ast.Module, solution:object, one:bool) -> tuple:
 		tree = deepcopy(sourceTree)
-		replacer = _CoefficientMethodReplacer(solution)
-		tree = replacer.visit(tree)
-		if replacer.replacementCount != 1 or not isinstance(replacer.target, str):
-			raise ValueError("Exactly one __computeCoefficients method is required. ")
-		if not one:
-			injector = _FaultyOneInjector()
-			tree = injector.visit(tree)
-			if injector.injectionCount < 1:
-				raise ValueError("The PairingGroup construction in conductScheme was not found. ")
+		patcher = Patcher(solution, not one)
+		tree = patcher.visit(tree)
+		nodeName = patcher.getNodeName()
+		if patcher.getReplacementCount() != 1 or not isinstance(nodeName, str) or not nodeName.startswith("Scheme"):
+			raise ValueError("Exactly one ``__computeCoefficients method`` is required. ")
 		ast.fix_missing_locations(tree)
-		namespace = {"__file__":filePath, "__name__":"__coefficient_computation_device__", "combinations":combinations}
+		namespace = {"__file__":filePath, "__name__":"__device__", "polyfromroots": polyfromroots}
 		originalDirectory = getcwd()
 		try:
 			exec(compile(tree, filePath, "exec"), namespace)
@@ -979,7 +1035,7 @@ class SchemeCoefficientComputation:
 		conduct = namespace.get("conductScheme")
 		if not callable(conduct):
 			raise ValueError("The module-level ``conductScheme`` function was not found. ")
-		return replacer.target, conduct
+		return nodeName, conduct
 	@staticmethod
 	def __isSchemeResultCorrect(result:object) -> bool:
 		validators = tuple(value for value in result if type(value) is bool) if isinstance(result, (tuple, list)) else tuple()
@@ -994,32 +1050,43 @@ class SchemeCoefficientComputation:
 				if isVerbose is not False:
 					print("Device: Failed to parse {0} due to {1}. ".format(repr(filePath), repr(e)))
 				continue
-			for solution in Solutions.Constant2Highest.getAllSolutions()[1:]:
-				for one in (True, False):
+			curveNames = self.__symmetricCurveNames if SchemeCoefficientComputation.__containingSymmetricHint(sourceTree) else self.__curveNames
+			for one in (True, False):
+				for solution in Solutions.Constant2Highest.getAllSolutions(isCombinationEnabled = False, isNumPyEnabled = False):
 					try:
-						target, conduct = self.__buildPatchedNamespace(filePath, sourceTree, solution, one)
+						scheme, conduct = self.__buildPatchedNamespace(filePath, sourceTree, solution, one)
 					except Exception as e: # never catch ``KeyboardInterrupt`` here
 						if isVerbose is not False:
 							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__getSolutionName(solution), repr(e)))
 						continue
-					for curveType in self.__curveTypes:
-						correctness = 0
-						startTime = perf_counter()
-						for run in range(1, runCount + 1):
-							try:
-								result = conduct(curveType, run = run, isVerbose = isVerbose)
+					for curveName in curveNames:
+						if isVerbose is not False:
+							print("scheme: {0}".format(filePath))
+							print("curveName: {0}".format(curveName))
+							print("one: {0}".format("reliable" if one else "unreliable"))
+							print("solution: {0}".format(self.__getSolutionName(solution)))
+							print("runCount: {0}".format(runCount))
+						try:
+							correctness = 0
+							startTime = perf_counter()
+							for run in range(1, runCount + 1):
+								result = conduct(curveName, run = run, isVerbose = False)
 								correctness += self.__isSchemeResultCorrect(result)
-							except Exception as e: # never catch ``KeyboardInterrupt`` here
-								if isVerbose is not False:
-									print("Device: {0} failed on {1} due to {2}. ".format(target, curveType, repr(e)))
-						endTime = perf_counter()
-						results.append([target, curveType, "Reliable" if one else "Unreliable", self.__getSolutionName(solution), runCount, correctness, (endTime - startTime) / runCount])
+							endTime = perf_counter()
+							averageTimeConsumption = (endTime - startTime) / runCount
+							results.append([scheme, curveName, "reliable" if one else "unreliable", self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption])
+							if isVerbose is not False:
+								print("Is the scheme correct? {0}. ".format("Yes" if correctness else "No"))
+								print("Time: {0}".format(averageTimeConsumption))
+								print()
+						except Exception as e: # never catch ``KeyboardInterrupt`` here
+							if isVerbose is not False:
+								print("Device: {0} failed on {1} due to {2}. ".format(scheme, curveName, repr(e)))
+								print()
 		return results
 	def conductScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
 		runCount, results = r if isinstance(r, int) and r >= 1 else SchemeCoefficientComputation.__DefaultRunCount, []
 		results.extend(self.__conductBasicScheme(r = runCount, isVerbose = isVerbose))
-		if isVerbose is not False:
-			print()
 		results.extend(self.__conductDeviceScheme(r = runCount, isVerbose = isVerbose))
 		return results
 
@@ -1033,6 +1100,9 @@ def main() -> int:
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
 			errorLevel = EOF
 		else:
+			if polyfromroots is None:
+				print("The runtime environment of the Python NumPy library is not correctly configured. ")
+				print("This cryptographic scheme will be executed in a limited mode. ")
 			outputFilePath, overwritingConfirmed = Parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			Parser.disableConsoleEchoes()
 			print("The execution has started. ")
@@ -1040,7 +1110,7 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("target", "curveName", "one", "solution", "runCount")
+			queries = ("scheme", "curveName", "one", "solution", "runCount")
 			validators = ("correctness", )
 			metrics = ("time consumption (s)", )
 			
@@ -1063,7 +1133,7 @@ def main() -> int:
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = EXIT_SUCCESS
+			errorLevel = EXIT_SUCCESS if results else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 		Parser.disableConsoleEchoes()

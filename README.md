@@ -261,13 +261,13 @@ for extension in (".csv", ".htm", ".html", ".json", ".tex", ".tsv", ".txt", ".xl
 	saver.save(results)
 ```
 
-#### 1.1.4 Exit codes
+#### 1.1.4 Exit status
 
-The rules of exit codes are as follows. 
+The principles of the exit status are as follows. 
 
-- For all the Python scripts here, an ``EXIT_SUCCESS`` ($0$) signal will be returned to its parent process if some results are obtained and all the results pass all the tests. 
-- For all the Python scripts here, an ``EXIT_FAILURE`` ($1$) signal will be returned to its parent process if no results are obtained or any of the results fail any of the tests. 
-- For all the Python scripts here, an ``EOF`` ($-1$) signal will be returned to its parent process if the program lacks any of the necessary libraries. 
+- For all the Python scripts here, an ``EXIT_SUCCESS`` ($0$) status will be returned to its parent process if some results are obtained and all the results pass all the tests. 
+- For all the Python scripts here, an ``EXIT_FAILURE`` ($1$) status will be returned to its parent process if no results are obtained or any of the results fail any of the tests. 
+- For all the Python scripts here, an ``EOF`` ($-1$) status will be returned to its parent process if the program lacks any of the necessary libraries. 
 
 #### 1.1.5 Other relevant implementation issues
 

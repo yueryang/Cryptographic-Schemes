@@ -761,7 +761,7 @@ class SchemeCANIFPPCT:
 		C2_i = v2 ** s1_i # $C_{2_i} \gets v_2^{s_{1_i}}$
 		C3_i = v3 ** (s_i - s2_i) # $C_{3_i} \gets v_2^{s_i - s_{2_i}}$
 		C4_i = v4 ** s2_i # $C_{4_i} \gets v_2^{s_{1_i}}$
-		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots, a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		aVec = self.__computeCoefficients(VVec) # compute $a_0, a_1, a_2, \cdots, a_n$ s.t. $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
 		BCT_TP_i = ((C0_i, C1_i, C2_i, C3_i, C4_i), aVec) # $\textit{BCT}_{\textit{TPs}} \gets ((C_{0_i}, C_{1_i}, C_{2_i}, C_{3_i}, C_{4_i}), \vec{a})$
 		
 		# Return #
@@ -945,7 +945,7 @@ class SchemeCANIFPPCT:
 		C2_i = v2 ** s1_i # $C_{2_i} \gets v_2^{s_{1_i}}$
 		C3_i = v3 ** (s_i - s2_i) # $C_{3_i} \gets v_2^{s_i - s_{2_i}}$
 		C4_i = v4 ** s2_i # $C_{4_i} \gets v_2^{s_{1_i}}$
-		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		aVec = self.__computeCoefficients(VVec) # compute $a_0, a_1, a_2, \cdots a_n$ s.t. $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
 		alpha = self.__group.random(ZR) # generate $\alpha \in \mathbb{Z}_r$
 		C1 = g1 ** alpha # $C_1 \gets g_1^\alpha$
 		C2 = Z_i ** x_i + T ** alpha # $C_2 \gets Z_i^{x_i} + T^\alpha$
@@ -1027,7 +1027,7 @@ class SchemeCANIFPPCT:
 		
 		# Scheme #
 		VVec = tuple(H2(Omega ** s[i]) for i in range(self.__n)) # $V_i \gets H_2(\Omega^{s_i}), \forall i \in \{1, 2, \cdots, n\}$
-		aVec = self.__computeCoefficients(VVec) # Compute $a_0, a_1, a_2, \cdots a_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
+		aVec = self.__computeCoefficients(VVec) # compute $a_0, a_1, a_2, \cdots a_n$ s.t. $\forall x \in \mathbb{Z}_r$, we have $f(x) = \prod\limits_{i = 1}^n (x - V_i) = a_0 + \sum\limits_{i = 1}^n a_i x^i$
 		VPrime_i = H2(
 			pair(C0_i, T0_i) * pair(C1_i, T1_i) * pair(C2_i, T2_i) * pair(C3_i, T3_i) * pair(C4_i, T4_i)
 		) # $V'_i \gets H_2(e(C_{0_i}, T_{0_i}) e(C_{1_i}, T_{1_i}) e(C_{2_i}, T_{2_i}) e(C_{3_i}, T_{3_i}) e(C_{4_i}, T_{4_i}))$

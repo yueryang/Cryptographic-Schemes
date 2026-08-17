@@ -840,17 +840,17 @@ class SchemeIBMEMR:
 		KArray = tuple(pair(H2(S[i]), ek_id_S * ct1) for i in range(self.__d)) # $K_i \gets e(H_2(\textit{id}_i), ek_{\textit{id}_S} \cdot \textit{ct}_1), \forall i \in \{1, 2, \cdots, d\}$
 		aArray = self.__computeCoefficients(
 			tuple(H4(KArray[i]) for i in range(self.__d)), k = K
-		) # Compute $a_0, a_1, a_2, \cdots a_d$ s.t. $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{i = 1}^d (x - H_4(K_i)) + K = a_0 + \sum\limits_{i = 1}^d a_i x^i$
+		) # compute $a_0, a_1, a_2, \cdots a_d$ s.t. $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{i = 1}^d (x - H_4(K_i)) + K = a_0 + \sum\limits_{i = 1}^d a_i x^i$
 		s = s1 + s2 # $s \gets s_1 + s_2$
 		RArray = tuple(pair(v3, (g0 * g1 ** S[i]) ** s) for i in range(self.__d)) # $R_i \gets e(v_3, (g_0 g_1^{\textit{id}_i})^s), \forall i \in \{1, 2, \cdots, d\}$
 		bArray = self.__computeCoefficients(
 			tuple(H4(RArray[i] * pair(g, g) ** (w * s)) for i in range(self.__d)), k = R
-		) # Compute $b_0, b_1, b_2, \cdots, b_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $L(x) = \prod\limits_{i = 1}^d (x - H_4(R_i \cdot e(g, g)^{ws})) + R = b_0 + \sum\limits_{i = 1}^d b_i x^i$
+		) # compute $b_0, b_1, b_2, \cdots, b_d$ s.t. $\forall x \in \mathbb{Z}_r$, we have $L(x) = \prod\limits_{i = 1}^d (x - H_4(R_i \cdot e(g, g)^{ws})) + R = b_0 + \sum\limits_{i = 1}^d b_i x^i$
 		ct4 = HHat(K) ^ HHat(R) ^ int.from_bytes(m.to_bytes((self.__group.secparam + 7) >> 3, byteorder = "big") + self.__group.serialize(sigma), byteorder = "big") # $\textit{ct}_4 \gets \hat{H}(K) \oplus \hat{H}(R) \oplus (m || \sigma)$
 		VArray = tuple(pair(v4, (g0 * g1 ** S[i]) ** s) for i in range(self.__d)) # $V_i \gets e(v_4, (g_0 g_1^{\textit{id}_i})^s), \forall i \in \{1, 2, \cdots, d\}$
 		cArray = self.__computeCoefficients(
 			tuple(H4(VArray[i] * pair(g, g) ** (-s)) for i in range(self.__d))
-		) # Compute $c_0, c_1, c_2, \cdots, c_d$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $G(x) = \prod\limits_{i = 1}^d (x - H_4(V_i \cdot e(g, g)^{-s})) = c_0 + \sum\limits_{i = 1}^d c_i x^i$
+		) # compute $c_0, c_1, c_2, \cdots, c_d$ s.t. $\forall x \in \mathbb{Z}_r$, we have $G(x) = \prod\limits_{i = 1}^d (x - H_4(V_i \cdot e(g, g)^{-s})) = c_0 + \sum\limits_{i = 1}^d c_i x^i$
 		ct5 = g ** r # $\textit{ct}_5 \gets g^r$
 		ct6 = H5(
 			self.__group.serialize(ct1) + self.__group.serialize(ct2) + self.__group.serialize(ct3) + ct4.to_bytes(

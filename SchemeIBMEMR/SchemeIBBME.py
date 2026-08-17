@@ -792,8 +792,8 @@ class SchemeIBBME:
 		n = len(S)
 		
 		# Scheme #
-		y = self.__computeCoefficients(tuple(H2(ele) for ele in S)) # Compute $y_0, y_1, y_2, \cdots y_n$ that satisfy $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{\textit{id}_j \in S} (x - H_2(\textit{id}_j)) = y_0 + \sum\limits_{i = 1}^n y_i x^i$
-		yVec = y + (self.__group.init(ZR, 0), ) * (self.__l - n) # $\vec{y} \gets (y_0, y_1, \cdots, y_n, y_{n + 1}, y_{n + 2}, \cdots, y_l) = (y_0, y_1, \cdots, y_n, 0, 0, \cdots, 0)$
+		y = self.__computeCoefficients(tuple(H2(ele) for ele in S)) # compute $y_0, y_1, y_2, \cdots y_n$ s.t. $\forall x \in \mathbb{Z}_r$, we have $F(x) = \prod\limits_{\textit{id}_j \in S} (x - H_2(\textit{id}_j)) = y_0 + \sum\limits_{i = 1}^n y_i x^i$
+		yVec = y[:-1] + (self.__group.init(ZR, 1), ) + (self.__group.init(ZR, 0), ) * (self.__l - n) # $\vec{y} \gets (y_0, y_1, \cdots, y_n, y_{n + 1}, y_{n + 2}, \cdots, y_l) = (y_0, y_1, \cdots, y_n, 0, 0, \cdots, 0)$
 		del y
 		s, ctag = self.__group.random(ZR, 2) # generate $s, \textit{ctag} \in \mathbb{Z}_r$ randomly
 		d2 = self.__generateRandomNonZeroZRElement() # generate $d_2 \in \mathbb{Z}_r^*$ randomly
@@ -805,8 +805,8 @@ class SchemeIBBME:
 		V_id = tuple(H3(pair(H0(S[i]), ek_idStar * gToThePowerOfB ** s * vToThePowerOfRho ** s)) for i in range(n)) # $V_{\textit{id}_i} \gets H_3(e(H_0(\textit{id}_i), \textit{ek}_{\textit{id}^*} \cdot g^{bs} \cdot v^{\rho s})), \forall \textit{id}_i \in S$
 		bVec = self.__computeCoefficients(
 			V_id, k = d2
-		) # Compute $\vec{b} \gets (b_0, b_1, b_2, \cdots b_n)$ that satisfy $\forall y \in \mathbb{Z}_r$, we have $g(y) = \prod\limits_{V_{\textit{id}_k} \in V_{\textit{id}}} (y - V_{\textit{id}_k}) + d_2 = b_0 + \sum\limits_{k = 1}^n b_k y^k$
-		ct = (C0, C1, C2, C3, C4, ctag, yVec, bVec) # $\textit{ct} \gets (C_0, C_1, C_2, C_3, C_4, \textit{ctag}, \vec{y}, \vec{b})$
+		) # compute $\vec{b} \gets (b_0, b_1, b_2, \cdots b_n)$ s.t. $\forall y \in \mathbb{Z}_r$, we have $g(y) = \prod\limits_{V_{\textit{id}_k} \in V_{\textit{id}}} (y - V_{\textit{id}_k}) + d_2 = b_0 + \sum\limits_{k = 1}^n b_k y^k$
+		ct = (C0, C1, C2, C3, C4, ctag, yVec, bVec[:-1] + (self.__group.init(ZR, 1), )) # $\textit{ct} \gets (C_0, C_1, C_2, C_3, C_4, \textit{ctag}, \vec{y}, \vec{b})$
 		
 		# Return #
 		return ct # \textbf{return} $\textit{ct}$
