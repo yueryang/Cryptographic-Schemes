@@ -285,7 +285,7 @@ The following commands can be useful for one-stop testing.
   - Add `` > NUL 2>&1`` to the end of the command lines if the printing affects the computation of the time consumption in a terminal. 
 
 To enhance robustness, type checks will be performed in each scheme procedure, whether or not they are explicitly required in the paper. 
-Actually, type checks are forcibly conducted during the compilation stage in compiled languages (e.g., C, C++, and Java). 
+Actually, type checks are forcibly conducted during the compilation stage in compiled programming languages (e.g., C, C++, and Java). 
 
 The Python scripts here are designed to try their best to avoid the console window flashing by when they are launched via a double-click. 
 In a real production environment, users may not necessarily open a terminal first to receive the standard output stream or error output stream left behind after the crash. 

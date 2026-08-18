@@ -664,7 +664,7 @@ class Solutions:
 				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 					flag = True
 					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
-					coefficients = polyfromroots(tuple(int(root) for root in roots)).astype(int).tolist()
+					coefficients = [group.init(roots[0].type, int(coefficient)) for coefficient in polyfromroots(tuple(int(root) for root in roots)).astype(int)]
 				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
 					flag = True
 					offset = k if isinstance(k, (int, float)) else None
@@ -784,7 +784,7 @@ class Solutions:
 				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
 					flag = True
 					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
-					coefficients = polyfromroots(tuple(int(root) for root in roots)).astype(int).tolist()
+					coefficients = [group.init(roots[0].type, int(coefficient)) for coefficient in polyfromroots(tuple(int(root) for root in roots)).astype(int)]
 				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
 					flag = True
 					offset = k if isinstance(k, (int, float)) else None
@@ -877,15 +877,15 @@ class Patcher(ast.NodeTransformer):
 					fault_inject_code = (
                         			"group.__construct = group.init\n"
 						"group.init = lambda elementType, value:group.random(elementType) if elementType == ZR else group.__construct(elementType, value)\n"
-					)
+					) # patch the ``group.init`` to simulate the issue
 					fault_restore_code = "group.init = group.__construct\n"
 					fault_inject_ast = ast.parse(fault_inject_code).body
 					fault_restore_ast = ast.parse(fault_restore_code).body[0]
 					try_finally = ast.Try(
-						body=deepcopy(self.__replacementBody),
-						handlers=[],
-						orelse=[],
-						finalbody=[fault_restore_ast]
+						body = deepcopy(self.__replacementBody),
+						handlers = [],
+						orelse = [],
+						finalbody = [fault_restore_ast]
 					)
 					statement.body = [assignment] + fault_inject_ast + [try_finally]
 				else:

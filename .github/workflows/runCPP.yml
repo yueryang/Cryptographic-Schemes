@@ -15,11 +15,6 @@ on:
       - '.github/workflows/runCPP.yml'
   workflow_dispatch:
     inputs:
-      executeSchemeVPSICA:
-        description: 'SchemeVPSICA'
-        required: true
-        default: true
-        type: boolean
       executeSchemeOPSICA:
         description: 'SchemeOPSICA'
         required: true
@@ -27,6 +22,11 @@ on:
         type: boolean
       executeSchemeSPSICA:
         description: 'SchemeSPSICA'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeVPSICA:
+        description: 'SchemeVPSICA'
         required: true
         default: true
         type: boolean
@@ -94,18 +94,18 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]];
           then
-            executeSchemeVPSICA="${{ github.event.inputs.executeSchemeVPSICA }}"
             executeSchemeOPSICA="${{ github.event.inputs.executeSchemeOPSICA }}"
             executeSchemeSPSICA="${{ github.event.inputs.executeSchemeSPSICA }}"
+            executeSchemeVPSICA="${{ github.event.inputs.executeSchemeVPSICA }}"
           else
-            executeSchemeVPSICA="true"
             executeSchemeOPSICA="true"
             executeSchemeSPSICA="true"
+            executeSchemeVPSICA="true"
           fi
           matrix=()
+          [[ "true" == "${executeSchemeOPSICA}" ]] && matrix+=("SchemeOPSICA/SchemeOPSICA.cpp" "SchemeVPSICA/SchemePSICA.cpp")
+          [[ "true" == "${executeSchemeSPSICA}" ]] && matrix+=("SchemeSPSICA/SchemeSPSICA.cpp" "SchemeVPSICA/SchemePSICA.cpp")
           [[ "true" == "${executeSchemeVPSICA}" ]] && matrix+=("SchemeVPSICA/SchemePSICA.cpp" "SchemeVPSICA/SchemeVPSICAAlg2.cpp" "SchemeVPSICA/SchemeVPSICAAlg3.cpp" "SchemeVPSICA/SchemeVPSICAAlg4.cpp" "SchemeVPSICA/SchemeVPSICAAlg5.cpp")
-          [[ "true" == "${executeSchemeOPSICA}" ]] && matrix+=("SchemeOPSICA/SchemeOPSICA.cpp" "SchemeOPSICA/SchemePSICA.cpp")
-          [[ "true" == "${executeSchemeSPSICA}" ]] && matrix+=("SchemeSPSICA/SchemeSPSICA.cpp" "SchemeSPSICA/SchemePSICA.cpp")
           if [[ ${#matrix[@]} -ge 1 ]];
           then
             echo "matrix=$(printf '%s\n' "${matrix[@]}" | jq -R . | jq -s -c 'unique')" >> "${GITHUB_OUTPUT}"
