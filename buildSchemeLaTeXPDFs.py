@@ -259,12 +259,14 @@ class Builder:
 			"Parser: The output file path passed looks like a directory, which would be connected with the default file name {0}. ", 
 			"Parser: The path {0} exists not to be a regular file. ", "Please press the Enter key to exit ({0}). ", 
 			"Please install the libraries via the active Python package manager (e.g., pip). ", "Please refer to https://github.com/JHUISI/charm if necessary. ", 
+			"Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing Ctrl + C ({1}). ", 
 			"Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ", "Space:", 
 			"The runtime environment of the Python Charm-Crypto framework is not correctly configured. ", 
 			"The runtime environment of the Python NumPy and SymPy libraries is not correctly configured. ", 
 			"The runtime environment of the Python NumPy library is not correctly configured. ", 
 			"The execution has finished ({0}). ",
 			"The execution has started. ", "The experiments were interrupted by users. Saved results are retained. ", "The experiments were interrupted by {0}. Saved results are retained. ", 
+			"This cryptographic scheme will be executed in a limited mode. ", 
 			"This is a possible implementation of the AIBE cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is a possible implementation of the ARES cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is a possible implementation of the CA-NI-PSI cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
@@ -276,6 +278,7 @@ class Builder:
 			"This is the official implementation of the AA-IB-ME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is the official implementation of the AnonymousME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is the official implementation of the CA-NI-FPPCT cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
+			"This is the official implementation of the coefficient computation cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework and the Python NumPy library. ", 
 			"This is the official implementation of the FS-MUAEKS cryptographic scheme in the Python programming language based on the Python NumPy and SymPy libraries. ", 
 			"This is the official implementation of the HIB-ME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
 			"This is the official implementation of the IBMEMR cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ", 
@@ -318,6 +321,13 @@ class Builder:
 		if self.__collectionMode:
 			if string not in Builder.__GenerationDiagnostics["Function"]:
 				Builder.__GenerationDiagnostics["Function"].append(string)
+			return True
+		elif string in (
+			"Basic: Failed to initialize the curve with name {0} due to {1}. ", "Basic: {0} failed on {1} due to {2}. ", 
+			"Device: Failed to parse {0} due to {1}. ", "Device: Failed to patch {0} with {1} due to {2}. ", "Device: {0} failed on {1} due to {2}. ", 
+			"Is the scheme correct? {0}. ", "Time: {0}", "curveName: {0}", "curveNames: {0}", "one: {0}", "runCount: {0}", 
+			"scheme: base", "scheme: {0}", "solution: {0}"
+		):
 			return True
 		elif not functionName:
 			self.__generationDiagnostics["Function"].append("The statement {0} appears in a private function. ".format(repr(string)))
