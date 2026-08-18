@@ -4,8 +4,8 @@ This is the category of the proposed LB-PEAKS cryptographic scheme.
 
 ### SchemeLBPEAKS
 
-- ``SchemeLBPEAKS.py``: This is the official implementation of the LB-PEAKS cryptographic scheme in Python programming language based on the Python NumPy and SymPy libraries. 
-- ``SchemeLBPEAKS.java``: This is the official implementation of the LB-PEAKS cryptographic scheme in Java programming language. 
+- ``SchemeLBPEAKS.py``: This is the official implementation of the LB-PEAKS cryptographic scheme in the Python programming language based on the Python NumPy and SymPy libraries. 
+- ``SchemeLBPEAKS.java``: This is the official implementation of the LB-PEAKS cryptographic scheme in the Java programming language. 
 
 Initially, this paper was entitled ``Lattice-based Public Key Encryption with Authorized Keyword Search: Construction, Implementation, and Applications`` whose BibTeX is as follows. 
 

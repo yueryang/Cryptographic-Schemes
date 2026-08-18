@@ -239,12 +239,10 @@ jobs:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
-            SchemeVPSICA/
-            SchemeOPSICA/
-            SchemeSPSICA/
+            ${{ matrix.cryptographicScheme }}
           persist-credentials: false
       
       - name: Get ready

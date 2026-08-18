@@ -4,8 +4,8 @@ This is the category of the proposed FS-MUAEKS cryptographic scheme.
 
 ### SchemeFSMUAEKS
 
-- ``SchemeFSMUAEKS.py``: This is the official implementation of the FS-MUAEKS cryptographic scheme in Python programming language based on the Python NumPy and SymPy libraries. 
-- ``SchemeFSMUAEKS.java``: This is the official implementation of the FS-MUAEKS cryptographic scheme in Java programming language. 
+- ``SchemeFSMUAEKS.py``: This is the official implementation of the FS-MUAEKS cryptographic scheme in the Python programming language based on the Python NumPy and SymPy libraries. 
+- ``SchemeFSMUAEKS.java``: This is the official implementation of the FS-MUAEKS cryptographic scheme in the Java programming language. 
 
 ```bibtex
 @article{xu2025lattice,

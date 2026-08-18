@@ -7,16 +7,18 @@ on:
     branches:
       - main
     paths:
-      - '**/*.py'
-      - '.github/workflows/runPython.yml'
+      - '**/Scheme*.py'
       - '**/requirements.txt'
+      - '.github/workflows/runPython.yml'
+      - 'buildSchemeLaTeXPDFs.py'
   push:
     branches:
       - main
     paths:
-      - '**/*.py'
-      - '.github/workflows/runPython.yml'
+      - '**/Scheme*.py'
       - '**/requirements.txt'
+      - '.github/workflows/runPython.yml'
+      - 'buildSchemeLaTeXPDFs.py'
   workflow_dispatch:
     inputs:
       executeSchemeAAIBME:
@@ -26,6 +28,11 @@ on:
         type: boolean
       executeSchemeCANIFPPCT:
         description: 'SchemeCANIFPPCT'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeCoefficientComputation:
+        description: 'SchemeCoefficientComputation'
         required: true
         default: true
         type: boolean
@@ -151,6 +158,7 @@ jobs:
           then
             executeSchemeAAIBME="${{ github.event.inputs.executeSchemeAAIBME }}"
             executeSchemeCANIFPPCT="${{ github.event.inputs.executeSchemeCANIFPPCT }}"
+            executeSchemeCoefficientComputation="${{ github.event.inputs.executeSchemeCoefficientComputation }}"
             executeSchemeFSMUAEKS="${{ github.event.inputs.executeSchemeFSMUAEKS }}"
             executeSchemeHIBME="${{ github.event.inputs.executeSchemeHIBME }}"
             executeSchemeIBMEMR="${{ github.event.inputs.executeSchemeIBMEMR }}"
@@ -163,6 +171,7 @@ jobs:
           else
             executeSchemeAAIBME="true"
             executeSchemeCANIFPPCT="true"
+            executeSchemeCoefficientComputation="true"
             executeSchemeFSMUAEKS="true"
             executeSchemeHIBME="true"
             executeSchemeIBMEMR="true"
@@ -176,6 +185,7 @@ jobs:
           matrix=()
           [[ "true" == "${executeSchemeAAIBME}" ]] && matrix+=("SchemeAAIBME/SchemeAAIBME.py" "SchemeAAIBME/SchemeFuzzyME.py" "SchemeIBMETR/SchemeIBMECH.py")
           [[ "true" == "${executeSchemeCANIFPPCT}" ]] && matrix+=("SchemeCANIFPPCT/SchemeCANIFPPCT.py" "SchemeCANIFPPCT/SchemeCANIPSI.py")
+          [[ "true" == "${executeSchemeCoefficientComputation}" ]] && matrix+=("SchemeCoefficientComputation/SchemeCoefficientComputation.py")
           [[ "true" == "${executeSchemeFSMUAEKS}" ]] && matrix+=("SchemeFSMUAEKS/SchemeFSMUAEKS.py")
           [[ "true" == "${executeSchemeHIBME}" ]] && matrix+=("SchemeHIBME/SchemeAnonymousME.py" "SchemeHIBME/SchemeHIBME.py")
           [[ "true" == "${executeSchemeIBMEMR}" ]] && matrix+=("SchemeIBMEMR/SchemeIBBME.py" "SchemeIBMETR/SchemeIBME.py" "SchemeIBMEMR/SchemeIBMEMR.py")
@@ -318,12 +328,13 @@ jobs:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
-            ${{ matrix.cryptographicScheme }}
+            **/Scheme*.py
+            **/requirements.txt
             buildSchemeLaTeXPDFs.py
-            requirements.txt
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       
       - name: Get ready

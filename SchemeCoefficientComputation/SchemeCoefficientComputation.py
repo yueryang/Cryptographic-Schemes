@@ -66,7 +66,10 @@ class Parser:
 			return ""
 	@staticmethod
 	def __printHelp() -> None:
-		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
+		print(
+			"This is the official implementation of the coefficient computation cryptographic scheme in the Python programming language "
+			+ "based on the Python Charm-Crypto framework and the Python NumPy library. "
+		)
 		print()
 		print("Options (case-insensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(
@@ -448,9 +451,13 @@ class Saver:
 										for result in results:
 											if result:
 												f.write("\t\t\t\t")
-												f.write(" & ".join((
-													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
-												).format(r) if isinstance(r, (float, int)) and not isinstance(r, bool) else self.__escapeTEX(r) for r in result))
+												f.write(" & ".join(
+													(
+														"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
+													).format(r) if (
+														isinstance(r, (float, int)) and not isinstance(r, bool)
+													) else self.__escapeTEX(r) for r in result
+												))
 												if len(result) < maxLength:
 													f.write(" & ~" * (maxLength - len(result)))
 												f.write(" \\\\\n")
@@ -1074,7 +1081,9 @@ class SchemeCoefficientComputation:
 								correctness += self.__isSchemeResultCorrect(result)
 							endTime = perf_counter()
 							averageTimeConsumption = (endTime - startTime) / runCount
-							results.append([scheme, curveName, "reliable" if one else "unreliable", self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption])
+							results.append([
+								scheme, curveName, "reliable" if one else "unreliable", self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption
+							])
 							if isVerbose is not False:
 								print("Is the scheme correct? {0}. ".format("Yes" if correctness else "No"))
 								print("Time: {0}".format(averageTimeConsumption))

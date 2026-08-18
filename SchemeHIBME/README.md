@@ -4,8 +4,8 @@ This is the category of the proposed HIB-ME cryptographic scheme, whose baseline
 
 ### SchemeHIBME
 
-- ``SchemeHIBME.py``: This is the official implementation of the HIB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
-- ``SchemeHIBME.java``: This is the official implementation of the HIB-ME cryptographic scheme in Java programming language based on the JPBC library. 
+- ``SchemeHIBME.py``: This is the official implementation of the HIB-ME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. 
+- ``SchemeHIBME.java``: This is the official implementation of the HIB-ME cryptographic scheme in the Java programming language based on the JPBC library. 
 
 #### Discussion
 
@@ -19,8 +19,8 @@ Consequently, when $n$ grows with the variables $l$ and $m$ fixed, the curve in 
 
 ### SchemeAnonymousME
 
-- ``SchemeAnonymousME.py``: This is the official implementation of the AnonymousME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. 
-- ``SchemeAnonymousME.java``: This is the official implementation of the AnonymousME cryptographic scheme in Java programming language based on the JPBC library. 
+- ``SchemeAnonymousME.py``: This is the official implementation of the AnonymousME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. 
+- ``SchemeAnonymousME.java``: This is the official implementation of the AnonymousME cryptographic scheme in the Java programming language based on the JPBC library. 
 
 ```bibtex
 @misc{wu2024anonymous,

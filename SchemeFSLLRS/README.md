@@ -4,7 +4,7 @@ This is the category of the FS-LLRS cryptographic scheme.
 
 ### SchemeFSLLRS
 
-- ``SchemeFSLLRS.py``: This is the official simulation implementation of the FS-LLRS cryptographic scheme in Python programming language based on the Python NumPy library. 
+- ``SchemeFSLLRS.py``: This is the official simulation implementation of the FS-LLRS cryptographic scheme in the Python programming language based on the Python NumPy library. 
 
 ```bibtex
 @article{chen2024fs,

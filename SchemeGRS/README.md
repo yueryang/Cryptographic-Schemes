@@ -4,7 +4,7 @@ This is the category of the GRS cryptographic scheme.
 
 ### SchemeGRS
 
-- ``SchemeGRS.java``: This is the official implementation of the GRS cryptographic scheme in Java programming language based on the JPBC library. 
+- ``SchemeGRS.java``: This is the official implementation of the GRS cryptographic scheme in the Java programming language based on the JPBC library. 
 
 ```bibtex
 @article{chen2025sigma,

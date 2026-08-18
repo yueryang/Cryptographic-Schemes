@@ -57,7 +57,7 @@ class Parser:
 			return ""
 	@staticmethod
 	def __printHelp() -> None:
-		print("This is the official implementation of the AA-IB-ME cryptographic scheme in Python programming language based on the Python Charm-Crypto framework. ")
+		print("This is the official implementation of the AA-IB-ME cryptographic scheme in the Python programming language based on the Python Charm-Crypto framework. ")
 		print()
 		print("Options (case-insensitive): ")
 		print("\t{0} [utf-8|utf-16|...]\t\tSpecify the encoding mode for CSV and TXT outputs. The default value is {1}. ".format(
@@ -439,9 +439,13 @@ class Saver:
 										for result in results:
 											if result:
 												f.write("\t\t\t\t")
-												f.write(" & ".join((
-													"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
-												).format(r) if isinstance(r, (float, int)) and not isinstance(r, bool) else self.__escapeTEX(r) for r in result))
+												f.write(" & ".join(
+													(
+														"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
+													).format(r) if (
+														isinstance(r, (float, int)) and not isinstance(r, bool)
+													) else self.__escapeTEX(r) for r in result
+												))
 												if len(result) < maxLength:
 													f.write(" & ~" * (maxLength - len(result)))
 												f.write(" \\\\\n")
