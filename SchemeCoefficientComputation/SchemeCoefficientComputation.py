@@ -676,32 +676,52 @@ class Solutions:
 			else:
 				return (k, )
 		@staticmethod
-		def __computePowerCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+		def __computePowerCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
-				coefficients = [group.init(ZR, 0)] * n + [group.init(ZR, 1)]
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					zero, one = group.init(roots[0].type, 0), group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					zero, one = 0, 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				coefficients = [zero] * n + [one]
 				for r in roots:
 					for i in range(n):
 						coefficients[i] += r * coefficients[i + 1]
 				coefficients = [(-1) ** (n - i) * coefficients[i] for i in range(n + 1)]
-				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
-					coefficients[0] += k
+				if offset is not None:
+					coefficients[0] += offset
 				return tuple(coefficients)
 			else:
 				return (k, )
 		@staticmethod
-		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					zero, one = group.init(roots[0].type, 0), group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					zero, one = 0, 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
 				cnt = n - 1
-				coefficients = [group.init(ZR, 0)] * n + [group.init(ZR, 1)]
+				coefficients = [zero] * n + [one]
 				for r in roots:
 					for i in range(cnt, n):
 						coefficients[i] += r * coefficients[i + 1]
 					cnt -= 1
 				coefficients = [-coefficients[i] if (n - i) & 1 else coefficients[i] for i in range(n + 1)]
-				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
-					coefficients[0] += k
+				if offset is not None:
+					coefficients[0] += offset
 				return tuple(coefficients)
 			else:
 				return (k, )
@@ -796,32 +816,52 @@ class Solutions:
 			else:
 				return (k, )
 		@staticmethod
-		def __computePowerCoefficients(group:object, roots:tuple|list|set, k:None|Element = None) -> tuple:
-			if isinstance(roots, (tuple, list, set)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+		def __computePowerCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
-				coefficients = [group.init(ZR, 1)] + [group.init(ZR, 0)] * n
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					zero, one = group.init(roots[0].type, 0), group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					zero, one = 0, 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
+				coefficients = [one] + [zero] * n
 				for r in roots:
 					for i in range(n, 0, -1):
 						coefficients[i] += r * coefficients[i - 1]
 				coefficients = [(-1) ** i * coefficients[i] for i in range(n + 1)]
-				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
-					coefficients[-1] += k
+				if offset is not None:
+					coefficients[-1] += offset
 				return tuple(coefficients)
 			else:
 				return (k, )
 		@staticmethod
-		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list, k:None|Element = None) -> tuple:
-			if isinstance(roots, (tuple, list)) and all(isinstance(root, Element) and root.type == ZR or isinstance(root, int) for root in roots):
+		def __computeBitwiseAndCoefficients(group:object, roots:tuple|list, k:Element|int|float|None = None) -> tuple:
+			flag = False
+			if isinstance(roots, (tuple, list)) and roots:
 				n = len(roots)
+				if isinstance(roots[0], Element) and all(isinstance(root, Element) and root.type == roots[0].type for root in roots):
+					flag = True
+					zero, one = group.init(roots[0].type, 0), group.init(roots[0].type, 1)
+					offset = k if isinstance(k, Element) and k.type == roots[0].type else None
+				elif isinstance(roots[0], (int, float)) and all(isinstance(root, (int, float)) for root in roots):
+					flag = True
+					zero, one = 0, 1
+					offset = k if isinstance(k, (int, float)) else None
+			if flag:
 				cnt = 1
-				coefficients = [group.init(ZR, 1)] + [group.init(ZR, 0)] * n
+				coefficients = [one] + [zero] * n
 				for r in roots:
 					for i in range(cnt, 0, -1):
 						coefficients[i] += r * coefficients[i - 1]
 					cnt += 1
 				coefficients = [-coefficients[i] if i & 1 else coefficients[i] for i in range(n + 1)]
-				if isinstance(k, Element) and k.type == ZR or isinstance(k, int):
-					coefficients[-1] += k
+				if offset is not None:
+					coefficients[-1] += offset
 				return tuple(coefficients)
 			else:
 				return (k, )
