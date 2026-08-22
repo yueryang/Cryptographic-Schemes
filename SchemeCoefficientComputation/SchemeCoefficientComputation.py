@@ -217,7 +217,7 @@ class Parser:
 						del p
 				else:
 					flag = EOF
-					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionQuiet:
 				isVerbose = False
 			elif argument in Parser.__OptionRun:
@@ -1013,7 +1013,7 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				results.append(["Base", curveName, "reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				results.append(["Base", curveName, group.secparam, "reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
 				startTime = perf_counter()
@@ -1025,7 +1025,7 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				results.append(["Base", curveName, "reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				results.append(["Base", curveName, group.secparam, "reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
 			
 			# Faulty #
 			group.__construct = group.init
@@ -1041,7 +1041,7 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				results.append(["Base", curveName, "unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
+				results.append(["Base", curveName, group.secparam, "unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
 				startTime = perf_counter()
@@ -1053,7 +1053,7 @@ class SchemeCoefficientComputation:
 					if isVerbose is not False:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
-				results.append(["Base", curveName, "unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
+				results.append(["Base", curveName, group.secparam, "unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount])
 		if isVerbose is not False:
 			print()
 		return results
@@ -1107,9 +1107,11 @@ class SchemeCoefficientComputation:
 							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__getSolutionName(solution), repr(e)))
 						continue
 					for curveName in curveNames:
+						secparam = PairingGroup(curveName).secparam
 						if isVerbose is not False:
 							print("scheme: {0}".format(filePath))
 							print("curveName: {0}".format(curveName))
+							print("secparam: {0}".format(secparam))
 							print("one: {0}".format("reliable" if one else "unreliable"))
 							print("solution: {0}".format(self.__getSolutionName(solution)))
 							print("runCount: {0}".format(runCount))
@@ -1122,7 +1124,8 @@ class SchemeCoefficientComputation:
 							endTime = perf_counter()
 							averageTimeConsumption = (endTime - startTime) / runCount
 							results.append([
-								scheme, curveName, "reliable" if one else "unreliable", self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption
+								scheme, curveName, secparam, "reliable" if one else "unreliable", 
+								self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption
 							])
 							if isVerbose is not False:
 								print("Is the scheme correct? {0}. ".format("Yes" if correctness else "No"))
@@ -1159,9 +1162,9 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("scheme", "curveName", "one", "solution", "runCount")
+			queries = ("scheme", "curveName", "secparam", "one", "solution", "runCount")
 			validators = ("correctness", )
-			metrics = ("time consumption (s)", )
+			metrics = ("timeConsumption (s)", )
 			
 			# Scheme #
 			columns, queryLength, results = queries + validators + metrics, len(queries), []

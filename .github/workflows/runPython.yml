@@ -10,6 +10,7 @@ on:
       - '**/Scheme*.py'
       - '**/requirements.txt'
       - '.github/workflows/runPython.yml'
+      - 'analyze.py'
       - 'buildSchemeLaTeXPDFs.py'
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - '**/Scheme*.py'
       - '**/requirements.txt'
       - '.github/workflows/runPython.yml'
+      - 'analyze.py'
       - 'buildSchemeLaTeXPDFs.py'
   workflow_dispatch:
     inputs:
@@ -333,6 +335,7 @@ jobs:
           sparse-checkout: |
             **/Scheme*.py
             **/requirements.txt
+            analyze.py
             buildSchemeLaTeXPDFs.py
           sparse-checkout-cone-mode: false
           persist-credentials: false

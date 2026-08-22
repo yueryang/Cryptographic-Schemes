@@ -23,6 +23,9 @@ class Parser:
 	__OptionHelp = ("h", "/h", "-h", "help", "/help", "--help")
 	__OptionOutput = ("o", "/o", "-o", "output", "/output", "--output")
 	__DefaultOutput = "%p/%nLaTeX/%n"
+	__OptionPlace = ("p", "/p", "-p", "place", "/place", "--place")
+	__DefaultPlace = 9
+	__PlaceTranslations = {"s":0, "second":0, "ms":3, "millisecond":3, "microsecond":6, "ns":9, "nanosecond":9, "ps":12, "picosecond":12, "fs":15, "femtosecond":15}
 	__OptionTime = ("t", "/t", "-t", "time", "/time", "--time")
 	__DefaultTime = float("inf")
 	__tcgetattr = None
@@ -50,6 +53,9 @@ class Parser:
 			"\t{0} <output>\t\tSpecify the output path without an extension, which can be a format string, "
 			+ "where %%, %d, %n, %p, %x stand for the %, Drive letter (if applicable), main file Name, directory Path, and eXtension, respectively. The default value is {1}. "
 		).format(Parser.__formatOption(Parser.__OptionOutput), Parser.__DefaultOutput))
+		print("\t{0} [s|ms|microsecond|ns|ps|0|3|6|9|12|...]\t\tSpecify the decimal place, which should be a non-negative integer. The default value is {1}. ".format(
+			Parser.__formatOption(Parser.__OptionPlace), Parser.__DefaultPlace
+		))
 		print(
 			"\t{0} [0|0.1|1|10|...|inf]\t\tSpecify the waiting time before exiting, which should be non-negative. ".format(Parser.__formatOption(Parser.__OptionTime))
 			+ "Passing inf requires users to manually press the Enter key before exiting. The default value is {0}. ".format(Parser.__DefaultTime)
@@ -116,7 +122,7 @@ class Parser:
 	@staticmethod
 	def parse(args:tuple|list) -> tuple:
 		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
-		flag, outputPathWithoutAnExtension, waitingTime, paths = max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultOutput, Parser.__DefaultTime, []
+		flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, paths = max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultOutput, Parser.__DefaultPlace, Parser.__DefaultTime, []
 		index, argumentCount, nonOptionMode, buffers = 1, len(arguments), False, []
 		while index < argumentCount:
 			argument = arguments[index].lower()
@@ -135,6 +141,26 @@ class Parser:
 				else:
 					flag = EOF
 					buffers.append("Parser: The value for the output path without an extension option is missing at [{0}]. ".format(index))
+			elif argument in Parser.__OptionPlace:
+				index += 1
+				if index < argumentCount:
+					decimalPlaceLower = arguments[index].lower()
+					if decimalPlaceLower in Parser.__PlaceTranslations:
+						decimalPlace = Parser.__PlaceTranslations[decimalPlaceLower]
+					else:
+						p = Parser.__parseRealNumber(arguments[index])
+						if p is None:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(arguments[index])))
+						elif isinstance(p, int) and p >= 0:
+							decimalPlace = p
+						else:
+							flag = EOF
+							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
+						del p
+				else:
+					flag = EOF
+					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
@@ -157,7 +183,7 @@ class Parser:
 		if EOF == flag:
 			for buffer in buffers:
 				print(buffer)
-		return (flag, outputPathWithoutAnExtension, waitingTime, paths)
+		return (flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, paths)
 	@staticmethod
 	def disableConsoleEchoes() -> bool:
 		if "posix" == name:
@@ -553,8 +579,11 @@ class Builder:
 			warnings.sort()
 		return Builder.__GenerationDiagnostics
 
-class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFileName.extension", "directoryPath", ".extension")
-	__DefaultFormatString, __DefaultSchemeFilePathPrompt, __DefaultGenerationPrompt, __DefaultCompilationPrompt = Parser.getDefaultOutput(), "[F] ", "[G] ", "[C] "
+class Builders: # ("%%", "%d", "%n", "%p", "%x") = ("%", "driveLetter:", "mainFileName", "/directoryPath", ".extension")
+	__DefaultFormatString = Parser.getDefaultOutput()
+	__DefaultSchemeFilePathPrompt = "[F] "
+	__DefaultGenerationPrompt = "[G] "
+	__DefaultCompilationPrompt = "[C] "
 	def __init__(self:object, formatString:str = __DefaultFormatString, collectionMode:bool = False, *paths:tuple) -> object:
 		self.__formatString = formatString if isinstance(formatString, str) else Builders.__DefaultFormatString
 		self.__collectionMode = collectionMode is True
@@ -605,7 +634,7 @@ class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFi
 								absoluteFilePath = abspath(join(root, fileName))
 								if (
 									not islink(absoluteFilePath) and isfile(absoluteFilePath) and splitext(fileName)[1] == ".py"
-									and fileName.lstrip("-").startswith("Scheme") and absoluteFilePath not in self.__filePaths
+									and fileName.startswith("Scheme") and absoluteFilePath not in self.__filePaths
 								):
 									filePaths.append(absoluteFilePath)
 						filePaths.sort()
@@ -613,7 +642,7 @@ class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFi
 						del filePaths
 					elif isfile(element):
 						fileName = basename(element)
-						if splitext(fileName)[1] == ".py" and fileName.lstrip("-").startswith("Scheme"):
+						if splitext(fileName)[1] == ".py" and fileName.startswith("Scheme"):
 							absoluteFilePath = abspath(element)
 							if absoluteFilePath not in self.__filePaths:
 								self.__filePaths.append(absoluteFilePath)
@@ -651,7 +680,7 @@ class Builders: # ("%%", "%m", "%n", "%p", "%x") = ("%", "mainFileName", "mainFi
 
 
 def main() -> int:
-	flag, outputPathWithoutAnExtension, waitingTime, paths = Parser.parse(argv)
+	flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, paths = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
 	if flag > EXIT_SUCCESS and flag > EOF:
 		if any((

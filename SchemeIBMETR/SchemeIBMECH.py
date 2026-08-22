@@ -205,7 +205,7 @@ class Parser:
 						del p
 				else:
 					flag = EOF
-					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionQuiet:
 				isVerbose = False
 			elif argument in Parser.__OptionRun:
@@ -912,7 +912,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("curveParameter", "secparam", "runCount")
+			queries = ("curveName", "secparam", "runCount")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "SKGen (s)", "RKGen (s)", "Enc (s)", "Dec (s)", 

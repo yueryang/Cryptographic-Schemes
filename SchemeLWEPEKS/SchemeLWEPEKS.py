@@ -201,7 +201,7 @@ class Parser:
 						del p
 				else:
 					flag = EOF
-					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
+					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionQuiet:
 				isVerbose = False
 			elif argument in Parser.__OptionRun:
