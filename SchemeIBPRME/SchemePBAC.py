@@ -101,7 +101,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -612,6 +612,8 @@ class Saver:
 			return False
 
 class SchemePBAC:
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		try:
@@ -947,139 +949,140 @@ class SchemePBAC:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, runString = "N/A", 512, "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed = (False, ) * 4
-	timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2 = ("N/A", ) * 8
-	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT = ("N/A", ) * 9
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("run:", runString)
-	if flag:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G1))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemePBAC = SchemePBAC(group)
-		sizeZR, sizeG1G2, sizeGT = schemePBAC.getLengthOf(group.random(ZR)), schemePBAC.getLengthOf(group.random(G1)), schemePBAC.getLengthOf(group.random(GT))
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, runString = "N/A", 512, "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed = (False, ) * 4
+		timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2 = ("N/A", ) * 8
+		sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+		sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT = ("N/A", ) * 9
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemePBAC.Setup()
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemePBAC.getLengthOf(mpk), schemePBAC.getLengthOf(msk)
-		
-		# SKGen #
-		startTime = perf_counter()
-		id_1 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
-		id_2 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
-		ek_id_1 = schemePBAC.SKGen(id_1)
-		ek_id_2 = schemePBAC.SKGen(id_2)
-		endTime = perf_counter()
-		timeSKGen = (endTime - startTime) / 2
-		sizeEkId1 = schemePBAC.getLengthOf(ek_id_1)
-		sizeEkId2 = schemePBAC.getLengthOf(ek_id_2)
-		
-		# RKGen #
-		startTime = perf_counter()
-		id_3 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
-		dk_id_2 = schemePBAC.RKGen(id_2)
-		dk_id_3 = schemePBAC.RKGen(id_3)
-		endTime = perf_counter()
-		timeRKGen = (endTime - startTime) / 2
-		sizeDkId2 = schemePBAC.getLengthOf(dk_id_2)
-		sizeDkId3 = schemePBAC.getLengthOf(dk_id_3)
-		
-		# Enc #
-		startTime = perf_counter()
-		message = int.from_bytes(b"SchemePBAC", byteorder = "big")
-		C = schemePBAC.Enc(ek_id_1, id_2, message)
-		endTime = perf_counter()
-		timeEnc = endTime - startTime
-		sizeC = schemePBAC.getLengthOf(C)
-		
-		# PKGen #
-		startTime = perf_counter()
-		rk = schemePBAC.PKGen(ek_id_2, dk_id_2, id_1, id_2, id_3)
-		endTime = perf_counter()
-		timePKGen = endTime - startTime
-		sizeRk = schemePBAC.getLengthOf(rk)
-		
-		# ProxyEnc #
-		startTime = perf_counter()
-		CT = schemePBAC.ProxyEnc(rk, C)
-		endTime = perf_counter()
-		timeProxyEnc = endTime - startTime
-		isProxyEncPassed = not isinstance(CT, bool)
-		sizeCT = schemePBAC.getLengthOf(CT)
-		
-		# Dec1 #
-		startTime = perf_counter()
-		m = schemePBAC.Dec1(dk_id_2, id_2, id_1, C)
-		endTime = perf_counter()
-		timeDec1 = endTime - startTime
-		isDec1Passed = m == message
-		
-		# Dec2 #
-		startTime = perf_counter()
-		mPrime = schemePBAC.Dec2(dk_id_3, id_3, id_2, CT)
-		endTime = perf_counter()
-		timeDec2 = endTime - startTime
-		isDec2Passed = mPrime == message
-		
-		# Destruction #
-		del schemePBAC
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemePBAC.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemePBAC.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemePBAC.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemePBAC.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Dec1:", m)
-			print("Dec2:", mPrime)
-			print("Is ``ProxyEnc`` passed? {0}. ".format("Yes" if isProxyEncPassed else "No"))
-			print("Is ``Dec1`` passed (m == message)? {0}. ".format("Yes" if isDec1Passed else "No"))
-			print("Is ``Dec2`` passed (m' == message)? {0}. ".format("Yes" if isDec2Passed else "No"))
-			print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT))
-			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, runString, 
-		isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed, 
-		timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2, 
-		sizeZR, sizeG1G2, sizeGT, 
-		sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT
-	]
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("run:", runString)
+		if flag:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G1))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemePBAC = SchemePBAC(group)
+			sizeZR, sizeG1G2, sizeGT = schemePBAC.getLengthOf(group.random(ZR)), schemePBAC.getLengthOf(group.random(G1)), schemePBAC.getLengthOf(group.random(GT))
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemePBAC.Setup()
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemePBAC.getLengthOf(mpk), schemePBAC.getLengthOf(msk)
+			
+			# SKGen #
+			startTime = perf_counter()
+			id_1 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
+			id_2 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
+			ek_id_1 = schemePBAC.SKGen(id_1)
+			ek_id_2 = schemePBAC.SKGen(id_2)
+			endTime = perf_counter()
+			timeSKGen = (endTime - startTime) / 2
+			sizeEkId1 = schemePBAC.getLengthOf(ek_id_1)
+			sizeEkId2 = schemePBAC.getLengthOf(ek_id_2)
+			
+			# RKGen #
+			startTime = perf_counter()
+			id_3 = randbelow(1 << group.secparam).to_bytes(ceil(group.secparam / 8), byteorder = "big")
+			dk_id_2 = schemePBAC.RKGen(id_2)
+			dk_id_3 = schemePBAC.RKGen(id_3)
+			endTime = perf_counter()
+			timeRKGen = (endTime - startTime) / 2
+			sizeDkId2 = schemePBAC.getLengthOf(dk_id_2)
+			sizeDkId3 = schemePBAC.getLengthOf(dk_id_3)
+			
+			# Enc #
+			startTime = perf_counter()
+			message = int.from_bytes(b"SchemePBAC", byteorder = "big")
+			C = schemePBAC.Enc(ek_id_1, id_2, message)
+			endTime = perf_counter()
+			timeEnc = endTime - startTime
+			sizeC = schemePBAC.getLengthOf(C)
+			
+			# PKGen #
+			startTime = perf_counter()
+			rk = schemePBAC.PKGen(ek_id_2, dk_id_2, id_1, id_2, id_3)
+			endTime = perf_counter()
+			timePKGen = endTime - startTime
+			sizeRk = schemePBAC.getLengthOf(rk)
+			
+			# ProxyEnc #
+			startTime = perf_counter()
+			CT = schemePBAC.ProxyEnc(rk, C)
+			endTime = perf_counter()
+			timeProxyEnc = endTime - startTime
+			isProxyEncPassed = not isinstance(CT, bool)
+			sizeCT = schemePBAC.getLengthOf(CT)
+			
+			# Dec1 #
+			startTime = perf_counter()
+			m = schemePBAC.Dec1(dk_id_2, id_2, id_1, C)
+			endTime = perf_counter()
+			timeDec1 = endTime - startTime
+			isDec1Passed = m == message
+			
+			# Dec2 #
+			startTime = perf_counter()
+			mPrime = schemePBAC.Dec2(dk_id_3, id_3, id_2, CT)
+			endTime = perf_counter()
+			timeDec2 = endTime - startTime
+			isDec2Passed = mPrime == message
+			
+			# Destruction #
+			del schemePBAC
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Dec1:", m)
+				print("Dec2:", mPrime)
+				print("Is ``ProxyEnc`` passed? {0}. ".format("Yes" if isProxyEncPassed else "No"))
+				print("Is ``Dec1`` passed (m == message)? {0}. ".format("Yes" if isDec1Passed else "No"))
+				print("Is ``Dec2`` passed (m' == message)? {0}. ".format("Yes" if isDec2Passed else "No"))
+				print("Time:", (timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2))
+				print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, runString, 
+			isSystemValid, isProxyEncPassed, isDec1Passed, isDec2Passed, 
+			timeSetup, timeSKGen, timeRKGen, timeEnc, timePKGen, timeProxyEnc, timeDec1, timeDec2, 
+			sizeZR, sizeG1G2, sizeGT, 
+			sizeMpk, sizeMsk, sizeEkId1, sizeEkId2, sizeDkId2, sizeDkId3, sizeC, sizeRk, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1097,7 +1100,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("scheme", "curveName", "secparam", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "Run count")
 			validators = ("isSystemValid", "isProxyEncPassed", "isDec1Passed", "isDec2Passed")
 			metrics = (
 				"Setup (s)", "SKGen (s)", "RKGen (s)", "Enc (s)", "PKGen (s)", "ProxyEnc (s)", "Dec1 (s)", "Dec2 (s)", 
@@ -1113,9 +1116,9 @@ def main() -> int:
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
-					averages = conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
+					averages = SchemePBAC.conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
 					for run in range(2, runCount + 1):
-						result = conductScheme(curveParameter, run = run, isVerbose = isVerbose)
+						result = SchemePBAC.conductScheme(curveParameter, run = run, isVerbose = isVerbose)
 						for index in range(queryLength, queryValidatorLength):
 							averages[index] += result[index]
 						for index in range(queryValidatorLength, length):

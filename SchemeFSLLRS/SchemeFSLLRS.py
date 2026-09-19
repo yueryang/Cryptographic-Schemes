@@ -95,7 +95,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:

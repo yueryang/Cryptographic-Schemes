@@ -98,7 +98,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -609,7 +609,9 @@ class Saver:
 			return False
 
 class SchemeAnonymousME:
-	__DefaultL = 30
+	__DefaultL, __DefaultK = 30, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
@@ -831,129 +833,130 @@ class SchemeAnonymousME:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, k:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, lString, kString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
-	timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT = ("N/A", ) * 5
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(l, int):
-		lString = l
-	else:
-		flag = False
-	if isinstance(k, int):
-		kString = k
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$l$:", lString)
-		print("$k$:", kString)
-		print("run:", runString)
-	if flag and 2 <= k < l:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $l$ and $k$ should be two positive integers satisfying $2 \\leqslant k < l$. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeAnonymousME = SchemeAnonymousME(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (
-			schemeAnonymousME.getLengthOf(group.random(ZR)), schemeAnonymousME.getLengthOf(group.random(G1)), 
-			schemeAnonymousME.getLengthOf(group.random(G2)), schemeAnonymousME.getLengthOf(group.random(GT))
-		)
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, l:int = DefaultL, k:int = DefaultK, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, lString, kString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
+		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec = ("N/A", ) * 5
+		sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+		sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT = ("N/A", ) * 5
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeAnonymousME.Setup(l = l)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeAnonymousME.getLengthOf(mpk), schemeAnonymousME.getLengthOf(msk)
-		
-		# KGen #
-		startTime = perf_counter()
-		ID_k = tuple(group.random(ZR) for _ in range(k))
-		sk_ID_k = schemeAnonymousME.KGen(ID_k)
-		endTime = perf_counter()
-		timeKGen = endTime - startTime
-		sizeSkIDK = schemeAnonymousME.getLengthOf(sk_ID_k)
-		
-		# DerivedKGen #
-		startTime = perf_counter()
-		sk_ID_kMinus1 = schemeAnonymousME.KGen(ID_k[:-1]) # remove the last one to generate the sk_ID_kMinus1
-		sk_ID_kDerived = schemeAnonymousME.DerivedKGen(sk_ID_kMinus1, ID_k)
-		endTime = perf_counter()
-		timeDerivedKGen = endTime - startTime
-		sizeSkIDKDerived = schemeAnonymousME.getLengthOf(sk_ID_kDerived)
-		
-		# Enc #
-		startTime = perf_counter()
-		message = group.random(GT)
-		CT = schemeAnonymousME.Enc(ID_k, message)
-		endTime = perf_counter()
-		timeEnc = endTime - startTime
-		sizeCT = schemeAnonymousME.getLengthOf(CT)
-		
-		# Dec #
-		startTime = perf_counter()
-		M = schemeAnonymousME.Dec(sk_ID_k, CT)
-		MDerived = schemeAnonymousME.Dec(sk_ID_kDerived, CT)
-		endTime = perf_counter()
-		isDeriverPassed = MDerived == message
-		isSchemeCorrect = M == message
-		timeDec = endTime - startTime
-		
-		# Destruction #
-		del schemeAnonymousME
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeAnonymousME.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeAnonymousME.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeAnonymousME.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeAnonymousME.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(l, int):
+			lString = l
+		else:
+			flag = False
+		if isinstance(k, int):
+			kString = k
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Derived:", MDerived)
-			print("Decrypted:", M)
-			print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
-			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT))
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$l$:", lString)
+			print("$k$:", kString)
+			print("run:", runString)
+		if flag and 2 <= k < l:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G2))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameters $l$ and $k$ should be two positive integers satisfying $2 \\leqslant k < l$. ")
 			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, lString, kString, runString, 
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 
-		timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT
-	]
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeAnonymousME = SchemeAnonymousME(group)
+			sizeZR, sizeG1, sizeG2, sizeGT = (
+				schemeAnonymousME.getLengthOf(group.random(ZR)), schemeAnonymousME.getLengthOf(group.random(G1)), 
+				schemeAnonymousME.getLengthOf(group.random(G2)), schemeAnonymousME.getLengthOf(group.random(GT))
+			)
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeAnonymousME.Setup(l = l)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeAnonymousME.getLengthOf(mpk), schemeAnonymousME.getLengthOf(msk)
+			
+			# KGen #
+			startTime = perf_counter()
+			ID_k = tuple(group.random(ZR) for _ in range(k))
+			sk_ID_k = schemeAnonymousME.KGen(ID_k)
+			endTime = perf_counter()
+			timeKGen = endTime - startTime
+			sizeSkIDK = schemeAnonymousME.getLengthOf(sk_ID_k)
+			
+			# DerivedKGen #
+			startTime = perf_counter()
+			sk_ID_kMinus1 = schemeAnonymousME.KGen(ID_k[:-1]) # remove the last one to generate the sk_ID_kMinus1
+			sk_ID_kDerived = schemeAnonymousME.DerivedKGen(sk_ID_kMinus1, ID_k)
+			endTime = perf_counter()
+			timeDerivedKGen = endTime - startTime
+			sizeSkIDKDerived = schemeAnonymousME.getLengthOf(sk_ID_kDerived)
+			
+			# Enc #
+			startTime = perf_counter()
+			message = group.random(GT)
+			CT = schemeAnonymousME.Enc(ID_k, message)
+			endTime = perf_counter()
+			timeEnc = endTime - startTime
+			sizeCT = schemeAnonymousME.getLengthOf(CT)
+			
+			# Dec #
+			startTime = perf_counter()
+			M = schemeAnonymousME.Dec(sk_ID_k, CT)
+			MDerived = schemeAnonymousME.Dec(sk_ID_kDerived, CT)
+			endTime = perf_counter()
+			isDeriverPassed = MDerived == message
+			isSchemeCorrect = M == message
+			timeDec = endTime - startTime
+			
+			# Destruction #
+			del schemeAnonymousME
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Derived:", MDerived)
+				print("Decrypted:", M)
+				print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
+				print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec))
+				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, lString, kString, runString, 
+			isSystemValid, isDeriverPassed, isSchemeCorrect, 
+			timeSetup, timeKGen, timeDerivedKGen, timeEnc, timeDec, 
+			sizeZR, sizeG1, sizeG2, sizeGT, 
+			sizeMpk, sizeMsk, sizeSkIDK, sizeSkIDKDerived, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -971,7 +974,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("scheme", "curveName", "secparam", "l", "k", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "l", "k", "Run count")
 			validators = ("isSystemValid", "isDeriverPassed", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "KGen (s)", "DerivedKGen (s)", "Enc (s)", "Dec (s)", 
@@ -989,9 +992,9 @@ def main() -> int:
 				for curveParameter in curveParameters:
 					for l in range(10, 31, 5):
 						for k in range(5, l, 5):
-							averages = conductScheme(curveParameter, l = l, k = k, run = 1, isVerbose = isVerbose)
+							averages = SchemeAnonymousME.conductScheme(curveParameter, l = l, k = k, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, l = l, k = k, run = run, isVerbose = isVerbose)
+								result = SchemeAnonymousME.conductScheme(curveParameter, l = l, k = k, run = run, isVerbose = isVerbose)
 								for index in range(queryLength, queryValidatorLength):
 									averages[index] += result[index]
 								for index in range(queryValidatorLength, length):

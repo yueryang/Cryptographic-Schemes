@@ -99,7 +99,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -610,6 +610,8 @@ class Saver:
 			return False
 
 class SchemeARES:
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		try:
@@ -790,115 +792,116 @@ class SchemeARES:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, runString = "N/A", 512, "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect, isTracingVerified = (False, ) * 3
-	timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify = ("N/A", ) * 6
-	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT = ("N/A", ) * 5
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("run:", runString)
-	if flag:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G1))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeARES = SchemeARES(group)
-		sizeZR, sizeG1G2, sizeGT = schemeARES.getLengthOf(group.random(ZR)), schemeARES.getLengthOf(group.random(G1)), schemeARES.getLengthOf(group.random(GT))
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, runString = "N/A", 512, "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isSchemeCorrect, isTracingVerified = (False, ) * 3
+		timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify = ("N/A", ) * 6
+		sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+		sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT = ("N/A", ) * 5
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeARES.Setup()
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeARES.getLengthOf(mpk), schemeARES.getLengthOf(msk)
-		
-		# Extract #
-		startTime = perf_counter()
-		Id = group.random(ZR)
-		Pvk_Id = schemeARES.Extract(Id)
-		endTime = perf_counter()
-		timeExtract = endTime - startTime
-		sizePvkId = schemeARES.getLengthOf(Pvk_Id)
-		
-		# TSK #
-		startTime = perf_counter()
-		Pvk_IdTraced = schemeARES.TSK(Id)
-		endTime = perf_counter()
-		timeTSK = endTime - startTime
-		sizePvkIdTraced = schemeARES.getLengthOf(Pvk_IdTraced)
-		
-		# Encrypt #
-		startTime = perf_counter()
-		message = group.random(GT)
-		CT = schemeARES.Encrypt(Id, message)
-		endTime = perf_counter()
-		timeEncrypt = endTime - startTime
-		sizeCT = schemeARES.getLengthOf(CT)
-		
-		# Decrypt #
-		startTime = perf_counter()
-		M = schemeARES.Decrypt(Pvk_Id, CT)
-		endTime = perf_counter()
-		isSchemeCorrect = M == message
-		timeDecrypt = endTime - startTime
-		
-		# TVerify #
-		startTime = perf_counter()
-		isTracingVerified = schemeARES.TVerify(Pvk_IdTraced, CT)
-		endTime = perf_counter()
-		timeTVerify = endTime - startTime
-		
-		# Destruction #
-		del schemeARES
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeARES.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeARES.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeARES.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		flag = True
+		securityLevel = SchemeARES.__SecurityLevelMappings.get(curveName, securityLevel)
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Decrypted:", M)
-			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
-			print("Time:", (timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT))
-			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, runString, 
-		isSystemValid, isSchemeCorrect, isTracingVerified, 
-		timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify, 
-		sizeZR, sizeG1G2, sizeGT, 
-		sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT
-	]
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("run:", runString)
+		if flag:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G1))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeARES = SchemeARES(group)
+			sizeZR, sizeG1G2, sizeGT = schemeARES.getLengthOf(group.random(ZR)), schemeARES.getLengthOf(group.random(G1)), schemeARES.getLengthOf(group.random(GT))
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeARES.Setup()
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeARES.getLengthOf(mpk), schemeARES.getLengthOf(msk)
+			
+			# Extract #
+			startTime = perf_counter()
+			Id = group.random(ZR)
+			Pvk_Id = schemeARES.Extract(Id)
+			endTime = perf_counter()
+			timeExtract = endTime - startTime
+			sizePvkId = schemeARES.getLengthOf(Pvk_Id)
+			
+			# TSK #
+			startTime = perf_counter()
+			Pvk_IdTraced = schemeARES.TSK(Id)
+			endTime = perf_counter()
+			timeTSK = endTime - startTime
+			sizePvkIdTraced = schemeARES.getLengthOf(Pvk_IdTraced)
+			
+			# Encrypt #
+			startTime = perf_counter()
+			message = group.random(GT)
+			CT = schemeARES.Encrypt(Id, message)
+			endTime = perf_counter()
+			timeEncrypt = endTime - startTime
+			sizeCT = schemeARES.getLengthOf(CT)
+			
+			# Decrypt #
+			startTime = perf_counter()
+			M = schemeARES.Decrypt(Pvk_Id, CT)
+			endTime = perf_counter()
+			isSchemeCorrect = M == message
+			timeDecrypt = endTime - startTime
+			
+			# TVerify #
+			startTime = perf_counter()
+			isTracingVerified = schemeARES.TVerify(Pvk_IdTraced, CT)
+			endTime = perf_counter()
+			timeTVerify = endTime - startTime
+			
+			# Destruction #
+			del schemeARES
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Decrypted:", M)
+				print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
+				print("Time:", (timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify))
+				print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, runString, 
+			isSystemValid, isSchemeCorrect, isTracingVerified, 
+			timeSetup, timeExtract, timeTSK, timeEncrypt, timeDecrypt, timeTVerify, 
+			sizeZR, sizeG1G2, sizeGT, 
+			sizeMpk, sizeMsk, sizePvkId, sizePvkIdTraced, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -916,7 +919,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("scheme", "curveName", "secparam", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect", "isTracingVerified")
 			metrics = (
 				"Setup (s)", "Extract (s)", "TSK (s)", "Encrypt (s)", "Decrypt (s)", "TVerify (s)", 
@@ -932,9 +935,9 @@ def main() -> int:
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
-					averages = conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
+					averages = SchemeARES.conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
 					for run in range(2, runCount + 1):
-						result = conductScheme(curveParameter, run = run, isVerbose = isVerbose)
+						result = SchemeARES.conductScheme(curveParameter, run = run, isVerbose = isVerbose)
 						for index in range(queryLength, queryValidatorLength):
 							averages[index] += result[index]
 						for index in range(queryValidatorLength, length):

@@ -99,7 +99,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -611,6 +611,8 @@ class Saver:
 
 class SchemeCANIFPPCT:
 	__DefaultN, __DefaultM = 30, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
@@ -1090,213 +1092,214 @@ class SchemeCANIFPPCT:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, m:int = 10, run:int|None = None, isVerbose:bool = False) -> list:
-	# Begin #
-	curveName, securityParameter, runString = "N/A", 512, "N/A"
-	isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified = (False, ) * 4
-	timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery = ("N/A", ) * 5
-	timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace = ("N/A", ) * 6
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors = ("N/A", ) * 5
-	sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors = ("N/A", ) * 6
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(n, int):
-		nString = n
-	else:
-		flag = False
-	if isinstance(m, int):
-		mString = m
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$n$:", nString)
-		print("$m$:", mString)
-		print("run:", runString)
-	if flag and 1 <= m <= n:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $m$ and $n$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		scheme = SchemeCANIFPPCT(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (
-			scheme.getLengthOf(group.random(ZR)), scheme.getLengthOf(group.random(G1)), 
-			scheme.getLengthOf(group.random(G2)), scheme.getLengthOf(group.random(GT))
-		)
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, n:int = __DefaultN, m:int = __DefaultM, run:int|None = None, isVerbose:bool = False) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, runString = "N/A", 512, "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified = (False, ) * 4
+		timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery = ("N/A", ) * 5
+		timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace = ("N/A", ) * 6
+		sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+		sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors = ("N/A", ) * 5
+		sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors = ("N/A", ) * 6
 		
-		try:
-			pair(group.random(G1), group.random(G1))
-			isAsymmetric = False
-		except:
-			isAsymmetric = True
-		
-		if isAsymmetric:
-			isBSchemeCorrect = "N/A"
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeCANIFPPCT.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeCANIFPPCT.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeCANIFPPCT.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeCANIFPPCT.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(n, int):
+			nString = n
 		else:
-			# BSetup #
-			startTime = perf_counter()
-			bpk, bsk = scheme.BSetup(n, m)
-			endTime = perf_counter()
-			timeBSetup = endTime - startTime
-			sizeBpk, sizeBsk = scheme.getLengthOf(bpk), scheme.getLengthOf(bsk)
+			flag = False
+		if isinstance(m, int):
+			mString = m
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
+		if isVerbose is not False:
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$n$:", nString)
+			print("$m$:", mString)
+			print("run:", runString)
+		if flag and 1 <= m <= n:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G2))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameters $m$ and $n$ should be two positive integers satisfying $1 \\leqslant m \\leqslant n$. ")
+			print()
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			scheme = SchemeCANIFPPCT(group)
+			sizeZR, sizeG1, sizeG2, sizeGT = (
+				scheme.getLengthOf(group.random(ZR)), scheme.getLengthOf(group.random(G1)), 
+				scheme.getLengthOf(group.random(G2)), scheme.getLengthOf(group.random(GT))
+			)
 			
-			# BKGen #
+			try:
+				pair(group.random(G1), group.random(G1))
+				isAsymmetric = False
+			except:
+				isAsymmetric = True
+		
+			if isAsymmetric:
+				isBSchemeCorrect = "N/A"
+			else:
+				# BSetup #
+				startTime = perf_counter()
+				bpk, bsk = scheme.BSetup(n, m)
+				endTime = perf_counter()
+				timeBSetup = endTime - startTime
+				sizeBpk, sizeBsk = scheme.getLengthOf(bpk), scheme.getLengthOf(bsk)
+				
+				# BKGen #
+				startTime = perf_counter()
+				IDVec, bsk_IDs = tuple(group.random(ZR) for _ in range(n)), []
+				for i in range(n):
+					bsk_IDs.append(scheme.BKGen(IDVec[i]))
+				endTime = perf_counter()
+				timeBKGen = (endTime - startTime) / n
+				sizeBskIDs = scheme.getLengthOf(bsk_IDs)
+				
+				# BEncryption #
+				startTime = perf_counter()
+				TPs = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n))
+				s = tuple(group.random(ZR) for _ in range(n))
+				BCT_TPs = []
+				for i in range(n):
+					BCT_TPs.append(scheme.BEncryption(TPs[i], s, s[i]))
+				endTime = perf_counter()
+				timeBEncryption = (endTime - startTime) / n
+				sizeBCTTPs = scheme.getLengthOf(BCT_TPs)
+				
+				# BTrapdoorGen #
+				startTime = perf_counter()
+				QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
+				BTrapdoors = []
+				for i in range(m):
+					BTrapdoors.append(scheme.BTrapdoorGen(QTP[i], bsk_IDs[i]))
+				endTime = perf_counter()
+				timeBTrapdoorGen = (endTime - startTime) / m
+				sizeBTrapdoors = scheme.getLengthOf(BTrapdoors)
+				
+				# BQuery #
+				startTime = perf_counter()
+				bys = []
+				for i in range(m):
+					bys.append(scheme.BQuery(BCT_TPs[i], BTrapdoors[i]))
+				endTime = perf_counter()
+				isBSchemeCorrect = bys and all(bys)
+				timeBQuery = (endTime - startTime) / m
+			
+			# Setup #
 			startTime = perf_counter()
-			IDVec, bsk_IDs = tuple(group.random(ZR) for _ in range(n)), []
+			mpk, msk = scheme.Setup(n, m)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = scheme.getLengthOf(mpk), scheme.getLengthOf(msk)
+			
+			# KGen #
+			startTime = perf_counter()
+			IDVec, L, sk_IDs, ek_IDs = tuple(group.random(ZR) for _ in range(n)), [], [], []
 			for i in range(n):
-				bsk_IDs.append(scheme.BKGen(IDVec[i]))
+				sk_ID_i, ek_ID_i = scheme.KGen(IDVec[i], L)
+				sk_IDs.append(sk_ID_i)
+				ek_IDs.append(ek_ID_i)
 			endTime = perf_counter()
-			timeBKGen = (endTime - startTime) / n
-			sizeBskIDs = scheme.getLengthOf(bsk_IDs)
+			timeKGen = (endTime - startTime) / n
+			sizeSkIDs = scheme.getLengthOf(sk_IDs)
+			sizeEkIDs = scheme.getLengthOf(ek_IDs)
 			
-			# BEncryption #
+			# Encryption #
 			startTime = perf_counter()
 			TPs = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n))
 			s = tuple(group.random(ZR) for _ in range(n))
-			BCT_TPs = []
+			CT_TPs = []
 			for i in range(n):
-				BCT_TPs.append(scheme.BEncryption(TPs[i], s, s[i]))
+				CT_TPs.append(scheme.Encryption(TPs[i], sk_IDs[i], ek_IDs[i], s, s[i]))
 			endTime = perf_counter()
-			timeBEncryption = (endTime - startTime) / n
-			sizeBCTTPs = scheme.getLengthOf(BCT_TPs)
+			timeEncryption = (endTime - startTime) / n
+			sizeCTTPs = scheme.getLengthOf(CT_TPs)
 			
-			# BTrapdoorGen #
+			# TrapdoorGen #
 			startTime = perf_counter()
 			QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
-			BTrapdoors = []
+			Trapdoors = []
 			for i in range(m):
-				BTrapdoors.append(scheme.BTrapdoorGen(QTP[i], bsk_IDs[i]))
+				Trapdoors.append(scheme.TrapdoorGen(QTP[i], sk_IDs[i]))
 			endTime = perf_counter()
-			timeBTrapdoorGen = (endTime - startTime) / m
-			sizeBTrapdoors = scheme.getLengthOf(BTrapdoors)
+			timeTrapdoorGen = (endTime - startTime) / m
+			sizeTrapdoors = scheme.getLengthOf(Trapdoors)
 			
-			# BQuery #
+			# Query #
 			startTime = perf_counter()
-			bys = []
+			ys = []
 			for i in range(m):
-				bys.append(scheme.BQuery(BCT_TPs[i], BTrapdoors[i]))
+				ys.append(scheme.Query(CT_TPs[i], Trapdoors[i], s))
 			endTime = perf_counter()
-			isBSchemeCorrect = bys and all(bys)
-			timeBQuery = (endTime - startTime) / m
+			isSchemeCorrect = ys and all(ys)
+			timeQuery = (endTime - startTime) / m
+			
+			# Trace #
+			startTime = perf_counter()
+			identities = []
+			for i in range(m):
+				identities.append(scheme.Trace(CT_TPs[i], L))
+			endTime = perf_counter()
+			isTracingVerified = identities and all(identity is not False for identity in identities)
+			timeTrace = (endTime - startTime) / m
+			
+			# Destruction #
+			del scheme
+			if isVerbose is not False:
+				print("bys:", "N/A" if isAsymmetric else bys)
+				print("ys:", ys)
+				print("identities:", identities)
+				print("Is the basic scheme correct? {0}. ".format("Yes" if isBSchemeCorrect else "No"))
+				print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
+				print("Time:", (
+					(timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery), 
+					(timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace)
+				))
+				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, 
+					(sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors), 
+					(sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors)
+				))
+				print()
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = scheme.Setup(n, m)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = scheme.getLengthOf(mpk), scheme.getLengthOf(msk)
-		
-		# KGen #
-		startTime = perf_counter()
-		IDVec, L, sk_IDs, ek_IDs = tuple(group.random(ZR) for _ in range(n)), [], [], []
-		for i in range(n):
-			sk_ID_i, ek_ID_i = scheme.KGen(IDVec[i], L)
-			sk_IDs.append(sk_ID_i)
-			ek_IDs.append(ek_ID_i)
-		endTime = perf_counter()
-		timeKGen = (endTime - startTime) / n
-		sizeSkIDs = scheme.getLengthOf(sk_IDs)
-		sizeEkIDs = scheme.getLengthOf(ek_IDs)
-		
-		# Encryption #
-		startTime = perf_counter()
-		TPs = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n))
-		s = tuple(group.random(ZR) for _ in range(n))
-		CT_TPs = []
-		for i in range(n):
-			CT_TPs.append(scheme.Encryption(TPs[i], sk_IDs[i], ek_IDs[i], s, s[i]))
-		endTime = perf_counter()
-		timeEncryption = (endTime - startTime) / n
-		sizeCTTPs = scheme.getLengthOf(CT_TPs)
-		
-		# TrapdoorGen #
-		startTime = perf_counter()
-		QTP = tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(m))
-		Trapdoors = []
-		for i in range(m):
-			Trapdoors.append(scheme.TrapdoorGen(QTP[i], sk_IDs[i]))
-		endTime = perf_counter()
-		timeTrapdoorGen = (endTime - startTime) / m
-		sizeTrapdoors = scheme.getLengthOf(Trapdoors)
-		
-		# Query #
-		startTime = perf_counter()
-		ys = []
-		for i in range(m):
-			ys.append(scheme.Query(CT_TPs[i], Trapdoors[i], s))
-		endTime = perf_counter()
-		isSchemeCorrect = ys and all(ys)
-		timeQuery = (endTime - startTime) / m
-		
-		# Trace #
-		startTime = perf_counter()
-		identities = []
-		for i in range(m):
-			identities.append(scheme.Trace(CT_TPs[i], L))
-		endTime = perf_counter()
-		isTracingVerified = identities and all(identity is not False for identity in identities)
-		timeTrace = (endTime - startTime) / m
-		
-		# Destruction #
-		del scheme
-		if isVerbose is not False:
-			print("bys:", "N/A" if isAsymmetric else bys)
-			print("ys:", ys)
-			print("identities:", identities)
-			print("Is the basic scheme correct? {0}. ".format("Yes" if isBSchemeCorrect else "No"))
-			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
-			print("Time:", (
-				(timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery), 
-				(timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace)
-			))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, 
-				(sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors), 
-				(sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors)
-			))
-			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, nString, mString, runString, 
-		isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified, 
-		timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery, 
-		timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors, 
-		sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors
-	]
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, nString, mString, runString, 
+			isSystemValid, isBSchemeCorrect, isSchemeCorrect, isTracingVerified, 
+			timeBSetup, timeBKGen, timeBEncryption, timeBTrapdoorGen, timeBQuery, 
+			timeSetup, timeKGen, timeEncryption, timeTrapdoorGen, timeQuery, timeTrace, 
+			sizeZR, sizeG1, sizeG2, sizeGT, 
+			sizeBpk, sizeBsk, sizeBskIDs, sizeBCTTPs, sizeBTrapdoors, 
+			sizeMpk, sizeMsk, sizeSkIDs, sizeEkIDs, sizeCTTPs, sizeTrapdoors
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1314,7 +1317,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("scheme", "curveName", "secparam", "n", "m", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$n$", "$m$", "Run count")
 			validators = ("isSystemValid", "isBSchemeCorrect", "isSchemeCorrect", "isTracingVerified")
 			metrics = (
 				"BSetup (s)", "BKGen (s)", "BEncryption (s)", "BTrapdoorGen (s)", "BQuery (s)", 
@@ -1334,9 +1337,9 @@ def main() -> int:
 				for curveParameter in curveParameters:
 					for n in range(10, 31, 5):
 						for m in range(5, n, 5):
-							averages = conductScheme(curveParameter, n = n, m = m, run = 1, isVerbose = isVerbose)
+							averages = SchemeCANIFPPCT.conductScheme(curveParameter, n = n, m = m, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, n = n, m = m, run = run, isVerbose = isVerbose)
+								result = SchemeCANIFPPCT.conductScheme(curveParameter, n = n, m = m, run = run, isVerbose = isVerbose)
 								for index in range(queryLength, queryValidatorLength):
 									averages[index] += result[index]
 								for index in range(queryValidatorLength, length):

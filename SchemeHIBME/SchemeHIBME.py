@@ -99,7 +99,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -610,7 +610,9 @@ class Saver:
 			return False
 
 class SchemeHIBME:
-	__DefaultL = 30
+	__DefaultL, __DefaultM, __DefaultN = 30, 20, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
@@ -1055,148 +1057,149 @@ class SchemeHIBME:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, m:int = 20, n:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, lString, mString, nString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
-	timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec = ("N/A", ) * 7
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT = ("N/A", ) * 7
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(l, int):
-		lString = l
-	else:
-		flag = False
-	if isinstance(m, int):
-		mString = m
-	else:
-		flag = False
-	if isinstance(n, int):
-		nString = n
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$l$:", lString)
-		print("$m$:", mString)
-		print("$n$:", nString)
-		print("run:", runString)
-	if flag and 2 <= m < l and 2 <= n < l:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $l$, $m$, and $n$ should be three positive integers satisfying $2 \\leqslant m < l \\land 2 \\leqslant n < l$. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeHIBME = SchemeHIBME(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = schemeHIBME.getLengthOf(group.random(ZR)), schemeHIBME.getLengthOf(group.random(G1)), schemeHIBME.getLengthOf(group.random(G2)), schemeHIBME.getLengthOf(group.random(GT))
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, l:int = __DefaultL, m:int = __DefaultM, n:int = __DefaultN, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, lString, mString, nString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isDeriverPassed, isSchemeCorrect = False, False, False
+		timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec = ("N/A", ) * 7
+		sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+		sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT = ("N/A", ) * 7
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeHIBME.Setup(l = l)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeHIBME.getLengthOf(mpk), schemeHIBME.getLengthOf(msk)
-		
-		# EKGen #
-		startTime = perf_counter()
-		ID_Snd = tuple(group.random(ZR) for _ in range(n))
-		ek_ID_S = schemeHIBME.EKGen(ID_Snd)
-		endTime = perf_counter()
-		timeEKGen = endTime - startTime
-		sizeEkIDS = schemeHIBME.getLengthOf(ek_ID_S)
-		
-		# DerivedEKGen #
-		startTime = perf_counter()
-		ek_ID_SMinus1 = schemeHIBME.EKGen(ID_Snd[:-1]) # remove the last one to generate the ek_ID_SMinus1
-		ek_ID_SDerived = schemeHIBME.DerivedEKGen(ek_ID_SMinus1, ID_Snd)
-		endTime = perf_counter()
-		timeDerivedEKGen = endTime - startTime
-		sizeEkIDSDerived = schemeHIBME.getLengthOf(ek_ID_SDerived)
-		
-		# DKGen #
-		startTime = perf_counter()
-		ID_Rev = tuple(group.random(ZR) for _ in range(m))
-		dk_ID_R = schemeHIBME.DKGen(ID_Rev)
-		endTime = perf_counter()
-		timeDKGen = endTime - startTime
-		sizeDkIDR = schemeHIBME.getLengthOf(dk_ID_R)
-		
-		# DerivedDKGen #
-		startTime = perf_counter()
-		dk_ID_RMinus1 = schemeHIBME.DKGen(ID_Rev[:-1]) # remove the last one to generate the dk_ID_RMinus1
-		dk_ID_RDerived = schemeHIBME.DerivedDKGen(dk_ID_RMinus1, ID_Rev)
-		endTime = perf_counter()
-		timeDerivedDKGen = endTime - startTime
-		sizeDkIDRDerived = schemeHIBME.getLengthOf(dk_ID_RDerived)
-		
-		# Enc #
-		startTime = perf_counter()
-		message = int.from_bytes(b"SchemeHIBME", byteorder = "big")
-		CT = schemeHIBME.Enc(ek_ID_S, ID_Snd, ID_Rev, message)
-		CTDerived = schemeHIBME.Enc(ek_ID_SDerived, ID_Snd, ID_Rev, message)
-		endTime = perf_counter()
-		timeEnc = endTime - startTime
-		sizeCT = schemeHIBME.getLengthOf(CT)
-		
-		# Dec #
-		startTime = perf_counter()
-		M = schemeHIBME.Dec(dk_ID_R, ID_Rev, ID_Snd, CT)
-		MDerived = schemeHIBME.Dec(dk_ID_RDerived, ID_Rev, ID_Snd, CTDerived)
-		endTime = perf_counter()
-		isDeriverPassed = MDerived == message
-		isSchemeCorrect = M == message
-		timeDec = endTime - startTime
-		
-		# Destruction #
-		del schemeHIBME
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeHIBME.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeHIBME.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeHIBME.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeHIBME.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(l, int):
+			lString = l
+		else:
+			flag = False
+		if isinstance(m, int):
+			mString = m
+		else:
+			flag = False
+		if isinstance(n, int):
+			nString = n
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Derived:", MDerived)
-			print("Decrypted:", M)
-			print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
-			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT))
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$l$:", lString)
+			print("$m$:", mString)
+			print("$n$:", nString)
+			print("run:", runString)
+		if flag and 2 <= m < l and 2 <= n < l:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G2))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameters $l$, $m$, and $n$ should be three positive integers satisfying $2 \\leqslant m < l \\land 2 \\leqslant n < l$. ")
 			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, lString, mString, nString, runString, 
-		isSystemValid, isDeriverPassed, isSchemeCorrect, 
-		timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT
-	]
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeHIBME = SchemeHIBME(group)
+			sizeZR, sizeG1, sizeG2, sizeGT = schemeHIBME.getLengthOf(group.random(ZR)), schemeHIBME.getLengthOf(group.random(G1)), schemeHIBME.getLengthOf(group.random(G2)), schemeHIBME.getLengthOf(group.random(GT))
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeHIBME.Setup(l = l)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeHIBME.getLengthOf(mpk), schemeHIBME.getLengthOf(msk)
+			
+			# EKGen #
+			startTime = perf_counter()
+			ID_Snd = tuple(group.random(ZR) for _ in range(n))
+			ek_ID_S = schemeHIBME.EKGen(ID_Snd)
+			endTime = perf_counter()
+			timeEKGen = endTime - startTime
+			sizeEkIDS = schemeHIBME.getLengthOf(ek_ID_S)
+			
+			# DerivedEKGen #
+			startTime = perf_counter()
+			ek_ID_SMinus1 = schemeHIBME.EKGen(ID_Snd[:-1]) # remove the last one to generate the ek_ID_SMinus1
+			ek_ID_SDerived = schemeHIBME.DerivedEKGen(ek_ID_SMinus1, ID_Snd)
+			endTime = perf_counter()
+			timeDerivedEKGen = endTime - startTime
+			sizeEkIDSDerived = schemeHIBME.getLengthOf(ek_ID_SDerived)
+			
+			# DKGen #
+			startTime = perf_counter()
+			ID_Rev = tuple(group.random(ZR) for _ in range(m))
+			dk_ID_R = schemeHIBME.DKGen(ID_Rev)
+			endTime = perf_counter()
+			timeDKGen = endTime - startTime
+			sizeDkIDR = schemeHIBME.getLengthOf(dk_ID_R)
+			
+			# DerivedDKGen #
+			startTime = perf_counter()
+			dk_ID_RMinus1 = schemeHIBME.DKGen(ID_Rev[:-1]) # remove the last one to generate the dk_ID_RMinus1
+			dk_ID_RDerived = schemeHIBME.DerivedDKGen(dk_ID_RMinus1, ID_Rev)
+			endTime = perf_counter()
+			timeDerivedDKGen = endTime - startTime
+			sizeDkIDRDerived = schemeHIBME.getLengthOf(dk_ID_RDerived)
+			
+			# Enc #
+			startTime = perf_counter()
+			message = int.from_bytes(b"SchemeHIBME", byteorder = "big")
+			CT = schemeHIBME.Enc(ek_ID_S, ID_Snd, ID_Rev, message)
+			CTDerived = schemeHIBME.Enc(ek_ID_SDerived, ID_Snd, ID_Rev, message)
+			endTime = perf_counter()
+			timeEnc = endTime - startTime
+			sizeCT = schemeHIBME.getLengthOf(CT)
+			
+			# Dec #
+			startTime = perf_counter()
+			M = schemeHIBME.Dec(dk_ID_R, ID_Rev, ID_Snd, CT)
+			MDerived = schemeHIBME.Dec(dk_ID_RDerived, ID_Rev, ID_Snd, CTDerived)
+			endTime = perf_counter()
+			isDeriverPassed = MDerived == message
+			isSchemeCorrect = M == message
+			timeDec = endTime - startTime
+			
+			# Destruction #
+			del schemeHIBME
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Derived:", MDerived)
+				print("Decrypted:", M)
+				print("Is the deriver passed (M' == message)? {0}. ".format("Yes" if isDeriverPassed else "No"))
+				print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec))
+				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, lString, mString, nString, runString, 
+			isSystemValid, isDeriverPassed, isSchemeCorrect, 
+			timeSetup, timeEKGen, timeDerivedEKGen, timeDKGen, timeDerivedDKGen, timeEnc, timeDec, 
+			sizeZR, sizeG1, sizeG2, sizeGT, 
+			sizeMpk, sizeMsk, sizeEkIDS, sizeEkIDSDerived, sizeDkIDR, sizeDkIDRDerived, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1214,7 +1217,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("scheme", "curveName", "secparam", "l", "m", "n", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "l", "m", "n", "Run count")
 			validators = ("isSystemValid", "isDeriverPassed", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "EKGen (s)", "DerivedEKGen (s)", "DKGen (s)", "DerivedDKGen (s)", "Enc (s)", "Dec (s)", 
@@ -1233,9 +1236,9 @@ def main() -> int:
 					for l in range(10, 31, 5):
 						for m in range(5, l, 5):
 							for n in range(5, l, 5):
-								averages = conductScheme(curveParameter, l = l, m = m, n = n, run = 1, isVerbose = isVerbose)
+								averages = SchemeHIBME.conductScheme(curveParameter, l = l, m = m, n = n, run = 1, isVerbose = isVerbose)
 								for run in range(2, runCount + 1):
-									result = conductScheme(curveParameter, l = l, m = m, n = n, run = run, isVerbose = isVerbose)
+									result = SchemeHIBME.conductScheme(curveParameter, l = l, m = m, n = n, run = run, isVerbose = isVerbose)
 									for index in range(queryLength, queryValidatorLength):
 										averages[index] += result[index]
 									for index in range(queryValidatorLength, length):

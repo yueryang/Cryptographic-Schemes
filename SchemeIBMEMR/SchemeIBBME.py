@@ -99,7 +99,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -610,7 +610,9 @@ class Saver:
 			return False
 
 class SchemeIBBME:
-	__DefaultL = 30
+	__DefaultL, __DefaultN = 30, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
@@ -879,131 +881,132 @@ class SchemeIBBME:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, l:int = 30, n:int = 10, _seed:int|None = None, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, lString, nString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect = False, False
-	timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec = ("N/A", ) * 5
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt = ("N/A", ) * 5
-	seed = None
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(l, int):
-		lString = l
-	else:
-		flag = False
-	if isinstance(n, int):
-		nString = n
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$l$:", lString)
-		print("$n$:", nString)
-		print("run:", runString)
-	if flag and 1 <= n <= l:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-		seed = _seed if isinstance(_seed, int) and 0 <= _seed < n else randbelow(n)
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameter $l$ and $n$ should be two positive integers satisfying $1 \\leqslant n \\leqslant l$. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeIBBME = SchemeIBBME(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (
-			schemeIBBME.getLengthOf(group.random(ZR)), schemeIBBME.getLengthOf(group.random(G1)), 
-			schemeIBBME.getLengthOf(group.random(G2)), schemeIBBME.getLengthOf(group.random(GT))
-		)
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, l:int = __DefaultL, n:int = __DefaultN, _seed:int|None = None, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, lString, nString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isSchemeCorrect = False, False
+		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec = ("N/A", ) * 5
+		sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+		sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt = ("N/A", ) * 5
+		seed = None
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeIBBME.Setup(l = l)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeIBBME.getLengthOf(mpk), schemeIBBME.getLengthOf(msk)
-		
-		# EKGen #
-		startTime = perf_counter()
-		idStar = randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big")
-		ek_idStar = schemeIBBME.EKGen(idStar)
-		endTime = perf_counter()
-		timeEKGen = endTime - startTime
-		sizeEkIdStar = schemeIBBME.getLengthOf(ek_idStar)
-		
-		# DKGen #
-		startTime = perf_counter()
-		identity = randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big")
-		dk_id = schemeIBBME.DKGen(identity)
-		endTime = perf_counter()
-		timeDKGen = endTime - startTime
-		sizeDkId = schemeIBBME.getLengthOf(dk_id)
-		
-		# Enc #
-		startTime = perf_counter()
-		S = (
-			tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(seed)) + (identity, )
-			+ tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n - seed - 1))
-		)
-		message = group.random(GT)
-		ct = schemeIBBME.Enc(S, ek_idStar, message)
-		endTime = perf_counter()
-		timeEnc = endTime - startTime
-		sizeCt = schemeIBBME.getLengthOf(ct)
-		
-		# Dec #
-		startTime = perf_counter()
-		m = schemeIBBME.Dec(S, dk_id, idStar, ct)
-		endTime = perf_counter()
-		isSchemeCorrect = m == message
-		timeDec = endTime - startTime
-		
-		# Destruction #
-		del schemeIBBME
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeIBBME.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeIBBME.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeIBBME.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeIBBME.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(l, int):
+			lString = l
+		else:
+			flag = False
+		if isinstance(n, int):
+			nString = n
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Decrypted:", m)
-			print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt))
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$l$:", lString)
+			print("$n$:", nString)
+			print("run:", runString)
+		if flag and 1 <= n <= l:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G2))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+			seed = _seed if isinstance(_seed, int) and 0 <= _seed < n else randbelow(n)
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameter $l$ and $n$ should be two positive integers satisfying $1 \\leqslant n \\leqslant l$. ")
 			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, lString, nString, runString, 
-		isSystemValid, isSchemeCorrect, 
-		timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt
-	]
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeIBBME = SchemeIBBME(group)
+			sizeZR, sizeG1, sizeG2, sizeGT = (
+				schemeIBBME.getLengthOf(group.random(ZR)), schemeIBBME.getLengthOf(group.random(G1)), 
+				schemeIBBME.getLengthOf(group.random(G2)), schemeIBBME.getLengthOf(group.random(GT))
+			)
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeIBBME.Setup(l = l)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeIBBME.getLengthOf(mpk), schemeIBBME.getLengthOf(msk)
+			
+			# EKGen #
+			startTime = perf_counter()
+			idStar = randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big")
+			ek_idStar = schemeIBBME.EKGen(idStar)
+			endTime = perf_counter()
+			timeEKGen = endTime - startTime
+			sizeEkIdStar = schemeIBBME.getLengthOf(ek_idStar)
+			
+			# DKGen #
+			startTime = perf_counter()
+			identity = randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big")
+			dk_id = schemeIBBME.DKGen(identity)
+			endTime = perf_counter()
+			timeDKGen = endTime - startTime
+			sizeDkId = schemeIBBME.getLengthOf(dk_id)
+			
+			# Enc #
+			startTime = perf_counter()
+			S = (
+				tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(seed)) + (identity, )
+				+ tuple(randbelow(1 << group.secparam).to_bytes((group.secparam + 7) >> 3, byteorder = "big") for _ in range(n - seed - 1))
+			)
+			message = group.random(GT)
+			ct = schemeIBBME.Enc(S, ek_idStar, message)
+			endTime = perf_counter()
+			timeEnc = endTime - startTime
+			sizeCt = schemeIBBME.getLengthOf(ct)
+			
+			# Dec #
+			startTime = perf_counter()
+			m = schemeIBBME.Dec(S, dk_id, idStar, ct)
+			endTime = perf_counter()
+			isSchemeCorrect = m == message
+			timeDec = endTime - startTime
+			
+			# Destruction #
+			del schemeIBBME
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Decrypted:", m)
+				print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec))
+				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, lString, nString, runString, 
+			isSystemValid, isSchemeCorrect, 
+			timeSetup, timeEKGen, timeDKGen, timeEnc, timeDec, 
+			sizeZR, sizeG1, sizeG2, sizeGT, 
+			sizeMpk, sizeMsk, sizeEkIdStar, sizeDkId, sizeCt
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1021,7 +1024,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("scheme", "curveName", "secparam", "l", "n", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "l", "n", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", 
@@ -1039,9 +1042,9 @@ def main() -> int:
 				for curveParameter in curveParameters:
 					for l in range(5, 31, 5):
 						for n in range(5, l + 1, 5):
-							averages = conductScheme(curveParameter, l = l, n = n, run = 1, isVerbose = isVerbose)
+							averages = SchemeIBBME.conductScheme(curveParameter, l = l, n = n, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, l = l, n = n, run = run, isVerbose = isVerbose)
+								result = SchemeIBBME.conductScheme(curveParameter, l = l, n = n, run = run, isVerbose = isVerbose)
 								for index in range(queryLength, queryValidatorLength):
 									averages[index] += result[index]
 								for index in range(queryValidatorLength, length):

@@ -111,7 +111,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -939,8 +939,11 @@ class Patcher(ast.NodeTransformer):
 		return self.__nodeName
 
 class SchemeCoefficientComputation:
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	__DefaultRunCount = 10
 	__DefaultHint = "only applicable to symmetric groups"
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, *paths:tuple) -> object: # This scheme is a coefficient computation API comparator. 
 		self.__filePaths = []
 		self.__symmetricCurveParameters = (("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
@@ -985,16 +988,16 @@ class SchemeCoefficientComputation:
 	def __parseCurveParameter(curveParameter:tuple|list|dict|str) -> tuple: # (curveName, securityParameter), aligned with the parsing in other ``Scheme*/Scheme*.py``
 		curveName, securityParameter = "N/A", None # ``None`` indicates using the default security parameter of the curve
 		if isinstance(curveParameter, (tuple, list)):
-			if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
+			if len(curveParameter) >= 1 and SchemeCoefficientComputation.__CheckCurveName(curveParameter[0]):
 				curveName = curveParameter[0]
 			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
 				securityParameter = curveParameter[1]
 		elif isinstance(curveParameter, dict):
-			if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
+			if "curveName" in curveParameter and SchemeCoefficientComputation.__CheckCurveName(curveParameter["curveName"]):
 				curveName = curveParameter["curveName"]
 			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
 				securityParameter = curveParameter["securityParameter"]
-		elif isinstance(curveParameter, str) and curveParameter.isalnum():
+		elif SchemeCoefficientComputation.__CheckCurveName(curveParameter):
 			curveName = curveParameter
 		return (curveName, securityParameter)
 	def __conductBasicScheme(self:object, r:int = __DefaultRunCount, isVerbose:bool = True) -> list:
@@ -1010,6 +1013,7 @@ class SchemeCoefficientComputation:
 		if isVerbose is not False:
 			print("Scheme: {0}".format(schemeName))
 			print("Curves: {0}".format([(group.groupType(), group.secparam) for curveName, group in groups]))
+			print("Groups: {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
 			print("One: {0}".format(("reliable", "unreliable")))
 			print("Solution: {0}".format(tuple(self.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
 			print("runCount: {0}".format(runCount))
@@ -1032,7 +1036,8 @@ class SchemeCoefficientComputation:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
-					schemeName, group.groupType(), group.secparam, "reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
+					"reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1046,7 +1051,8 @@ class SchemeCoefficientComputation:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
-					schemeName, group.groupType(), group.secparam, "reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
+					"reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			
 			# Faulty #
@@ -1064,7 +1070,8 @@ class SchemeCoefficientComputation:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
-					schemeName, group.groupType(), group.secparam, "unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
+					"unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1078,7 +1085,8 @@ class SchemeCoefficientComputation:
 						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
-					schemeName, group.groupType(), group.secparam, "unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
+					"unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 		if isVerbose is not False:
 			print()
@@ -1136,9 +1144,11 @@ class SchemeCoefficientComputation:
 						curveName, securityParameter = SchemeCoefficientComputation.__parseCurveParameter(curveParameter)
 						if not isinstance(securityParameter, int):
 							securityParameter = PairingGroup(curveName).secparam
+						securityLevel = SchemeCoefficientComputation.__SecurityLevelMappings.get(curveName, "N/A")
 						if isVerbose is not False:
 							print("Scheme: {0}".format(filePath))
 							print("Curve: ({0}, {1})".format(curveName, securityParameter))
+							print("Security level: {0}".format(securityLevel))
 							print("One: {0}".format("reliable" if one else "unreliable"))
 							print("Solution: {0}".format(self.__getSolutionName(solution)))
 							print("runCount: {0}".format(runCount))
@@ -1151,7 +1161,7 @@ class SchemeCoefficientComputation:
 							endTime = perf_counter()
 							averageTimeConsumption = (endTime - startTime) / runCount
 							results.append([
-								scheme, curveName, securityParameter, "reliable" if one else "unreliable", 
+								scheme, curveName, securityParameter, securityLevel, "reliable" if one else "unreliable", 
 								self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption
 							])
 							if isVerbose is not False:
@@ -1189,7 +1199,7 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("scheme", "curveName", "secparam", "one", "solution", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "one", "solution", "runCount")
 			validators = ("correctness", )
 			metrics = ("timeConsumption (s)", )
 			

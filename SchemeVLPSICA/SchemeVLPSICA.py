@@ -100,7 +100,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -612,6 +612,8 @@ class Saver:
 
 class SchemeVLPSICA:
 	__DefaultM, __DefaultN, __DefaultD = 10, 10, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
@@ -862,136 +864,137 @@ class SchemeVLPSICA:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, m:int = 10, n:int = 10, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect = False, False
-	timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify = ("N/A", ) * 6
-	sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
-	sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec = ("N/A", ) * 8
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(m, int) and m >= 1:
-		mString = m
-	else:
-		flag = False
-	if isinstance(n, int) and n >= 1:
-		nString = n
-	else:
-		flag = False
-	if isinstance(d, int) and d >= 1:
-		dString = d
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$m$:", mString)
-		print("$n$:", nString)
-		print("$d$:", dString)
-		print("run:", runString)
-	if flag:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G2))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $m$, $n$, and $d$ should be three positive integers. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeVLPSICA = SchemeVLPSICA(group)
-		sizeZR, sizeG1, sizeG2, sizeGT = (
-			schemeVLPSICA.getLengthOf(group.random(ZR)), schemeVLPSICA.getLengthOf(group.random(G1)), 
-			schemeVLPSICA.getLengthOf(group.random(G2)), schemeVLPSICA.getLengthOf(group.random(GT))
-		)
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, m:int = DefaultM, n:int = DefaultN, d:int = DefaultD, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isSchemeCorrect = False, False
+		timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify = ("N/A", ) * 6
+		sizeZR, sizeG1, sizeG2, sizeGT = ("N/A", ) * 4
+		sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec = ("N/A", ) * 8
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeVLPSICA.Setup(m = m, n = n, d = d)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeVLPSICA.getLengthOf(mpk), schemeVLPSICA.getLengthOf(msk)
-		
-		# Sender #
-		startTime = perf_counter()
-		vVec = tuple(group.random(ZR) for _ in range(d))
-		YVec = tuple(group.random(ZR) for _ in range(n))
-		TTPrime, UUPrime = schemeVLPSICA.Sender(vVec, YVec)
-		endTime = perf_counter()
-		timeSender = endTime - startTime
-		sizeTTPrime, sizeUUPrime = schemeVLPSICA.getLengthOf(TTPrime), schemeVLPSICA.getLengthOf(UUPrime)
-		
-		# Receiver #
-		startTime = perf_counter()
-		XVec = tuple(group.random(ZR) for _ in range(m))
-		R, RPrimeVec = schemeVLPSICA.Receiver(vVec, XVec)
-		endTime = perf_counter()
-		timeReceiver = endTime - startTime
-		sizeR, sizeRPrimeVec = schemeVLPSICA.getLengthOf(R), schemeVLPSICA.getLengthOf(RPrimeVec)
-		
-		# Cloud1 #
-		startTime = perf_counter()
-		WVec = schemeVLPSICA.Cloud1(TTPrime, R)
-		endTime = perf_counter()
-		timeCloud1 = endTime - startTime
-		sizeWVec = schemeVLPSICA.getLengthOf(WVec)
-		
-		# Cloud2 #
-		startTime = perf_counter()
-		KVec = schemeVLPSICA.Cloud2(UUPrime, RPrimeVec)
-		endTime = perf_counter()
-		timeCloud2 = endTime - startTime
-		sizeKVec = schemeVLPSICA.getLengthOf(KVec)
-		
-		# Verify #
-		startTime = perf_counter()
-		result = schemeVLPSICA.Verify(KVec, WVec)
-		endTime = perf_counter()
-		isSchemeCorrect = result is not False
-		timeVerify = endTime - startTime
-		
-		# Destruction #
-		del schemeVLPSICA
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeVLPSICA.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeVLPSICA.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeVLPSICA.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeVLPSICA.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(m, int) and m >= 1:
+			mString = m
+		else:
+			flag = False
+		if isinstance(n, int) and n >= 1:
+			nString = n
+		else:
+			flag = False
+		if isinstance(d, int) and d >= 1:
+			dString = d
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Verify:", result)
-			print("Is the scheme correct (result is not False)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
-			print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$m$:", mString)
+			print("$n$:", nString)
+			print("$d$:", dString)
+			print("run:", runString)
+		if flag:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G2))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameters $m$, $n$, and $d$ should be three positive integers. ")
 			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, mString, nString, dString, runString, 
-		isSystemValid, isSchemeCorrect, 
-		timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify, 
-		sizeZR, sizeG1, sizeG2, sizeGT, 
-		sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec
-	]
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeVLPSICA = SchemeVLPSICA(group)
+			sizeZR, sizeG1, sizeG2, sizeGT = (
+				schemeVLPSICA.getLengthOf(group.random(ZR)), schemeVLPSICA.getLengthOf(group.random(G1)), 
+				schemeVLPSICA.getLengthOf(group.random(G2)), schemeVLPSICA.getLengthOf(group.random(GT))
+			)
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeVLPSICA.Setup(m = m, n = n, d = d)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeVLPSICA.getLengthOf(mpk), schemeVLPSICA.getLengthOf(msk)
+			
+			# Sender #
+			startTime = perf_counter()
+			vVec = tuple(group.random(ZR) for _ in range(d))
+			YVec = tuple(group.random(ZR) for _ in range(n))
+			TTPrime, UUPrime = schemeVLPSICA.Sender(vVec, YVec)
+			endTime = perf_counter()
+			timeSender = endTime - startTime
+			sizeTTPrime, sizeUUPrime = schemeVLPSICA.getLengthOf(TTPrime), schemeVLPSICA.getLengthOf(UUPrime)
+			
+			# Receiver #
+			startTime = perf_counter()
+			XVec = tuple(group.random(ZR) for _ in range(m))
+			R, RPrimeVec = schemeVLPSICA.Receiver(vVec, XVec)
+			endTime = perf_counter()
+			timeReceiver = endTime - startTime
+			sizeR, sizeRPrimeVec = schemeVLPSICA.getLengthOf(R), schemeVLPSICA.getLengthOf(RPrimeVec)
+			
+			# Cloud1 #
+			startTime = perf_counter()
+			WVec = schemeVLPSICA.Cloud1(TTPrime, R)
+			endTime = perf_counter()
+			timeCloud1 = endTime - startTime
+			sizeWVec = schemeVLPSICA.getLengthOf(WVec)
+			
+			# Cloud2 #
+			startTime = perf_counter()
+			KVec = schemeVLPSICA.Cloud2(UUPrime, RPrimeVec)
+			endTime = perf_counter()
+			timeCloud2 = endTime - startTime
+			sizeKVec = schemeVLPSICA.getLengthOf(KVec)
+			
+			# Verify #
+			startTime = perf_counter()
+			result = schemeVLPSICA.Verify(KVec, WVec)
+			endTime = perf_counter()
+			isSchemeCorrect = result is not False
+			timeVerify = endTime - startTime
+			
+			# Destruction #
+			del schemeVLPSICA
+			if isVerbose is not False:
+				print("Verify:", result)
+				print("Is the scheme correct (result is not False)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
+				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, mString, nString, dString, runString, 
+			isSystemValid, isSchemeCorrect, 
+			timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify, 
+			sizeZR, sizeG1, sizeG2, sizeGT, 
+			sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1009,7 +1012,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("scheme", "curveName", "secparam", "m", "n", "d", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "m", "n", "d", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)", 
@@ -1028,9 +1031,9 @@ def main() -> int:
 					for m in range(5, 31, 5):
 						for n in range(5, 31, 5):
 							for d in range(5, 31, 5):
-								averages = conductScheme(curveParameter, m = m, n = n, d = d, run = 1, isVerbose = isVerbose)
+								averages = SchemeVLPSICA.conductScheme(curveParameter, m = m, n = n, d = d, run = 1, isVerbose = isVerbose)
 								for run in range(2, runCount + 1):
-									result = conductScheme(curveParameter, m = m, n = n, d = d, run = run, isVerbose = isVerbose)
+									result = SchemeVLPSICA.conductScheme(curveParameter, m = m, n = n, d = d, run = run, isVerbose = isVerbose)
 									for index in range(queryLength, queryValidatorLength):
 										averages[index] += result[index]
 									for index in range(queryValidatorLength, length):

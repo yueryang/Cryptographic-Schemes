@@ -98,7 +98,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -609,6 +609,8 @@ class Saver:
 			return False
 
 class SchemeAIBE:
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		try:
@@ -738,101 +740,102 @@ class SchemeAIBE:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, runString = "N/A", 512, "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect = (False, ) * 2
-	timeSetup, timeExtract, timeEncrypt, timeDecrypt = ("N/A", ) * 4
-	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizePvkId, sizeCT = ("N/A", ) * 4
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("run:", runString)
-	if flag:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G1))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeAIBE = SchemeAIBE(group)
-		sizeZR, sizeG1G2, sizeGT = schemeAIBE.getLengthOf(group.random(ZR)), schemeAIBE.getLengthOf(group.random(G1)), schemeAIBE.getLengthOf(group.random(GT))
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, runString = "N/A", 512, "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isSchemeCorrect = (False, ) * 2
+		timeSetup, timeExtract, timeEncrypt, timeDecrypt = ("N/A", ) * 4
+		sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+		sizeMpk, sizeMsk, sizePvkId, sizeCT = ("N/A", ) * 4
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeAIBE.Setup()
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeAIBE.getLengthOf(mpk), schemeAIBE.getLengthOf(msk)
-		
-		# Extract #
-		startTime = perf_counter()
-		Id = group.random(ZR)
-		Pvk_Id = schemeAIBE.Extract(Id)
-		endTime = perf_counter()
-		timeExtract = endTime - startTime
-		sizePvkId = schemeAIBE.getLengthOf(Pvk_Id)
-		
-		# Encrypt #
-		startTime = perf_counter()
-		message = group.random(GT)
-		CT = schemeAIBE.Encrypt(Id, message)
-		endTime = perf_counter()
-		timeEncrypt = endTime - startTime
-		sizeCT = schemeAIBE.getLengthOf(CT)
-		
-		# Decrypt #
-		startTime = perf_counter()
-		M = schemeAIBE.Decrypt(Pvk_Id, CT)
-		endTime = perf_counter()
-		isSchemeCorrect = M == message
-		timeDecrypt = endTime - startTime
-		
-		# Destruction #
-		del schemeAIBE
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeAIBE.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeAIBE.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeAIBE.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeAIBE.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Decrypted:", M)
-			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeExtract, timeEncrypt, timeDecrypt))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizeCT))
-			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, runString, 
-		isSystemValid, isSchemeCorrect, 
-		timeSetup, timeExtract, timeEncrypt, timeDecrypt, 
-		sizeZR, sizeG1G2, sizeGT, 
-		sizeMpk, sizeMsk, sizePvkId, sizeCT
-	]
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("run:", runString)
+		if flag:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G1))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeAIBE = SchemeAIBE(group)
+			sizeZR, sizeG1G2, sizeGT = schemeAIBE.getLengthOf(group.random(ZR)), schemeAIBE.getLengthOf(group.random(G1)), schemeAIBE.getLengthOf(group.random(GT))
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeAIBE.Setup()
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeAIBE.getLengthOf(mpk), schemeAIBE.getLengthOf(msk)
+			
+			# Extract #
+			startTime = perf_counter()
+			Id = group.random(ZR)
+			Pvk_Id = schemeAIBE.Extract(Id)
+			endTime = perf_counter()
+			timeExtract = endTime - startTime
+			sizePvkId = schemeAIBE.getLengthOf(Pvk_Id)
+			
+			# Encrypt #
+			startTime = perf_counter()
+			message = group.random(GT)
+			CT = schemeAIBE.Encrypt(Id, message)
+			endTime = perf_counter()
+			timeEncrypt = endTime - startTime
+			sizeCT = schemeAIBE.getLengthOf(CT)
+			
+			# Decrypt #
+			startTime = perf_counter()
+			M = schemeAIBE.Decrypt(Pvk_Id, CT)
+			endTime = perf_counter()
+			isSchemeCorrect = M == message
+			timeDecrypt = endTime - startTime
+			
+			# Destruction #
+			del schemeAIBE
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Decrypted:", M)
+				print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeExtract, timeEncrypt, timeDecrypt))
+				print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizePvkId, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, runString, 
+			isSystemValid, isSchemeCorrect, 
+			timeSetup, timeExtract, timeEncrypt, timeDecrypt, 
+			sizeZR, sizeG1G2, sizeGT, 
+			sizeMpk, sizeMsk, sizePvkId, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -850,7 +853,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("scheme", "curveName", "secparam", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "Extract (s)", "Encrypt (s)", "Decrypt (s)", 
@@ -866,9 +869,9 @@ def main() -> int:
 			saver = Saver(outputFilePath, columns, decimalPlace = decimalPlace, encoding = encoding)
 			try:
 				for curveParameter in curveParameters:
-					averages = conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
+					averages = SchemeAIBE.conductScheme(curveParameter, run = 1, isVerbose = isVerbose)
 					for run in range(2, runCount + 1):
-						result = conductScheme(curveParameter, run = run, isVerbose = isVerbose)
+						result = SchemeAIBE.conductScheme(curveParameter, run = run, isVerbose = isVerbose)
 						for index in range(queryLength, queryValidatorLength):
 							averages[index] += result[index]
 						for index in range(queryValidatorLength, length):

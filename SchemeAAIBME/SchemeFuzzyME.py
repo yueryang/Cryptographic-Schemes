@@ -100,7 +100,7 @@ class Parser:
 	@staticmethod
 	def __parseRealNumber(string:str) -> int|float|None:
 		try:
-			realNumberString = "".join(character for character in string if character in "+-." or character.isalnum()).lower()
+			realNumberString = "".join(character for character in string if character in "+-." or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z').lower()
 			if "x" not in realNumberString and "e" in realNumberString and not realNumberString.endswith("e"):
 				return float(realNumberString)
 			else:
@@ -612,6 +612,8 @@ class Saver:
 
 class SchemeFuzzyME:
 	__DefaultN, __DefaultD = 30, 10
+	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		try:
@@ -929,132 +931,133 @@ class SchemeFuzzyME:
 			return sum(sizes) if all(isinstance(size, int) and size >= 1 for size in sizes) else "N/A"
 		else:
 			return "N/A"
-
-
-def conductScheme(curveParameter:tuple|list|dict|str, n:int = 30, d:int = 10, run:int|None = None, isVerbose:bool = True) -> list:
-	# Begin #
-	curveName, securityParameter, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
-	isSystemValid, isSchemeCorrect = False, False
-	timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption = ("N/A", ) * 5
-	sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
-	sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT = ("N/A", ) * 5
-	
-	# Checks #
-	if isinstance(curveParameter, (tuple, list)):
-		if len(curveParameter) >= 1 and isinstance(curveParameter[0], str) and curveParameter[0].isalnum():
-			curveName = curveParameter[0]
-		if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
-			securityParameter = curveParameter[1]
-	elif isinstance(curveParameter, dict):
-		if "curveName" in curveParameter and isinstance(curveParameter["curveName"], str) and curveParameter["curveName"].isalnum():
-			curveName = curveParameter["curveName"]
-		if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
-			securityParameter = curveParameter["securityParameter"]
-	elif isinstance(curveParameter, str) and curveParameter.isalnum():
-		curveName = curveParameter
-	flag = True
-	if isinstance(n, int):
-		nString = n
-	else:
-		flag = False
-	if isinstance(d, int):
-		dString = d
-	else:
-		flag = False
-	if isinstance(run, int) and run >= 1:
-		runString = run
-	if isVerbose is not False:
-		print("Curve: ({0}, {1})".format(curveName, securityParameter))
-		print("$n$:", nString)
-		print("$d$:", dString)
-		print("run:", runString)
-	if flag and 2 <= d <= n:
-		try:
-			group = PairingGroup(curveName, secparam = securityParameter)
-			pair(group.random(G1), group.random(G1))
-			isSystemValid = True
-			if isVerbose is not False:
-				print("Is the system valid? Yes. ")
-		except BaseException as e:
-			if isVerbose is not False:
-				print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
-				print()
-	elif isVerbose is not False:
-		print("Is the system valid? No. The parameters $n$ and $d$ should be two positive integers satisfying $2 \\leqslant d \\leqslant n$. ")
-		print()
-	
-	# Execution #
-	if isSystemValid:
-		# Initialization #
-		schemeFuzzyME = SchemeFuzzyME(group)
-		sizeZR, sizeG1G2, sizeGT = schemeFuzzyME.getLengthOf(group.random(ZR)), schemeFuzzyME.getLengthOf(group.random(G1)), schemeFuzzyME.getLengthOf(group.random(GT))
+	@staticmethod
+	def conductScheme(curveParameter:tuple|list|dict|str, n:int = __DefaultN, d:int = __DefaultD, run:int|None = None, isVerbose:bool = True) -> list:
+		# Begin #
+		curveName, securityParameter, securityLevel, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
+		isSystemValid, isSchemeCorrect = False, False
+		timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption = ("N/A", ) * 5
+		sizeZR, sizeG1G2, sizeGT = ("N/A", ) * 3
+		sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT = ("N/A", ) * 5
 		
-		# Setup #
-		startTime = perf_counter()
-		mpk, msk = schemeFuzzyME.Setup(n = n, d = d)
-		endTime = perf_counter()
-		timeSetup = endTime - startTime
-		sizeMpk, sizeMsk = schemeFuzzyME.getLengthOf(mpk), schemeFuzzyME.getLengthOf(msk)
-		
-		# EKGen #
-		startTime = perf_counter()
-		S_A = tuple(group.random(ZR) for _ in range(n))
-		ek_S_A = schemeFuzzyME.EKGen(S_A)
-		endTime = perf_counter()
-		timeEKGen = endTime - startTime
-		sizeEkSA = schemeFuzzyME.getLengthOf(ek_S_A)
-		
-		# DKGen #
-		startTime = perf_counter()
-		S_B = tuple(group.random(ZR) for _ in range(n))
-		P_A = list(S_A)
-		shuffle(P_A)
-		P_A = P_A[:d] + list(group.random(ZR) for _ in range(n - d))
-		shuffle(P_A)
-		P_A = tuple(P_A)
-		dk_SBPA = schemeFuzzyME.DKGen(S_B, P_A)
-		endTime = perf_counter()
-		timeDKGen = endTime - startTime
-		sizeDkSBPA = schemeFuzzyME.getLengthOf(dk_SBPA)
-		
-		# Encryption #
-		startTime = perf_counter()
-		P_B = list(S_B)
-		shuffle(P_B)
-		P_B = P_B[:d] + list(group.random(ZR) for _ in range(n - d))
-		shuffle(P_B)
-		P_B = tuple(P_B)
-		message = group.random(GT)
-		CT = schemeFuzzyME.Encryption(ek_S_A, S_A, P_B, message)
-		endTime = perf_counter()
-		timeEncryption = endTime - startTime
-		sizeCT = schemeFuzzyME.getLengthOf(CT)
-		
-		# Decryption #
-		startTime = perf_counter()
-		M = schemeFuzzyME.Decryption(dk_SBPA, S_A, P_A, S_B, P_B, CT)
-		endTime = perf_counter()
-		isSchemeCorrect = not isinstance(M, bool) and M == message
-		timeDecryption = endTime - startTime
-		
-		# Destruction #
-		del schemeFuzzyME
+		# Checks #
+		if isinstance(curveParameter, (tuple, list)):
+			if len(curveParameter) >= 1 and SchemeFuzzyME.__CheckCurveName(curveParameter[0]):
+				curveName = curveParameter[0]
+			if len(curveParameter) >= 2 and isinstance(curveParameter[1], int) and curveParameter[1] >= 1:
+				securityParameter = curveParameter[1]
+		elif isinstance(curveParameter, dict):
+			if "curveName" in curveParameter and SchemeFuzzyME.__CheckCurveName(curveParameter["curveName"]):
+				curveName = curveParameter["curveName"]
+			if "securityParameter" in curveParameter and isinstance(curveParameter["securityParameter"], int) and curveParameter["securityParameter"] >= 1:
+				securityParameter = curveParameter["securityParameter"]
+		elif SchemeFuzzyME.__CheckCurveName(curveParameter):
+			curveName = curveParameter
+		securityLevel = SchemeFuzzyME.__SecurityLevelMappings.get(curveName, securityLevel)
+		flag = True
+		if isinstance(n, int):
+			nString = n
+		else:
+			flag = False
+		if isinstance(d, int):
+			dString = d
+		else:
+			flag = False
+		if isinstance(run, int) and run >= 1:
+			runString = run
 		if isVerbose is not False:
-			print("Original:", message)
-			print("Decrypted:", M)
-			print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
-			print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption))
-			print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT))
+			print("Curve: ({0}, {1})".format(curveName, securityParameter))
+			print("$n$:", nString)
+			print("$d$:", dString)
+			print("run:", runString)
+		if flag and 2 <= d <= n:
+			try:
+				group = PairingGroup(curveName, secparam = securityParameter)
+				pair(group.random(G1), group.random(G1))
+				isSystemValid = True
+				if isVerbose is not False:
+					print("Is the system valid? Yes. ")
+			except BaseException as e:
+				if isVerbose is not False:
+					print("Is the system valid? No. Failed to create the ``PairingGroup`` instance due to {0}. ".format(repr(e)))
+					print()
+		elif isVerbose is not False:
+			print("Is the system valid? No. The parameters $n$ and $d$ should be two positive integers satisfying $2 \\leqslant d \\leqslant n$. ")
 			print()
-	
-	# End #
-	return [
-		Parser.getSchemeName(), curveName, securityParameter, nString, dString, runString, 
-		isSystemValid, isSchemeCorrect, 
-		timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption, 
-		sizeZR, sizeG1G2, sizeGT, 
-		sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT
-	]
+		
+		# Execution #
+		if isSystemValid:
+			# Initialization #
+			schemeFuzzyME = SchemeFuzzyME(group)
+			sizeZR, sizeG1G2, sizeGT = schemeFuzzyME.getLengthOf(group.random(ZR)), schemeFuzzyME.getLengthOf(group.random(G1)), schemeFuzzyME.getLengthOf(group.random(GT))
+			
+			# Setup #
+			startTime = perf_counter()
+			mpk, msk = schemeFuzzyME.Setup(n = n, d = d)
+			endTime = perf_counter()
+			timeSetup = endTime - startTime
+			sizeMpk, sizeMsk = schemeFuzzyME.getLengthOf(mpk), schemeFuzzyME.getLengthOf(msk)
+			
+			# EKGen #
+			startTime = perf_counter()
+			S_A = tuple(group.random(ZR) for _ in range(n))
+			ek_S_A = schemeFuzzyME.EKGen(S_A)
+			endTime = perf_counter()
+			timeEKGen = endTime - startTime
+			sizeEkSA = schemeFuzzyME.getLengthOf(ek_S_A)
+			
+			# DKGen #
+			startTime = perf_counter()
+			S_B = tuple(group.random(ZR) for _ in range(n))
+			P_A = list(S_A)
+			shuffle(P_A)
+			P_A = P_A[:d] + list(group.random(ZR) for _ in range(n - d))
+			shuffle(P_A)
+			P_A = tuple(P_A)
+			dk_SBPA = schemeFuzzyME.DKGen(S_B, P_A)
+			endTime = perf_counter()
+			timeDKGen = endTime - startTime
+			sizeDkSBPA = schemeFuzzyME.getLengthOf(dk_SBPA)
+			
+			# Encryption #
+			startTime = perf_counter()
+			P_B = list(S_B)
+			shuffle(P_B)
+			P_B = P_B[:d] + list(group.random(ZR) for _ in range(n - d))
+			shuffle(P_B)
+			P_B = tuple(P_B)
+			message = group.random(GT)
+			CT = schemeFuzzyME.Encryption(ek_S_A, S_A, P_B, message)
+			endTime = perf_counter()
+			timeEncryption = endTime - startTime
+			sizeCT = schemeFuzzyME.getLengthOf(CT)
+			
+			# Decryption #
+			startTime = perf_counter()
+			M = schemeFuzzyME.Decryption(dk_SBPA, S_A, P_A, S_B, P_B, CT)
+			endTime = perf_counter()
+			isSchemeCorrect = not isinstance(M, bool) and M == message
+			timeDecryption = endTime - startTime
+			
+			# Destruction #
+			del schemeFuzzyME
+			if isVerbose is not False:
+				print("Original:", message)
+				print("Decrypted:", M)
+				print("Is the scheme correct (M == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Time:", (timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption))
+				print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT))
+				print()
+		
+		# End #
+		return [
+			Parser.getSchemeName(), curveName, securityParameter, securityLevel, nString, dString, runString, 
+			isSystemValid, isSchemeCorrect, 
+			timeSetup, timeEKGen, timeDKGen, timeEncryption, timeDecryption, 
+			sizeZR, sizeG1G2, sizeGT, 
+			sizeMpk, sizeMsk, sizeEkSA, sizeDkSBPA, sizeCT
+		]
+
 
 def main() -> int:
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
@@ -1072,7 +1075,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("scheme", "curveName", "secparam", "n", "d", "runCount")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$n$", "$d$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "EKGen (s)", "DKGen (s)", "Encryption (s)", "Decryption (s)", 
@@ -1090,9 +1093,9 @@ def main() -> int:
 				for curveParameter in curveParameters:
 					for n in range(10, 31, 5):
 						for d in range(5, n, 5):
-							averages = conductScheme(curveParameter, n = n, d = d, run = 1, isVerbose = isVerbose)
+							averages = SchemeFuzzyME.conductScheme(curveParameter, n = n, d = d, run = 1, isVerbose = isVerbose)
 							for run in range(2, runCount + 1):
-								result = conductScheme(curveParameter, n = n, d = d, run = run, isVerbose = isVerbose)
+								result = SchemeFuzzyME.conductScheme(curveParameter, n = n, d = d, run = run, isVerbose = isVerbose)
 								for index in range(queryLength, queryValidatorLength):
 									averages[index] += result[index]
 								for index in range(queryValidatorLength, length):
