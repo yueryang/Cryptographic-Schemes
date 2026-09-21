@@ -501,7 +501,7 @@ class Saver:
 									if Saver.__fontXLSXValues is None:
 										Saver.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									if Saver.__escapeXLSX is None:
-										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character > ' ')
+										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character >= ' ')
 									workbook = Saver.__WorkbookXLSX()
 									worksheet = workbook.active
 									for columnIndex, columnName in enumerate(self.__columns, start = 1):

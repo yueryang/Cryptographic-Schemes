@@ -7,7 +7,7 @@ from getpass import getpass
 from importlib import import_module
 try:
 	from inflection import pluralize, singularize
-except:
+except Exception:
 	def pluralize(word:str) -> str:
 		return word + "s"
 	def singularize(word:str) -> str:
@@ -18,7 +18,7 @@ from time import sleep
 from zipfile import ZipFile
 try:
 	chdir(abspath(dirname(__file__)))
-except:
+except Exception:
 	pass
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
@@ -134,7 +134,7 @@ class Parser:
 				if minusSign:
 					realNumber = -realNumber
 				return realNumber
-		except:
+		except Exception:
 			return None
 	@staticmethod
 	def parse(args:tuple|list) -> tuple:
@@ -155,7 +155,7 @@ class Parser:
 					try:
 						lookup(arguments[index])
 						encoding = arguments[index]
-					except:
+					except Exception:
 						flag = EOF
 						buffers.append("Parser: The value [{0}] = {1} for the encoding option is invalid. ".format(index, repr(arguments[index])))
 				else:
@@ -219,7 +219,7 @@ class Parser:
 							buffers.append("Parser: The value [{0}] = {1} for the unit option should be a Python dictionary containing the keys \"i\" and \"o\". ".format(
 								index, repr(arguments[index])
 							))
-					except BaseException as e:
+					except Exception as e:
 						buffers.append("Parser: The value [{0}] = {1} for the unit option cannot be literally evaluated due to {2}. ".format(index, repr(arguments[index]), repr(e)))
 				else:
 					flag = EOF
@@ -247,7 +247,7 @@ class Parser:
 				if Parser.__tcsetattr is None:
 					Parser.__tcsetattr = __import__("termios").tcsetattr
 				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
-			except:
+			except Exception:
 				return False
 		return True
 	@staticmethod
@@ -265,7 +265,7 @@ class Parser:
 			try:
 				Parser.__tcsetattr(0, 0, Parser.__OriginalConsoleAttributes)
 				Parser.__OriginalConsoleAttributes = None
-			except:
+			except Exception:
 				return False
 		return True
 
@@ -325,7 +325,7 @@ class Loader:
 				Loader.__reader = __import__("csv").reader
 			with open(inputFilePath, "r", newline = "", encoding = encoding) as f:
 				return Loader.__rowsToMappings(list(Loader.__reader(f, delimiter = delimiter)))
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadHTML(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # HTM/HTML
@@ -356,7 +356,7 @@ class Loader:
 				tableParser.feed(f.read())
 			tableParser.close() # different from ``with TableParser(...) as ...``
 			return Loader.__rowsToMappings(tableParser.rows)
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __structuredDataToMappings(data:object) -> dict|BaseException: # {"columns":["x", "y"], "results":[[1, 1], [2, 4], [3, 9]]} -> {"x":[1, 2, 3], "y":[1, 4, 9]}
@@ -371,14 +371,14 @@ class Loader:
 				Loader.__loadJSON = __import__("json").load
 			with open(inputFilePath, "r", encoding = encoding) as f:
 				return Loader.__structuredDataToMappings(Loader.__loadJSON(f))
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadTXT(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # TXT
 		try:
 			with open(inputFilePath, "r", encoding = encoding) as f:
 				return Loader.__structuredDataToMappings(literal_eval(f.read()))
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __unescapeTEX(text:object) -> str: # the inverse of the ``escapeTEX`` used by the savers
@@ -415,7 +415,7 @@ class Loader:
 							strippedLine = strippedLine[:-2].rstrip()
 						rows.append([Loader.__unescapeTEX(cell) for cell in strippedLine.split(" & ")])
 			return Loader.__rowsToMappings(rows)
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadXLS(inputFilePath:str) -> dict|BaseException: # XLS
@@ -425,7 +425,7 @@ class Loader:
 			workbook = Loader.__open_workbook(inputFilePath)
 			worksheet = workbook.sheet_by_index(0)
 			return Loader.__rowsToMappings([worksheet.row_values(rowIndex) for rowIndex in range(worksheet.nrows)])
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadXLSX(inputFilePath:str) -> dict|BaseException: # XLSX
@@ -437,7 +437,7 @@ class Loader:
 				return Loader.__rowsToMappings([tuple(row) for row in workbook.active.iter_rows(values_only = True)])
 			finally:
 				workbook.close()
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadXML(inputFilePath:str) -> dict|BaseException: # XML
@@ -449,7 +449,7 @@ class Loader:
 			for result in root.iter("result"):
 				rows.append([element.text or "" for element in result.iter("r")])
 			return Loader.__rowsToMappings(rows)
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __loadYAML(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # YAML/YML
@@ -477,7 +477,7 @@ class Loader:
 						elif line.startswith("  - []"):
 							rows.append([])
 			return Loader.__rowsToMappings(rows)
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def load(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # {"x":[1, 2, 3], "y":[1, 4, 9]}
@@ -511,7 +511,7 @@ class Loader:
 					return currentMappings
 				else:
 					return mappings
-		except BaseException as e:
+		except Exception as e:
 			return e
 
 class Drawer:
@@ -578,7 +578,7 @@ class Drawer:
 				Drawer.__plt.rcParams["mathtext.it"] = "Times New Roman:italic"
 				Drawer.__plt.rcParams["mathtext.bfit"] = "Times New Roman:bold:italic"
 			return True
-		except BaseException as e:
+		except Exception as e:
 			return e
 	@staticmethod
 	def __checkNumbers(numbers:tuple|list) -> bool:
@@ -631,7 +631,7 @@ class Drawer:
 					Drawer.__plt.savefig(buffer, format = "pdf")
 					Drawer.__plt.close()
 					return buffer.getvalue()
-			except BaseException as e:
+			except Exception as e:
 				return e
 		else:
 			return TypeError("The curves should be a tuple or a list containing at least one dictionary. ")
@@ -644,8 +644,30 @@ class Drawer:
 				sanitizedWord =  " ".join("".join(
 					character for character in word if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
 				).split()).lstrip(" )-0123456789").rstrip(" (-")
-				return sanitizedWord if sanitizedWord else None
-		except:
+				if sanitizedWord:
+					currentWord = []
+					lowercaseSanitizedWord = []
+					for character in sanitizedWord:
+						if '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z':
+							currentWord.append(character)
+						else:
+							if currentWord:
+								if len(currentWord) >= 2 and 'A' <= currentWord[0] <= 'Z' and 'A' <= currentWord[1] <= 'Z':
+									lowercaseSanitizedWord.extend(currentWord)
+									currentWord.clear()
+								else:
+									lowercaseSanitizedWord.extend(currentCharacter.lower() for currentCharacter in currentWord)
+									currentWord.clear()
+							lowercaseSanitizedWord.append(character)
+					if currentWord:
+						if len(currentWord) >= 2 and 'A' <= currentWord[0] <= 'Z' and 'A' <= currentWord[1] <= 'Z':
+							lowercaseSanitizedWord.extend(currentWord)
+						else:
+							lowercaseSanitizedWord.extend(currentCharacter.lower() for currentCharacter in currentWord)
+					return "".join(lowercaseSanitizedWord)
+				else:
+					return None
+		except Exception:
 			return None
 	@staticmethod
 	def __pluralize(singular:str) -> str:
@@ -669,7 +691,7 @@ class Drawer:
 				return "{0}{1}{2}".format(itemPrefix, items[0], itemSuffix)
 			else:
 				return ""
-		except:
+		except Exception:
 			return None
 	@staticmethod
 	def __addArticle(bareness:str) -> str:
@@ -869,6 +891,7 @@ class Drawer:
 					"\\documentclass[a4paper]{article}", "\\setlength{\\parindent}{0pt}", "\\usepackage{amsmath,amssymb}", 
 					"\\usepackage{bm}", "\\usepackage{graphicx}", "\\usepackage{booktabs}", "", "\\begin{document}", ""
 				))}
+				validFigureTEXCount = 0
 				for groupingVariableName in groupingVariableNames:
 					groupingVariableIndex = variables.index(groupingVariableName) # for naming purposes
 					groupingVariableValues = []
@@ -931,10 +954,20 @@ class Drawer:
 									)
 									if isinstance(figureTEX, str) and figureTEX:
 										byteMappings["main.tex"] += figureTEX.strip() + linesep * 2
+										validFigureTEXCount += 1
+										if validFigureTEXCount % 10 == 0:
+											byteMappings["main.tex"] += "\\clearpage" + linesep * 2
 				byteMappings["main.tex"] += "\\end{document}"
 				try:
-					byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding)
-				except:
+					try:
+						lookup(encoding)
+						try:
+							byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding)
+						except Exception:
+							byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding, errors = "ignore")
+					except Exception:
+						byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding())
+				except Exception:
 					byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding(), errors = "ignore")
 				return byteMappings
 			else:
@@ -986,18 +1019,19 @@ class Analyzer:
 		elif isinstance(mappings, dict) and all(isinstance(key, str) and Drawer.checkValues(value) for key, value in mappings.items()) and len(set(len(value) for value in mappings.values())) == 1:
 			variables = tuple(mappings.keys())
 			lowercaseVariables = tuple(variable.lower() for variable in variables)
-			for possibleGroupingVariableName in ("solution", "scheme", "algorithm"):
+			for possibleGroupingVariableName in ("algorithm", "scheme", "solution"):
 				if possibleGroupingVariableName in lowercaseVariables:
 					groupingVariableIndex = lowercaseVariables.index(possibleGroupingVariableName)
 					break
 			else:
 				return ValueError("Failed to find a suitable grouping variable in the mappings. ")
-			for possibleRunCountVariableName in ("runcount", "run"):
+			for possibleRunCountVariableName in ("run", "run count"):
 				if possibleRunCountVariableName in lowercaseVariables:
 					runCountVariableIndex = lowercaseVariables.index(possibleRunCountVariableName)
 					break
 			else:
 				return ValueError("Failed to find a suitable run count variable in the mappings. ")
+			runCountVariableName = variables[runCountVariableIndex]
 			dependentVariableIndexes = tuple(variableIndex for variableIndex, variableName in enumerate(variables[runCountVariableIndex + 1:], start = runCountVariableIndex + 1) if (
 				(Drawer.checkConsumptionLikeVariableName(variableName) and not variableName.lower().startswith("elementof")) or Drawer.checkInlineMathematicalMode(variableName)
 			))
@@ -1008,7 +1042,7 @@ class Analyzer:
 				validationVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex, dependentVariableIndexes[0]))
 				validationVariableNames = tuple(variables[variableIndex] for variableIndex in validationVariableIndexes)
 				for valueIndex in range(len(next(iter(mappings.values()))) - 1, -1, -1): # remove failed experiments
-					runCountVariableValue = mappings["runCount"][valueIndex]
+					runCountVariableValue = mappings[runCountVariableName][valueIndex]
 					for validationVariableName in validationVariableNames[1:]:
 						if mappings[validationVariableName][valueIndex] != runCountVariableValue:
 							break
@@ -1023,16 +1057,21 @@ class Analyzer:
 					byteMappings = Drawer.drawMappings(mappings, independentVariableIndexes, dependentVariableIndexes, groupingVariableIndex)
 					if isinstance(byteMappings, dict):
 						compressionMappings = {}
-						with ZipFile(self.__outputFilePath if ".zip" == splitext(self.__outputFilePath)[1].lower() else self.__outputFilePath + ".zip", "w") as zf:
-							for key, value in byteMappings.items():
-								if isinstance(key, str) and isinstance(value, bytes):
-									zf.writestr(key, value)
-								else:
-									compressionMappings[key] = value
+						while True: # try our best to avoid ``KeyboardInterrupt`` when writing the output file
+							try:
+								with ZipFile(self.__outputFilePath if ".zip" == splitext(self.__outputFilePath)[1].lower() else self.__outputFilePath + ".zip", "w") as zf:
+									for key, value in byteMappings.items():
+										if isinstance(key, str) and isinstance(value, bytes):
+											zf.writestr(key, value)
+										else:
+											compressionMappings[key] = value
+								break
+							except KeyboardInterrupt:
+								continue
 						return compressionMappings if compressionMappings else True
 					else:
 						return byteMappings
-				except BaseException as e:
+				except Exception as e:
 					return e
 			else:
 				return ValueError("Data loaded do not contain suitable query, validator or metric variables. ")
@@ -1125,7 +1164,7 @@ class Analyzers:
 							absoluteFilePath = abspath(element)
 							if absoluteFilePath not in self.__units:
 								self.__units.append(absoluteFilePath)
-				except BaseException as e:
+				except Exception as e:
 					print("Analyzers: Some or all of {0} were not added to the units due to {1}. ".format(repr(element), repr(e)))
 			elif isinstance(element, dict) and "i" in element and isinstance(element["i"], (tuple, list, str)) and "o" in element and isinstance(element["o"], str):
 				try:
@@ -1138,7 +1177,7 @@ class Analyzers:
 							"i":inputFilePaths, "o":outputFilePath, "e":element["e"] if "e" in element and isinstance(element["e"], str) else self.__encoding, 
 							"p":element["p"] if "p" in element and isinstance(element["p"], int) and element["p"] >= 0 else self.__decimalPlace
 						})
-				except BaseException as e:
+				except Exception as e:
 					print("Analyzers: Failed to add the unit {0} to the units due to {1}. ".format(repr(element), repr(e)))
 		index, length = originalLength, len(self.__units)
 		while index < length:
@@ -1180,15 +1219,22 @@ def main() -> int:
 	flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
 	if flag > EXIT_SUCCESS and flag > EOF:
-		analyzers = Analyzers(units, formatString = outputPathWithoutAnExtension, encoding = encoding, decimalPlace = decimalPlace)
-		totalCount = len(analyzers)
-		if totalCount >= 1:
-			successCount = analyzers.analyze()
+		try:
+			analyzers = Analyzers(units, formatString = outputPathWithoutAnExtension, encoding = encoding, decimalPlace = decimalPlace)
+			totalCount = len(analyzers)
+			if totalCount >= 1:
+				successCount = analyzers.analyze()
+				print()
+				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
+			else:
+				errorLevel = EOF
+				print("Nothing analyzed, please check the input paths and the runtime environments. ")
+		except KeyboardInterrupt:
 			print()
-			errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
-		else:
-			errorLevel = EOF
-			print("Nothing analyzed, please check the input paths and the runtime environments. ")
+			print("The analysis was interrupted by users. Saved archives are retained. ")
+		except BaseException as e:
+			print()
+			print("The analysis was interrupted by {0}. Saved archives are retained. ".format(repr(e)))
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 	else:

@@ -373,7 +373,7 @@ class Builder:
 		elif string in (
 			"Basic: Failed to initialize the curve with name {0} due to {1}. ", "Basic: {0} failed on {1} due to {2}. ", "Curve: ({0}, {1})", "Curves: {0}", 
 			"Device: Failed to parse {0} due to {1}. ", "Device: Failed to patch {0} with {1} due to {2}. ", "Device: {0} failed on {1} due to {2}. ", 
-			"Is the scheme correct? {0}. ", "One: {0}", "Scheme: {0}", "Solution: {0}", "Time: {0}", "runCount: {0}"
+			"Is the scheme correct? {0}. ", "One: {0}", "Scheme: {0}", "Solution: {0}", "Time: {0}", "Run count: {0}"
 		):
 			return True
 		elif not functionName:

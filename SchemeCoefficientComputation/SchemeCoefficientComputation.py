@@ -511,7 +511,7 @@ class Saver:
 									if Saver.__fontXLSXValues is None:
 										Saver.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									if Saver.__escapeXLSX is None:
-										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character > ' ')
+										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character >= ' ')
 									workbook = Saver.__WorkbookXLSX()
 									worksheet = workbook.active
 									for columnIndex, columnName in enumerate(self.__columns, start = 1):
@@ -1016,7 +1016,7 @@ class SchemeCoefficientComputation:
 			print("Groups: {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
 			print("One: {0}".format(("reliable", "unreliable")))
 			print("Solution: {0}".format(tuple(self.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
-			print("runCount: {0}".format(runCount))
+			print("Run count: {0}".format(runCount))
 		for curveName, group in groups:
 			roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
 			k = group.init(ZR, 7)
@@ -1115,7 +1115,11 @@ class SchemeCoefficientComputation:
 			chdir(originalDirectory)
 		conduct = namespace.get("conductScheme")
 		if not callable(conduct):
-			raise ValueError("The module-level ``conductScheme`` function was not found. ")
+			schemeClass = namespace.get(nodeName)
+			if schemeClass is not None:
+				conduct = getattr(schemeClass, "conductScheme", None)
+		if not callable(conduct):
+			raise ValueError("The module-level or class-level ``conductScheme`` function was not found. ")
 		return nodeName, conduct
 	@staticmethod
 	def __isSchemeResultCorrect(result:object) -> bool:
@@ -1151,7 +1155,7 @@ class SchemeCoefficientComputation:
 							print("Security level: {0}".format(securityLevel))
 							print("One: {0}".format("reliable" if one else "unreliable"))
 							print("Solution: {0}".format(self.__getSolutionName(solution)))
-							print("runCount: {0}".format(runCount))
+							print("Run count: {0}".format(runCount))
 						try:
 							correctness = 0
 							startTime = perf_counter()
@@ -1199,9 +1203,9 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "one", "solution", "runCount")
-			validators = ("correctness", )
-			metrics = ("timeConsumption (s)", )
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "One", "Solution", "Run count")
+			validators = ("Correctness", )
+			metrics = ("Time consumption (s)", )
 			
 			# Scheme #
 			columns, queryLength, results = queries + validators + metrics, len(queries), []
