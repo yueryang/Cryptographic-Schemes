@@ -8,6 +8,7 @@ except:
 from codecs import lookup
 from getpass import getpass
 from hashlib import md5, sha1, sha3_224, sha3_256, sha3_384, sha3_512
+from importlib import import_module
 from math import ceil, log
 from secrets import randbelow
 from time import perf_counter, sleep
@@ -257,16 +258,16 @@ class Parser:
 		if "posix" == name:
 			try:
 				if Parser.__tcgetattr is None:
-					Parser.__tcgetattr = __import__("termios").tcgetattr
+					Parser.__tcgetattr = import_module("termios").tcgetattr
 				if Parser.__OriginalConsoleAttributes is None:
 					Parser.__OriginalConsoleAttributes = Parser.__tcgetattr(0)
 				if Parser.__ECHOLESSNESS is None:
-					Parser.__ECHOLESSNESS = ~__import__("termios").ECHO
+					Parser.__ECHOLESSNESS = ~import_module("termios").ECHO
 				if Parser.__EcholessConsoleAttributes is None:
 					Parser.__EcholessConsoleAttributes = Parser.__tcgetattr(0)
 					Parser.__EcholessConsoleAttributes[3] &= Parser.__ECHOLESSNESS
 				if Parser.__tcsetattr is None:
-					Parser.__tcsetattr = __import__("termios").tcsetattr
+					Parser.__tcsetattr = import_module("termios").tcsetattr
 				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
 			except:
 				return False
@@ -371,7 +372,7 @@ class Saver:
 							try:
 								if "CSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f)
 										writer.writerow(self.__columns)
@@ -409,7 +410,7 @@ class Saver:
 										f.write("\t\t\t</tbody>\n\t\t</table>\n\t</body>\n</html>")
 								elif "JSON" == self.__extensionName:
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										f.write(Saver.__dumpsJSON({"columns":self.__columns, "results":results}, indent = "\t", sort_keys = True, ensure_ascii = True))
 								elif "TEX" == self.__extensionName:
@@ -455,7 +456,7 @@ class Saver:
 										f.write("\\end{sidewaystable}\n\n\\end{document}")
 								elif "TSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f, delimiter = '\t')
 										writer.writerow(self.__columns)
@@ -463,24 +464,24 @@ class Saver:
 											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
 								elif "XLS" == self.__extensionName:
 									if Saver.__WorkbookXLS is None:
-										Saver.__WorkbookXLS = __import__("xlwt").Workbook
+										Saver.__WorkbookXLS = import_module("xlwt").Workbook
 									if Saver.__styleXLSColumns is None:
-										Saver.__styleXLSColumns = __import__("xlwt").XFStyle()
-										Saver.__styleXLSColumns.font = __import__("xlwt").Font()
+										Saver.__styleXLSColumns = import_module("xlwt").XFStyle()
+										Saver.__styleXLSColumns.font = import_module("xlwt").Font()
 										Saver.__styleXLSColumns.font.name = "Times New Roman"
 										Saver.__styleXLSColumns.font.height = 240 # 12 * 20
 										Saver.__styleXLSColumns.font.bold = True
-										Saver.__styleXLSColumns.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSColumns.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSColumns.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSColumns.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSColumns.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSColumns.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									if Saver.__styleXLSValues is None:
-										Saver.__styleXLSValues = __import__("xlwt").XFStyle()
-										Saver.__styleXLSValues.font = __import__("xlwt").Font()
+										Saver.__styleXLSValues = import_module("xlwt").XFStyle()
+										Saver.__styleXLSValues.font = import_module("xlwt").Font()
 										Saver.__styleXLSValues.font.name = "Times New Roman"
 										Saver.__styleXLSValues.font.height = 240 # 12 * 20
-										Saver.__styleXLSValues.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSValues.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSValues.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSValues.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSValues.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSValues.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									workbook = Saver.__WorkbookXLS(encoding = self.__encoding)
 									worksheet = workbook.add_sheet(Parser.getSchemeName())
 									for columnIndex, columnName in enumerate(self.__columns):
@@ -493,13 +494,13 @@ class Saver:
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if Saver.__WorkbookXLSX is None:
-										Saver.__WorkbookXLSX = __import__("openpyxl").Workbook
+										Saver.__WorkbookXLSX = import_module("openpyxl").Workbook
 									if Saver.__alignmentXLSX is None:
-										Saver.__alignmentXLSX = __import__("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
+										Saver.__alignmentXLSX = import_module("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
 									if Saver.__fontXLSXColumns is None:
-										Saver.__fontXLSXColumns = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+										Saver.__fontXLSXColumns = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
 									if Saver.__fontXLSXValues is None:
-										Saver.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
+										Saver.__fontXLSXValues = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									if Saver.__escapeXLSX is None:
 										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character >= ' ')
 									workbook = Saver.__WorkbookXLSX()
@@ -542,7 +543,7 @@ class Saver:
 										f.write("\t</results>\n</data>")
 								elif self.__extensionName in ("YAML", "YML"):
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										if self.__columns:
 											f.write("columns:\n")

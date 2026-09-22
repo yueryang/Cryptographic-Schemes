@@ -7,6 +7,7 @@ except:
 	PairingGroup, G1, GT, ZR, pair, Element = (None, ) * 6
 from codecs import lookup
 from getpass import getpass
+from importlib import import_module
 from time import perf_counter, sleep
 from warnings import filterwarnings
 filterwarnings(
@@ -254,16 +255,16 @@ class Parser:
 		if "posix" == name:
 			try:
 				if Parser.__tcgetattr is None:
-					Parser.__tcgetattr = __import__("termios").tcgetattr
+					Parser.__tcgetattr = import_module("termios").tcgetattr
 				if Parser.__OriginalConsoleAttributes is None:
 					Parser.__OriginalConsoleAttributes = Parser.__tcgetattr(0)
 				if Parser.__ECHOLESSNESS is None:
-					Parser.__ECHOLESSNESS = ~__import__("termios").ECHO
+					Parser.__ECHOLESSNESS = ~import_module("termios").ECHO
 				if Parser.__EcholessConsoleAttributes is None:
 					Parser.__EcholessConsoleAttributes = Parser.__tcgetattr(0)
 					Parser.__EcholessConsoleAttributes[3] &= Parser.__ECHOLESSNESS
 				if Parser.__tcsetattr is None:
-					Parser.__tcsetattr = __import__("termios").tcsetattr
+					Parser.__tcsetattr = import_module("termios").tcsetattr
 				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
 			except:
 				return False

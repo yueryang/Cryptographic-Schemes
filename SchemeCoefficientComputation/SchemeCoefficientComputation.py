@@ -9,6 +9,7 @@ except:
 from codecs import lookup
 from copy import deepcopy
 from getpass import getpass
+from importlib import import_module
 from inspect import getsource
 from itertools import combinations
 try:
@@ -267,16 +268,16 @@ class Parser:
 		if "posix" == name:
 			try:
 				if Parser.__tcgetattr is None:
-					Parser.__tcgetattr = __import__("termios").tcgetattr
+					Parser.__tcgetattr = import_module("termios").tcgetattr
 				if Parser.__OriginalConsoleAttributes is None:
 					Parser.__OriginalConsoleAttributes = Parser.__tcgetattr(0)
 				if Parser.__ECHOLESSNESS is None:
-					Parser.__ECHOLESSNESS = ~__import__("termios").ECHO
+					Parser.__ECHOLESSNESS = ~import_module("termios").ECHO
 				if Parser.__EcholessConsoleAttributes is None:
 					Parser.__EcholessConsoleAttributes = Parser.__tcgetattr(0)
 					Parser.__EcholessConsoleAttributes[3] &= Parser.__ECHOLESSNESS
 				if Parser.__tcsetattr is None:
-					Parser.__tcsetattr = __import__("termios").tcsetattr
+					Parser.__tcsetattr = import_module("termios").tcsetattr
 				Parser.__tcsetattr(0, 0, Parser.__EcholessConsoleAttributes)
 			except:
 				return False
@@ -381,7 +382,7 @@ class Saver:
 							try:
 								if "CSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f)
 										writer.writerow(self.__columns)
@@ -419,7 +420,7 @@ class Saver:
 										f.write("\t\t\t</tbody>\n\t\t</table>\n\t</body>\n</html>")
 								elif "JSON" == self.__extensionName:
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										f.write(Saver.__dumpsJSON({"columns":self.__columns, "results":results}, indent = "\t", sort_keys = True, ensure_ascii = True))
 								elif "TEX" == self.__extensionName:
@@ -465,7 +466,7 @@ class Saver:
 										f.write("\\end{sidewaystable}\n\n\\end{document}")
 								elif "TSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f, delimiter = '\t')
 										writer.writerow(self.__columns)
@@ -473,24 +474,24 @@ class Saver:
 											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
 								elif "XLS" == self.__extensionName:
 									if Saver.__WorkbookXLS is None:
-										Saver.__WorkbookXLS = __import__("xlwt").Workbook
+										Saver.__WorkbookXLS = import_module("xlwt").Workbook
 									if Saver.__styleXLSColumns is None:
-										Saver.__styleXLSColumns = __import__("xlwt").XFStyle()
-										Saver.__styleXLSColumns.font = __import__("xlwt").Font()
+										Saver.__styleXLSColumns = import_module("xlwt").XFStyle()
+										Saver.__styleXLSColumns.font = import_module("xlwt").Font()
 										Saver.__styleXLSColumns.font.name = "Times New Roman"
 										Saver.__styleXLSColumns.font.height = 240 # 12 * 20
 										Saver.__styleXLSColumns.font.bold = True
-										Saver.__styleXLSColumns.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSColumns.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSColumns.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSColumns.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSColumns.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSColumns.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									if Saver.__styleXLSValues is None:
-										Saver.__styleXLSValues = __import__("xlwt").XFStyle()
-										Saver.__styleXLSValues.font = __import__("xlwt").Font()
+										Saver.__styleXLSValues = import_module("xlwt").XFStyle()
+										Saver.__styleXLSValues.font = import_module("xlwt").Font()
 										Saver.__styleXLSValues.font.name = "Times New Roman"
 										Saver.__styleXLSValues.font.height = 240 # 12 * 20
-										Saver.__styleXLSValues.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSValues.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSValues.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSValues.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSValues.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSValues.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									workbook = Saver.__WorkbookXLS(encoding = self.__encoding)
 									worksheet = workbook.add_sheet(Parser.getSchemeName())
 									for columnIndex, columnName in enumerate(self.__columns):
@@ -503,13 +504,13 @@ class Saver:
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if Saver.__WorkbookXLSX is None:
-										Saver.__WorkbookXLSX = __import__("openpyxl").Workbook
+										Saver.__WorkbookXLSX = import_module("openpyxl").Workbook
 									if Saver.__alignmentXLSX is None:
-										Saver.__alignmentXLSX = __import__("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
+										Saver.__alignmentXLSX = import_module("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
 									if Saver.__fontXLSXColumns is None:
-										Saver.__fontXLSXColumns = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+										Saver.__fontXLSXColumns = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
 									if Saver.__fontXLSXValues is None:
-										Saver.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
+										Saver.__fontXLSXValues = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									if Saver.__escapeXLSX is None:
 										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character >= ' ')
 									workbook = Saver.__WorkbookXLSX()
@@ -552,7 +553,7 @@ class Saver:
 										f.write("\t</results>\n</data>")
 								elif self.__extensionName in ("YAML", "YML"):
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										if self.__columns:
 											f.write("columns:\n")
@@ -983,7 +984,9 @@ class SchemeCoefficientComputation:
 	@staticmethod
 	def __getSolutionName(solution:object, offset:int|None = 1) -> str:
 		solutionName = getattr(solution, "__qualname__", getattr(solution, "__name__", repr(solution)))
-		return ".".join(solutionName.split(".")[offset if isinstance(offset, int) and offset >= 0 else None:])
+		solutionName = ".".join(solutionName.split(".")[offset if isinstance(offset, int) and offset >= 0 else None:])
+		solutionName = solutionName.replace("Highest", "H").replace("Constant", "C").replace("compute", "").replace("Coefficients", "")
+		return solutionName + "Ours" if solutionName.endswith(".") else solutionName
 	@staticmethod
 	def __parseCurveParameter(curveParameter:tuple|list|dict|str) -> tuple: # (curveName, securityParameter), aligned with the parsing in other ``Scheme*/Scheme*.py``
 		curveName, securityParameter = "N/A", None # ``None`` indicates using the default security parameter of the curve
@@ -1015,7 +1018,7 @@ class SchemeCoefficientComputation:
 			print("Curves: {0}".format([(group.groupType(), group.secparam) for curveName, group in groups]))
 			print("Groups: {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
 			print("$1$: {0}".format(("reliable", "unreliable")))
-			print("Solution: {0}".format(tuple(self.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
+			print("Solution: {0}".format(tuple(SchemeCoefficientComputation.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
 			print("Run count: {0}".format(runCount))
 		for curveName, group in groups:
 			roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
@@ -1033,11 +1036,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[:-1] == answer2Lowest2Highest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"reliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					"reliable", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1048,11 +1051,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[1:] == answer2Highest2Lowest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"reliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					"reliable", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			
 			# Faulty #
@@ -1067,11 +1070,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[:-1] == answer2Lowest2Highest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"unreliable", self.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					"unreliable", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1082,11 +1085,11 @@ class SchemeCoefficientComputation:
 						correctness += coefficients[1:] == answer2Highest2Lowest
 				except Exception as e: # never catch ``KeyboardInterrupt`` here
 					if isVerbose is not False:
-						print("Basic: {0} failed on {1} due to {2}. ".format(self.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
+						print("Basic: {0} failed on {1} due to {2}. ".format(SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), curveName, repr(e)))
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"unreliable", self.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					"unreliable", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
 				])
 		if isVerbose is not False:
 			print()
@@ -1138,11 +1141,12 @@ class SchemeCoefficientComputation:
 			curveParameters = self.__symmetricCurveParameters if SchemeCoefficientComputation.__containingSymmetricHint(sourceTree) else self.__curveParameters
 			for one in (True, False):
 				for solution in Solutions.Constant2Highest.getAllSolutions(isCombinationEnabled = False, isNumPyEnabled = False):
+					solutionName = SchemeCoefficientComputation.__getSolutionName(solution, 2)
 					try:
 						scheme, conduct = self.__buildPatchedNamespace(filePath, sourceTree, solution, one)
 					except Exception as e: # never catch ``KeyboardInterrupt`` here
 						if isVerbose is not False:
-							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), self.__getSolutionName(solution), repr(e)))
+							print("Device: Failed to patch {0} with {1} due to {2}. ".format(repr(filePath), solutionName, repr(e)))
 						continue
 					for curveParameter in curveParameters:
 						curveName, securityParameter = SchemeCoefficientComputation.__parseCurveParameter(curveParameter)
@@ -1154,7 +1158,7 @@ class SchemeCoefficientComputation:
 							print("Curve: ({0}, {1})".format(curveName, securityParameter))
 							print("Security level: {0}".format(securityLevel))
 							print("$1$: {0}".format("reliable" if one else "unreliable"))
-							print("Solution: {0}".format(self.__getSolutionName(solution)))
+							print("Solution: {0}".format(solutionName))
 							print("Run count: {0}".format(runCount))
 						try:
 							correctness = 0
@@ -1166,7 +1170,7 @@ class SchemeCoefficientComputation:
 							averageTimeConsumption = (endTime - startTime) / runCount
 							results.append([
 								scheme, curveName, securityParameter, securityLevel, "reliable" if one else "unreliable", 
-								self.__getSolutionName(solution), runCount, correctness, averageTimeConsumption
+								solutionName, runCount, correctness, averageTimeConsumption
 							])
 							if isVerbose is not False:
 								print("Is the scheme correct? {0}. ".format("Yes" if correctness else "No"))
