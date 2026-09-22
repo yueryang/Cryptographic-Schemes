@@ -1024,7 +1024,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "l", "n", "Run count")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$l$", "$n$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "EKGen (s)", "DKGen (s)", "Enc (s)", "Dec (s)", 

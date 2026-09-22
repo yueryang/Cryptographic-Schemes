@@ -1014,7 +1014,7 @@ class SchemeCoefficientComputation:
 			print("Scheme: {0}".format(schemeName))
 			print("Curves: {0}".format([(group.groupType(), group.secparam) for curveName, group in groups]))
 			print("Groups: {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
-			print("One: {0}".format(("reliable", "unreliable")))
+			print("$1$: {0}".format(("reliable", "unreliable")))
 			print("Solution: {0}".format(tuple(self.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
 			print("Run count: {0}".format(runCount))
 		for curveName, group in groups:
@@ -1153,7 +1153,7 @@ class SchemeCoefficientComputation:
 							print("Scheme: {0}".format(filePath))
 							print("Curve: ({0}, {1})".format(curveName, securityParameter))
 							print("Security level: {0}".format(securityLevel))
-							print("One: {0}".format("reliable" if one else "unreliable"))
+							print("$1$: {0}".format("reliable" if one else "unreliable"))
 							print("Solution: {0}".format(self.__getSolutionName(solution)))
 							print("Run count: {0}".format(runCount))
 						try:
@@ -1203,7 +1203,7 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "One", "Solution", "Run count")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$1$", "Solution", "Run count")
 			validators = ("Correctness", )
 			metrics = ("Time consumption (s)", )
 			

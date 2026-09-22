@@ -766,7 +766,8 @@ class Drawer:
 						sanitizedControlledVariableValues.append(sanitizedControlledVariableValue)
 				if len(sanitizedControlledVariableNames) >= 2:
 					caption += ", with {0} set to {1}, respectively".format(
-						Drawer.__sequence2str(sanitizedControlledVariableNames), Drawer.__sequence2str(sanitizedControlledVariableValues)
+						Drawer.__sequence2str(tuple(Drawer.__addArticle(sanitizedControlledVariableName) for sanitizedControlledVariableName in sanitizedControlledVariableNames)), 
+						Drawer.__sequence2str(tuple(Drawer.__addArticle(sanitizedControlledVariableValue) for sanitizedControlledVariableValue in sanitizedControlledVariableValues))
 					)
 				elif len(sanitizedControlledVariableNames) == 1:
 					caption += ", with {0} set to {1}".format(sanitizedControlledVariableNames[0], sanitizedControlledVariableValues[0])
@@ -1025,24 +1026,27 @@ class Analyzer:
 					break
 			else:
 				return ValueError("Failed to find a suitable grouping variable in the mappings. ")
-			for possibleRunCountVariableName in ("run", "run count"):
+			for possibleRunCountVariableName in ("run", "run count", "runcount"):
 				if possibleRunCountVariableName in lowercaseVariables:
 					runCountVariableIndex = lowercaseVariables.index(possibleRunCountVariableName)
 					break
 			else:
 				return ValueError("Failed to find a suitable run count variable in the mappings. ")
-			runCountVariableName = variables[runCountVariableIndex]
 			dependentVariableIndexes = tuple(variableIndex for variableIndex, variableName in enumerate(variables[runCountVariableIndex + 1:], start = runCountVariableIndex + 1) if (
 				(Drawer.checkConsumptionLikeVariableName(variableName) and not variableName.lower().startswith("elementof")) or Drawer.checkInlineMathematicalMode(variableName)
 			))
 			if groupingVariableIndex in dependentVariableIndexes:
 				return ValueError("The grouping variable should not be a dependent variable. ")
 			if dependentVariableIndexes and runCountVariableIndex < dependentVariableIndexes[0]:
-				independentVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex) if variableIndex != groupingVariableIndex)
+				independentVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex) if variableIndex != groupingVariableIndex and not (
+					"$\\lambda$" == variables[variableIndex] and any(
+						lowercaseVariable in ("security length", "security lengths") or lowercaseVariable.startswith("security length ") for lowercaseVariable in lowercaseVariables
+					)
+				))
 				validationVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex, dependentVariableIndexes[0]))
 				validationVariableNames = tuple(variables[variableIndex] for variableIndex in validationVariableIndexes)
 				for valueIndex in range(len(next(iter(mappings.values()))) - 1, -1, -1): # remove failed experiments
-					runCountVariableValue = mappings[runCountVariableName][valueIndex]
+					runCountVariableValue = mappings[variables[runCountVariableIndex]][valueIndex]
 					for validationVariableName in validationVariableNames[1:]:
 						if mappings[validationVariableName][valueIndex] != runCountVariableValue:
 							break

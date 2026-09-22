@@ -767,7 +767,7 @@ def main() -> int:
 
 			# Parameters #
 			parameters = ((2, 8, 251), (4, 16, 251))
-			queries = ("scheme", "n", "m", "q", "runCount")
+			queries = ("Scheme", "$n$", "$m$", "$q$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "Derive (s)", "Encrypt (s)", "Trapdoor (s)", "Search (s)",

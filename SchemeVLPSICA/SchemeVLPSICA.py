@@ -1012,7 +1012,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "m", "n", "d", "Run count")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$m$", "$n$", "$d$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "Sender (s)", "Receiver (s)", "Cloud1 (s)", "Cloud 2(s)", "Verify (s)", 

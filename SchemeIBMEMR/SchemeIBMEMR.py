@@ -1120,7 +1120,7 @@ def main() -> int:
 			
 			# Parameters #
 			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "d", "Run count")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$d$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect", "isTracingVerified")
 			metrics = (
 				"Setup (s)", "EKGen (s)", "DKGen (s)", "TDKGen (s)", "Enc (s)", "Dec (s)", "ReceiverVerify (s)", 
