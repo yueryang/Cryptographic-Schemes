@@ -384,7 +384,7 @@ class Builder:
 			self.__generationDiagnostics["Function"].append("The statement {0} should start with {1}. ".format(repr(string), repr(descriptor)))
 			return False
 		elif string[descriptorLength:] in (
-			"An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 224, 256, 384, 512, or 1024 as the security parameter. ", (
+			"An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 512, 384, 256, 224, 160, or 128 as the security parameter. ", (
 				"Each of the variables $S_A$, $P_A$, $S_B$, and $P_B$ should be a tuple containing 4 elements of $\\mathbb{Z}_r$, "
 				+ "but at least one of them is not, all of which have been generated randomly. "
 			), "The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ", (
@@ -401,7 +401,7 @@ class Builder:
 			"The passed message (bytes) is too long, which has been cast. ", "The passed message (int) is too long, which has been cast. ", 
 			"The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ", 
 			"The variable $L$ should be a list, but it is not, which has been initialized as an empty list. ", 
-			"This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". "
+			"This scheme is only applicable to symmetric groups of prime order. The curve name has been defaulted to \"SS512\". "
 		) or match("^The variable \\$[ \'(),\\-0-9A-Za-z\\\\_{}]+\\$ has been generated accordingly\\. $", string[descriptorLength:]) or match((
 			"^The variable \\$[ \'*,\\-0-9A-Za-z\\\\\\^_{|}]+\\$ should be a (?:set|subset of \\$[\'A-Z]+\\$|tuple( or a list)?) containing .+, but it is not, "
 			+ "which has been generated (?:accordingly|randomly|randomly with (?:a length of \\$.+\\$|\\$M \\\\in \\\\mathbb{G}_T\\$ generated randomly|\\$[A-Za-z]\\$ set to .+))\\. $"
@@ -714,8 +714,8 @@ def main() -> int:
 		else:
 			builders = Builders(*units, formatString = outputPathWithoutAnExtension, collectionMode = False)
 			totalCount = len(builders)
-			print("Gathered {0} to build. ".format(("{0} items" if totalCount > 1 else "{0} item").format(totalCount)))
 			if totalCount >= 1:
+				print("Gathered {0} to be built. ".format(("{0} item" if 1 == totalCount else "{0} items").format(totalCount)))
 				print()
 				successCount = builders.build()
 				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
@@ -724,7 +724,7 @@ def main() -> int:
 				))
 			else:
 				errorLevel = EOF
-				print("Nothing was built. ")
+				print("Nothing to be built, please check the inputs. ")
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 	else:

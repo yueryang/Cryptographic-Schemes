@@ -766,7 +766,7 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 		sizeLinkedSignature = sizeSignature
 		if isVerbose is not False:
 			print("Is the system valid? Yes. ")
-			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Correctness: {0}".format(isSchemeCorrect))
 			print("Time:", (timeSetup, timeKeyExtract, timeKeyUpdate, timeSign, timeVerify, timeLink))
 			print("Space:", (sizePublicParameters, sizeSecretKeys, sizePublicKeys, sizeUpdatedKey, sizeSignature, sizeLinkedSignature))
 			print()

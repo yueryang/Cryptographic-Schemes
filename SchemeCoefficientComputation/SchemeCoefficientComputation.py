@@ -22,7 +22,7 @@ from time import perf_counter, sleep
 from warnings import filterwarnings
 filterwarnings(
 	"ignore", category = DeprecationWarning, 
-	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+	message = "^Curve \'(MNT159|SS512|SS1024)\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
 )
 try:
 	chdir(abspath(dirname(__file__)))
@@ -940,15 +940,14 @@ class Patcher(ast.NodeTransformer):
 		return self.__nodeName
 
 class SchemeCoefficientComputation:
-	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	__DefaultRunCount = 10
 	__DefaultHint = "only applicable to symmetric groups"
 	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
-	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
+	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 99, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
 	def __init__(self:object, *paths:tuple) -> object: # This scheme is a coefficient computation API comparator. 
 		self.__filePaths = []
-		self.__symmetricCurveParameters = (("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
-		self.__curveParameters = ("MNT201", "MNT224", "BN254") + self.__symmetricCurveParameters
+		self.__symmetricCurveParameters = ("SS512", "SS1024")
+		self.__curveParameters = ("MNT159", "MNT201", "MNT224", "BN254") + self.__symmetricCurveParameters
 		self.updateFilePaths(*paths)
 	def updateFilePaths(self:object, *paths:tuple) -> int:
 		originalLength, stack = len(self.__filePaths), list(reversed(paths))
@@ -982,11 +981,25 @@ class SchemeCoefficientComputation:
 		currentLength = len(self.__filePaths)
 		return currentLength - originalLength
 	@staticmethod
-	def __getSolutionName(solution:object, offset:int|None = 1) -> str:
-		solutionName = getattr(solution, "__qualname__", getattr(solution, "__name__", repr(solution)))
-		solutionName = ".".join(solutionName.split(".")[offset if isinstance(offset, int) and offset >= 0 else None:])
-		solutionName = solutionName.replace("Highest", "H").replace("Constant", "C").replace("compute", "").replace("Coefficients", "")
-		return solutionName + "Ours" if solutionName.endswith(".") else solutionName
+	def __getSolutionName(solution:object, offset:int = 1) -> str:
+		solutionBuffer = getattr(solution, "__qualname__", getattr(solution, "__name__", repr(solution))).split(".")
+		if len(solutionBuffer) == 3 and "Solutions" == solutionBuffer[0]:
+			if isinstance(offset, int):
+				if 0 <= offset <= 3:
+					solutionBuffer[2] = solutionBuffer[2].replace("__compute", "").replace("Coefficients", "")
+					if not solutionBuffer[2]:
+						solutionBuffer[2] = "Proposed"
+					if 2 == offset:
+						return solutionBuffer[2]
+					else:
+						solutionBuffer[1] = solutionBuffer[1].replace("Constant", "C").replace("Highest", "H")
+						return ".".join(solutionBuffer[offset:])
+				else:
+					return ""
+			else:
+				return "".join(solutionBuffer)
+		else:
+			return "".join(solutionBuffer)
 	@staticmethod
 	def __parseCurveParameter(curveParameter:tuple|list|dict|str) -> tuple: # (curveName, securityParameter), aligned with the parsing in other ``Scheme*/Scheme*.py``
 		curveName, securityParameter = "N/A", None # ``None`` indicates using the default security parameter of the curve
@@ -1016,9 +1029,13 @@ class SchemeCoefficientComputation:
 		if isVerbose is not False:
 			print("Scheme: {0}".format(schemeName))
 			print("Curves: {0}".format([(group.groupType(), group.secparam) for curveName, group in groups]))
-			print("Groups: {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
-			print("$1$: {0}".format(("reliable", "unreliable")))
-			print("Solution: {0}".format(tuple(SchemeCoefficientComputation.__getSolutionName(solution) for solution in Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions())))
+			print("Security level (bit): {0}".format(SchemeCoefficientComputation.__SecurityLevelMappings))
+			print("$1$: {0}".format(("Reliable", "unreliable")))
+			fullSolutionNames = tuple(SchemeCoefficientComputation.__getSolutionName(solution).split(".") for solution in (
+				Solutions.Constant2Highest.getAllSolutions() + Solutions.Highest2Constant.getAllSolutions()
+			))
+			print("Category: {0}".format(tuple(set(fullSolutionName[0] for fullSolutionName in fullSolutionNames))))
+			print("Solution: {0}".format(tuple(set(fullSolutionName[1] for fullSolutionName in fullSolutionNames))))
 			print("Run count: {0}".format(runCount))
 		for curveName, group in groups:
 			roots = [group.init(ZR, 2), group.init(ZR, 3), group.init(ZR, 5)]
@@ -1040,7 +1057,7 @@ class SchemeCoefficientComputation:
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"reliable", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					"Reliable", "C2H", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution, 2), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1055,7 +1072,7 @@ class SchemeCoefficientComputation:
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"reliable", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					"Reliable", "H2C", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution, 2), runCount, correctness, (endTime - startTime) / runCount
 				])
 			
 			# Faulty #
@@ -1074,7 +1091,7 @@ class SchemeCoefficientComputation:
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"unreliable", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution), runCount, correctness, (endTime - startTime) / runCount
+					"Unreliable", "C2H", SchemeCoefficientComputation.__getSolutionName(constant2HighestSolution, 2), runCount, correctness, (endTime - startTime) / runCount
 				])
 			for highest2ConstantSolution in Solutions.Highest2Constant.getAllSolutions():
 				correctness = 0
@@ -1089,7 +1106,7 @@ class SchemeCoefficientComputation:
 				endTime = perf_counter()
 				results.append([
 					schemeName, group.groupType(), group.secparam, SchemeCoefficientComputation.__SecurityLevelMappings.get(group.groupType(), "N/A"), 
-					"unreliable", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution), runCount, correctness, (endTime - startTime) / runCount
+					"Unreliable", "H2C", SchemeCoefficientComputation.__getSolutionName(highest2ConstantSolution, 2), runCount, correctness, (endTime - startTime) / runCount
 				])
 		if isVerbose is not False:
 			print()
@@ -1156,8 +1173,9 @@ class SchemeCoefficientComputation:
 						if isVerbose is not False:
 							print("Scheme: {0}".format(filePath))
 							print("Curve: ({0}, {1})".format(curveName, securityParameter))
-							print("Security level: {0}".format(securityLevel))
-							print("$1$: {0}".format("reliable" if one else "unreliable"))
+							print("Security level (bit): {0}".format(securityLevel))
+							print("$1$: {0}".format("Reliable" if one else "Unreliable"))
+							print("Category: Device")
 							print("Solution: {0}".format(solutionName))
 							print("Run count: {0}".format(runCount))
 						try:
@@ -1169,11 +1187,11 @@ class SchemeCoefficientComputation:
 							endTime = perf_counter()
 							averageTimeConsumption = (endTime - startTime) / runCount
 							results.append([
-								scheme, curveName, securityParameter, securityLevel, "reliable" if one else "unreliable", 
-								solutionName, runCount, correctness, averageTimeConsumption
+								scheme, curveName, securityParameter, securityLevel, "Reliable" if one else "Unreliable", 
+								"Device", solutionName, runCount, correctness, averageTimeConsumption
 							])
 							if isVerbose is not False:
-								print("Is the scheme correct? {0}. ".format("Yes" if correctness else "No"))
+								print("Correctness: {0}".format(correctness))
 								print("Time: {0}".format(averageTimeConsumption))
 								print()
 						except Exception as e: # never catch ``KeyboardInterrupt`` here
@@ -1207,7 +1225,7 @@ def main() -> int:
 			
 			# Parameters #
 			filePaths = ("../SchemeCANIFPPCT/SchemeCANIFPPCT.py", "../SchemeCANIFPPCT/SchemeCANIPSI.py", "../SchemeIBMEMR/SchemeIBBME.py", "../SchemeIBMEMR/SchemeIBMEMR.py")
-			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$1$", "Solution", "Run count")
+			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$1$", "Category", "Solution", "Run count")
 			validators = ("Correctness", )
 			metrics = ("Time consumption (s)", )
 			

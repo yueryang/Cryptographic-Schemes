@@ -9,9 +9,9 @@ try:
 	from inflection import pluralize, singularize
 except Exception:
 	def pluralize(word:str) -> str:
-		return word + "s"
+		return word + "es" if word.lower().endswith(("s", "x", "z", "ch", "sh")) else word + "s"
 	def singularize(word:str) -> str:
-		return word[:-1] if word.endswith(("S", "s")) else word
+		return word[:-1] if len(word) >= 2 and word.endswith(("S", "s")) else word
 from io import BytesIO
 from math import isclose, log as ln
 from time import sleep
@@ -298,7 +298,7 @@ class Loader:
 		except Exception:
 			return ""
 	@staticmethod
-	def __rowsToMappings(rows:tuple|list) -> dict|BaseException: # [["x", "y"], [1, 1], [2, 4], [3.0, 9.0], [4]] -> {"x": [1, 2, 3.0, 4], "y": [1, 4, 9.0, ""]}
+	def __rowsToMappings(rows:tuple|list) -> dict|Exception: # [["x", "y"], [1, 1], [2, 4], [3.0, 9.0], [4]] -> {"x": [1, 2, 3.0, 4], "y": [1, 4, 9.0, ""]}
 		if isinstance(rows, (tuple, list)) and rows and isinstance(rows[0], (tuple, list)):
 			columns = tuple("" if cell is None else str(cell) for cell in rows[0])
 			mappings = {column:[] for column in columns}
@@ -319,7 +319,7 @@ class Loader:
 		else:
 			return TypeError("The rows loaded should be a tuple or a list containing one or more tuples or lists. ")
 	@staticmethod
-	def __loadDelimited(inputFilePath:str, delimiter:str = ',', encoding:str = "utf-8") -> dict|BaseException: # CSV/TSV
+	def __loadDelimited(inputFilePath:str, delimiter:str = ',', encoding:str = "utf-8") -> dict|Exception: # CSV/TSV
 		try:
 			if Loader.__reader is None:
 				Loader.__reader = __import__("csv").reader
@@ -328,7 +328,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadHTML(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # HTM/HTML
+	def __loadHTML(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # HTM/HTML
 		try:
 			if Loader.__TableParser is None:
 				class TableParser(__import__("html.parser", fromlist = ["HTMLParser"]).HTMLParser):
@@ -359,13 +359,13 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __structuredDataToMappings(data:object) -> dict|BaseException: # {"columns":["x", "y"], "results":[[1, 1], [2, 4], [3, 9]]} -> {"x":[1, 2, 3], "y":[1, 4, 9]}
+	def __structuredDataToMappings(data:object) -> dict|Exception: # {"columns":["x", "y"], "results":[[1, 1], [2, 4], [3, 9]]} -> {"x":[1, 2, 3], "y":[1, 4, 9]}
 		if isinstance(data, dict) and "columns" in data and "results" in data and isinstance(data["columns"], (tuple, list)) and isinstance(data["results"], (tuple, list)):
 			return Loader.__rowsToMappings([list(data["columns"])] + [list(result) for result in data["results"] if isinstance(result, (tuple, list))])
 		else:
 			return ValueError("The structured data should be a dictionary containing the keys \"columns\" and \"results\". ")
 	@staticmethod
-	def __loadJSON(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # JSON
+	def __loadJSON(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # JSON
 		try:
 			if Loader.__loadJSON is None:
 				Loader.__loadJSON = __import__("json").load
@@ -374,7 +374,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadTXT(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # TXT
+	def __loadTXT(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # TXT
 		try:
 			with open(inputFilePath, "r", encoding = encoding) as f:
 				return Loader.__structuredDataToMappings(literal_eval(f.read()))
@@ -400,7 +400,7 @@ class Loader:
 		else:
 			return ""
 	@staticmethod
-	def __loadTEX(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # TEX
+	def __loadTEX(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # TEX
 		try:
 			rows, inTable = [], False
 			with open(inputFilePath, "r", encoding = encoding) as f:
@@ -418,7 +418,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadXLS(inputFilePath:str) -> dict|BaseException: # XLS
+	def __loadXLS(inputFilePath:str) -> dict|Exception: # XLS
 		try:
 			if Loader.__open_workbook is None:
 				Loader.__open_workbook = __import__("xlrd").open_workbook
@@ -428,7 +428,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadXLSX(inputFilePath:str) -> dict|BaseException: # XLSX
+	def __loadXLSX(inputFilePath:str) -> dict|Exception: # XLSX
 		try:
 			if Loader.__load_workbook is None:
 				Loader.__load_workbook = __import__("openpyxl").load_workbook
@@ -440,7 +440,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadXML(inputFilePath:str) -> dict|BaseException: # XML
+	def __loadXML(inputFilePath:str) -> dict|Exception: # XML
 		try:
 			if Loader.__ElementTree is None:
 				Loader.__ElementTree = __import__("xml.etree.ElementTree", fromlist = ["ElementTree"])
@@ -452,7 +452,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def __loadYAML(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # YAML/YML
+	def __loadYAML(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # YAML/YML
 		try:
 			if Loader.__loadJSON is None:
 				Loader.__loadJSON = __import__("json").load
@@ -480,7 +480,7 @@ class Loader:
 		except Exception as e:
 			return e
 	@staticmethod
-	def load(inputFilePath:str, encoding:str = "utf-8") -> dict|BaseException: # {"x":[1, 2, 3], "y":[1, 4, 9]}
+	def load(inputFilePath:str, encoding:str = "utf-8") -> dict|Exception: # {"x":[1, 2, 3], "y":[1, 4, 9]}
 		try:
 			lowercaseExtension = splitext(inputFilePath)[1].lower()
 			if ".csv" == lowercaseExtension:
@@ -531,31 +531,140 @@ class Drawer:
 	def checkValues(values:tuple|list) -> bool:
 		return isinstance(values, (tuple, list)) and values and all(isinstance(value, (int, float, str)) for value in values)
 	@staticmethod
-	def checkConsumptionLikeVariableName(variableName:str) -> bool:
-		if isinstance(variableName, str):
-			lowercaseVariableName = variableName.lower()
-			return lowercaseVariableName.endswith(
-				("(ns)", "(ms)", "(s)", "(min)", "(h)", "(bit)", "(b)", "(kb)", "(mb)", "(gb)", "(tb)", "(kib)", "(mib)", "(gib)", "(tib)")
-			) or "consumption" in lowercaseVariableName
+	def __splitUnit(string:str) -> tuple:
+		if isinstance(string, str):
+			strippedString = " ".join(string.split())
+			lowercaseStrippedString = strippedString.lower()
+			if lowercaseStrippedString.endswith("(ns)"):
+				return (strippedString[:-4].rstrip(), "(ns)")
+			elif lowercaseStrippedString.endswith("(\\textmu s)"):
+				return (strippedString[:-11].rstrip(), "(\\textmu{}s)")
+			elif lowercaseStrippedString.endswith("(\\textmu{}s)"):
+				return (strippedString[:-12].rstrip(), "(\\textmu{}s)")
+			elif lowercaseStrippedString.endswith("(ms)"):
+				return (strippedString[:-4].rstrip(), "(ms)")
+			elif lowercaseStrippedString.endswith("(s)"):
+				return (strippedString[:-3].rstrip(), "(s)")
+			elif lowercaseStrippedString.endswith("(min)"):
+				return (strippedString[:-5].rstrip(), "(min)")
+			elif lowercaseStrippedString.endswith("(h)"):
+				return (strippedString[:-3].rstrip(), "(h)")
+			elif lowercaseStrippedString.endswith("(bit)"):
+				return (strippedString[:-5].rstrip(), "(bit)")
+			elif lowercaseStrippedString.endswith("(b)"):
+				return (strippedString[:-3].rstrip(), "(B)")
+			elif lowercaseStrippedString.endswith("(byte)"):
+				return (strippedString[:-6].rstrip(), "(Byte)")
+			elif lowercaseStrippedString.endswith("(kb)"):
+				return (strippedString[:-4].rstrip(), "(kB)")
+			elif lowercaseStrippedString.endswith("(mb)"):
+				return (strippedString[:-4].rstrip(), "(MB)")
+			elif lowercaseStrippedString.endswith("(gb)"):
+				return (strippedString[:-4].rstrip(), "(GB)")
+			elif lowercaseStrippedString.endswith("(tb)"):
+				return (strippedString[:-4].rstrip(), "(TB)")
+			elif lowercaseStrippedString.endswith("(pb)"):
+				return (strippedString[:-4].rstrip(), "(PB)")
+			elif lowercaseStrippedString.endswith("(kib)"):
+				return (strippedString[:-5].rstrip(), "(KiB)")
+			elif lowercaseStrippedString.endswith("(mib)"):
+				return (strippedString[:-5].rstrip(), "(MiB)")
+			elif lowercaseStrippedString.endswith("(gib)"):
+				return (strippedString[:-5].rstrip(), "(GiB)")
+			elif lowercaseStrippedString.endswith("(tib)"):
+				return (strippedString[:-5].rstrip(), "(TiB)")
+			elif lowercaseStrippedString.endswith("(pib)"):
+				return (strippedString[:-5].rstrip(), "(PiB)")
+			else:
+				return (strippedString, "")
 		else:
-			return False
+			return (None, None)
 	@staticmethod
-	def checkInlineMathematicalMode(word:str) -> bool:
-		if isinstance(word, str) and len(word) >= 3 and word.startswith("$") and word.endswith("$"):
-			index, length = 1, len(word) - 1
+	def __checkInlineMathematicalMode(variableName:str) -> bool|None:
+		if isinstance(variableName, str) and len(variableName) >= 3 and variableName.startswith("$") and variableName.endswith("$"):
+			index, length = 1, len(variableName) - 1
 			while index < length:
-				if '\\' == word[index]:
+				if '\\' == variableName[index]:
 					index += 1
 					if index >= length:
 						return False
-				elif '$' == word[index]:
+				elif '$' == variableName[index]:
 					return False
 				index += 1
 			return True
 		else:
 			return False
 	@staticmethod
-	def __getVariableName(variable:str|int, variables:tuple|list) -> str:
+	def __sanitize(string:str) -> tuple:
+		variableName, variableUnit = Drawer.__splitUnit(string)
+		if isinstance(variableName, str) and variableName and isinstance(variableUnit, str):
+			if Drawer.__checkInlineMathematicalMode(variableName):
+				sanitizedVariableName = " ".join("".join(character for character in variableName if ' ' <= character <= '~').split())
+			else:
+				sanitizedVariableName =  " ".join("".join(
+					character for character in variableName if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
+				).split()).lstrip(" )-0123456789").rstrip(" (-")
+			return (sanitizedVariableName, variableUnit)
+		else:
+			return (None, None)
+	@staticmethod
+	def sanitize(string:str) -> str|None:
+		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
+		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+			return "{0} {1}".format(sanitizedVariableName, variableUnit) if variableUnit else sanitizedVariableName
+		else:
+			return None
+	@staticmethod
+	def __lowercase(string:str) -> tuple:
+		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
+		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+			currentWord = []
+			lowercaseSanitizedVariableBuffer = []
+			for character in sanitizedVariableName:
+				if '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z':
+					currentWord.append(character)
+				else:
+					if currentWord:
+						if len(currentWord) >= 2 and ('0' <= currentWord[0] <= '9' or 'A' <= currentWord[0] <= 'Z') and ('0' <= currentWord[1] <= '9' or 'A' <= currentWord[1] <= 'Z'):
+							lowercaseSanitizedVariableBuffer.extend(currentWord)
+							currentWord.clear()
+						else:
+							lowercaseSanitizedVariableBuffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
+							currentWord.clear()
+					lowercaseSanitizedVariableBuffer.append(character)
+			if currentWord:
+				if len(currentWord) >= 2 and ('0' <= currentWord[0] <= '9' or 'A' <= currentWord[0] <= 'Z') and ('0' <= currentWord[1] <= '9' or 'A' <= currentWord[1] <= 'Z'):
+					lowercaseSanitizedVariableBuffer.extend(currentWord)
+				else:
+					lowercaseSanitizedVariableBuffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
+			return ("".join(lowercaseSanitizedVariableBuffer), variableUnit)
+		else:
+			return (None, None)
+	@staticmethod
+	def lowercase(string:str) -> str|None:
+		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
+		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
+			return "{0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else lowercaseSanitizedVariableName
+		else:
+			return None
+	@staticmethod
+	def checkMathematicalLikeString(string:str) -> bool|None:
+		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
+		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+			return Drawer.__checkInlineMathematicalMode(sanitizedVariableName)
+		else:
+			return None
+	@staticmethod
+	def checkConsumptionLikeString(string:str) -> bool|None:
+		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
+		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
+			return "consumption" in lowercaseSanitizedVariableName or variableUnit in (
+				"(ns)", "(\\textmu{}s)", "(ms)", "(s)", "(min)", "(h)", "(bit)", "(B)", "(Byte)", "(kB)", "(MB)", "(GB)", "(TB)", "(PB)", "(KiB)", "(MiB)", "(GiB)", "(TiB)", "(PiB)"
+			)
+		else:
+			return None
+	@staticmethod
+	def __getVariableString(variable:str|int, variables:tuple|list) -> str|None:
 		if isinstance(variables, (tuple, list)):
 			variableLength = len(variables)
 			if isinstance(variable, str):
@@ -566,7 +675,7 @@ class Drawer:
 					return variables[variable]
 		return None
 	@staticmethod
-	def configure() -> bool|BaseException:
+	def configure() -> bool|Exception:
 		try:
 			if Drawer.__plt is None:
 				Drawer.__plt = import_module("matplotlib.pyplot")
@@ -597,7 +706,7 @@ class Drawer:
 						return min(logarithmicDifferences) > 0 and max(logarithmicDifferences) / min(logarithmicDifferences) < linearSpread
 		return False
 	@staticmethod
-	def draw(curves:tuple|list, xLabelName:str|None = None, yLabelName:str|None = None) -> bytes|BaseException:
+	def draw(curves:tuple|list, xLabel:str|None = None, yLabel:str|None = None) -> bytes|Exception:
 		if Drawer.__plt is None:
 			configurationStatus = Drawer.configure()
 			if configurationStatus is not True:
@@ -614,15 +723,26 @@ class Drawer:
 						x, y = zip(*sorted(zip(curve["x"], curve["y"]))) # sort $x$ and $y$ by ascending $x$ values
 						keywordArguments = {key:value for key, value in curve.items() if key in ("color", "marker", "label")}
 						try:
-							Drawer.__plt.plot(x, y, **keywordArguments)
+							if "label" in keywordArguments:
+								keywordArguments["label"] = Drawer.sanitize(keywordArguments["label"])
+								if not keywordArguments["label"]:
+									del keywordArguments["label"]
+							if "label" in keywordArguments:
+								try:
+									Drawer.__plt.plot(x, y, **keywordArguments)
+								except Exception:
+									Drawer.__plt.plot(x, y, label = keywordArguments["label"])
+							else:
+								Drawer.__plt.plot(x, y, **keywordArguments)
 						except Exception:
 							Drawer.__plt.plot(x, y)
-				if Drawer.__checkLogarithmicSpacing(xValues):
+				logarithmicSpacing = Drawer.__checkLogarithmicSpacing(xValues)
+				if logarithmicSpacing:
 					Drawer.__plt.xscale("log")
-				if isinstance(xLabelName, str):
-					Drawer.__plt.xlabel(xLabelName, fontsize = Drawer.__LabelFontSize)
-				if isinstance(yLabelName, str):
-					Drawer.__plt.ylabel(yLabelName, fontsize = Drawer.__LabelFontSize)
+				if isinstance(xLabel, str):
+					Drawer.__plt.xlabel(Drawer.sanitize(xLabel) + " (logarithmic scale)" if logarithmicSpacing else xLabel.strip(), fontsize = Drawer.__LabelFontSize)
+				if isinstance(yLabel, str):
+					Drawer.__plt.ylabel(Drawer.sanitize(yLabel), fontsize = Drawer.__LabelFontSize)
 				_, labels = Drawer.__plt.gca().get_legend_handles_labels()
 				if labels:
 					Drawer.__plt.legend(loc = "best", frameon = True, fontsize = Drawer.__LegendFontSize)
@@ -636,47 +756,25 @@ class Drawer:
 		else:
 			return TypeError("The curves should be a tuple or a list containing at least one dictionary. ")
 	@staticmethod
-	def __sanitize(word:str) -> str|None:
-		try:
-			if Drawer.checkInlineMathematicalMode(word):
-				return " ".join("".join(character for character in word if ' ' <= character <= '~').split())
+	def __pluralize(string:str) -> str|None:
+		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
+		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+			if Drawer.__checkInlineMathematicalMode(sanitizedVariableName):
+				return "{0} values {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} values".format(sanitizedVariableName)
 			else:
-				sanitizedWord =  " ".join("".join(
-					character for character in word if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
-				).split()).lstrip(" )-0123456789").rstrip(" (-")
-				if sanitizedWord:
-					currentWord = []
-					lowercaseSanitizedWord = []
-					for character in sanitizedWord:
-						if '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z':
-							currentWord.append(character)
-						else:
-							if currentWord:
-								if len(currentWord) >= 2 and 'A' <= currentWord[0] <= 'Z' and 'A' <= currentWord[1] <= 'Z':
-									lowercaseSanitizedWord.extend(currentWord)
-									currentWord.clear()
-								else:
-									lowercaseSanitizedWord.extend(currentCharacter.lower() for currentCharacter in currentWord)
-									currentWord.clear()
-							lowercaseSanitizedWord.append(character)
-					if currentWord:
-						if len(currentWord) >= 2 and 'A' <= currentWord[0] <= 'Z' and 'A' <= currentWord[1] <= 'Z':
-							lowercaseSanitizedWord.extend(currentWord)
-						else:
-							lowercaseSanitizedWord.extend(currentCharacter.lower() for currentCharacter in currentWord)
-					return "".join(lowercaseSanitizedWord)
-				else:
-					return None
-		except Exception:
+				return "{0} {1}".format(pluralize(sanitizedVariableName), variableUnit) if variableUnit else pluralize(sanitizedVariableName)
+		else:
 			return None
 	@staticmethod
-	def __pluralize(singular:str) -> str:
-		word = Drawer.__sanitize(singular)
-		return (word + " values" if Drawer.checkInlineMathematicalMode else pluralize(word)) if word else None
-	@staticmethod
-	def __singularize(plural:str) -> str:
-		word = Drawer.__sanitize(plural)
-		return (word + " value" if Drawer.checkInlineMathematicalMode else singularize(word)) if word else None
+	def __singularize(string:str) -> str|None:
+		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
+		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+			if Drawer.__checkInlineMathematicalMode(sanitizedVariableName):
+				return "{0} value {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} value".format(sanitizedVariableName)
+			else:
+				return "{0} {1}".format(singularize(sanitizedVariableName), variableUnit) if variableUnit else singularize(sanitizedVariableName)
+		else:
+			return None
 	@staticmethod
 	def __sequence2str(items:tuple|list|str, itemPrefix:str = "", itemSuffix:str = "", decimalPlace:int|None = None) -> str|None:
 		try:
@@ -694,9 +792,15 @@ class Drawer:
 		except Exception:
 			return None
 	@staticmethod
-	def __addArticle(bareness:str) -> str:
-		word = Drawer.__sanitize(bareness)
-		return (word if Drawer.checkInlineMathematicalMode else "the " + word) if word else None
+	def __addArticle(string:str, capitalized:bool = False) -> str|None:
+		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
+		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
+			if capitalized is True:
+				return "The {0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else "The {0}".format(lowercaseSanitizedVariableName)
+			else:
+				return "the {0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else "the {0}".format(lowercaseSanitizedVariableName)
+		else:
+			return None
 	@staticmethod
 	def __getFigureLabelWithoutPrefix(figureFilePath:str) -> str|None:
 		if isinstance(figureFilePath, str):
@@ -711,8 +815,8 @@ class Drawer:
 			return None
 	@staticmethod
 	def summarizeCurves(
-		curves:tuple|list, figureFilePath:str, independentVariableName:str, dependentVariableName:str, groupingVariableName:str, 
-		controlledVariableNames:tuple|list, controlledVariableValues:tuple|list, decimalPlace:int = Parser.getDefaultPlace()
+		curves:tuple|list, figureFilePath:str, independentVariableString:str, dependentVariableString:str, groupingVariableString:str, 
+		controlledVariableStrings:tuple|list, controlledVariableValues:tuple|list, decimalPlace:int = Parser.getDefaultPlace()
 	) -> str:
 		if (
 			isinstance(curves, (tuple, list)) and curves and isinstance(figureFilePath, str)
@@ -728,7 +832,7 @@ class Drawer:
 				):
 					countOfCurvesDrawn += 1
 					if "label" in curve and isinstance(curve["label"], str):
-						sanitizedLabel = Drawer.__sanitize(curve["label"])
+						sanitizedLabel = Drawer.sanitize(curve["label"])
 						if not sanitizedLabel or sanitizedLabel in labelMappings: # the sanitized label is empty or repeated
 							labelMappings.clear() # disable statements related to labels
 							break
@@ -740,63 +844,66 @@ class Drawer:
 						break
 			if countOfCurvesDrawn < 1:
 				return ""
-			pluralGroupingVariableName = Drawer.__pluralize(groupingVariableName) # will be used again in relative performance statements
-			singularGroupingVariableName = Drawer.__singularize(groupingVariableName) # will be used again in relative performance statements
+			pluralLowercaseGroupingVariableString = Drawer.__pluralize(Drawer.lowercase(groupingVariableString)) # will be used again in relative performance statements
+			singularLowercaseGroupingVariableString = Drawer.__singularize(Drawer.lowercase(groupingVariableString)) # will be used again in relative performance statements
 			if labelMappings: # avoid "\"\", \"\" and \"\""
 				if len(labelMappings) >= 2:
-					caption = "Comparison of the {0}{1}".format(Drawer.__sequence2str(tuple(labelMappings.keys())), " " + pluralGroupingVariableName if pluralGroupingVariableName else "")
+					caption = "Comparison of the {0}{1}".format(
+						Drawer.__sequence2str(tuple(labelMappings.keys())), " " + pluralLowercaseGroupingVariableString if pluralLowercaseGroupingVariableString else ""
+					)
 				else:
-					caption = "Plot of the {0}{1}".format(Drawer.__sequence2str(tuple(labelMappings.keys())), " " + singularGroupingVariableName if singularGroupingVariableName else "")
+					caption = "Plot of the {0}{1}".format(
+						Drawer.__sequence2str(tuple(labelMappings.keys())), " " + singularLowercaseGroupingVariableString if singularLowercaseGroupingVariableString else ""
+					)
 			else:
 				if countOfCurvesDrawn >= 2:
-					caption = "Comparison of different {0}".format(pluralGroupingVariableName) if pluralGroupingVariableName else "Comparison"
+					caption = "Comparison of different {0}".format(pluralLowercaseGroupingVariableString) if pluralLowercaseGroupingVariableString else "Comparison"
 				else:
-					caption = "Plot of the {0}".format(singularGroupingVariableName) if singularGroupingVariableName else "Plot"
-			dependentVariableNameWithArticle = Drawer.__addArticle(dependentVariableName)
-			if dependentVariableNameWithArticle:
-				caption += " in terms of {0}".format(dependentVariableNameWithArticle)
-			if isinstance(controlledVariableNames, (tuple, list)) and isinstance(controlledVariableValues, (tuple, list)):
-				sanitizedControlledVariableNames = []
-				sanitizedControlledVariableValues = []
-				for controlledVariableName, controlledVariableValue in zip(controlledVariableNames, controlledVariableValues):
-					sanitizedControlledVariableName = Drawer.__sanitize(controlledVariableName)
-					sanitizedControlledVariableValue = Drawer.__sanitize(controlledVariableValue)
-					if sanitizedControlledVariableName and sanitizedControlledVariableValue:
-						sanitizedControlledVariableNames.append(sanitizedControlledVariableName)
-						sanitizedControlledVariableValues.append(sanitizedControlledVariableValue)
-				if len(sanitizedControlledVariableNames) >= 2:
-					caption += ", with {0} set to {1}, respectively".format(
-						Drawer.__sequence2str(tuple(Drawer.__addArticle(sanitizedControlledVariableName) for sanitizedControlledVariableName in sanitizedControlledVariableNames)), 
-						Drawer.__sequence2str(tuple(Drawer.__addArticle(sanitizedControlledVariableValue) for sanitizedControlledVariableValue in sanitizedControlledVariableValues))
-					)
-				elif len(sanitizedControlledVariableNames) == 1:
-					caption += ", with {0} set to {1}".format(sanitizedControlledVariableNames[0], sanitizedControlledVariableValues[0])
+					caption = "Plot of the {0}".format(singularLowercaseGroupingVariableString) if singularLowercaseGroupingVariableString else "Plot"
+			dependentVariableStringWithArticle = Drawer.__addArticle(dependentVariableString)
+			if dependentVariableStringWithArticle:
+				caption += " in terms of {0}".format(dependentVariableStringWithArticle)
 			if len(xValues) >= 2:
-				pluralIndependentVariableName = Drawer.__pluralize(independentVariableName)
-				if pluralIndependentVariableName:
-					caption += ", evaluated at different {0}".format(pluralIndependentVariableName)
+				pluralIndependentVariableString = Drawer.__pluralize(independentVariableString)
+				if pluralIndependentVariableString:
+					caption += ", evaluated at different {0}".format(pluralIndependentVariableString)
 			elif len(xValues) == 1:
-				singularIndependentVariableName = Drawer.__singularize(independentVariableName)
-				sanitizedIndependentVariableValue = Drawer.__sanitize(next(iter(xValues)))
-				if singularIndependentVariableName and sanitizedIndependentVariableValue:
+				singularIndependentVariableString = Drawer.__singularize(independentVariableString)
+				sanitizedIndependentVariableValue = Drawer.sanitize(next(iter(xValues)))
+				if singularIndependentVariableString and sanitizedIndependentVariableValue:
 					if (
 						len(singularIndependentVariableValue) >= 3 and singularIndependentVariableValue.startswith("$") and singularIndependentVariableValue.endswith("$")
 						and len(sanitizedIndependentVariableValue) >= 3 and sanitizedIndependentVariableValue.startswith("$") and sanitizedIndependentVariableValue.endswith("$")
 					):
-						caption += ", evaluated at {0} = {1}".format(singularIndependentVariableName[:-1], sanitizedIndependentVariableValue[1:])
+						caption += ", evaluated at {0} = {1}".format(singularIndependentVariableString[:-1], sanitizedIndependentVariableValue[1:])
 					else:
-						caption += ", evaluated when {0} is {1}".format(singularIndependentVariableName, sanitizedIndependentVariableValue)
+						caption += ", evaluated when {0} is {1}".format(singularIndependentVariableString, sanitizedIndependentVariableValue)
+			if isinstance(controlledVariableStrings, (tuple, list)) and isinstance(controlledVariableValues, (tuple, list)):
+				sanitizedControlledVariableStrings = []
+				sanitizedControlledVariableValues = []
+				for controlledVariableString, controlledVariableValue in zip(controlledVariableStrings, controlledVariableValues):
+					sanitizedControlledVariableString = Drawer.sanitize(controlledVariableString)
+					sanitizedControlledVariableValue = Drawer.sanitize(controlledVariableValue)
+					if sanitizedControlledVariableString and sanitizedControlledVariableValue:
+						sanitizedControlledVariableStrings.append(sanitizedControlledVariableString)
+						sanitizedControlledVariableValues.append(sanitizedControlledVariableValue)
+				if len(sanitizedControlledVariableStrings) >= 2:
+					caption += ", with {0} set to {1}, respectively".format(Drawer.__sequence2str(
+						tuple(Drawer.__addArticle(sanitizedControlledVariableString) for sanitizedControlledVariableString in sanitizedControlledVariableStrings)
+					), Drawer.__sequence2str(sanitizedControlledVariableValues))
+				elif len(sanitizedControlledVariableStrings) == 1:
+					caption += ", with {0} set to {1}".format(Drawer.__addArticle(sanitizedControlledVariableStrings[0]), sanitizedControlledVariableValues[0])
 			caption += ". "
 			if labelMappings:
-				consumptionLikeVariable = Drawer.checkConsumptionLikeVariableName(dependentVariableName)
+				consumptionLikeVariable = Drawer.checkConsumptionLikeString(dependentVariableString)
 				optimalValue = min(labelMappings.values()) if consumptionLikeVariable else max(labelMappings.values())
 				optimalKeys = tuple(key for key, value in labelMappings.items() if isclose(value, optimalValue))
 				optimalKeyLength = len(optimalKeys)
-				if len(labelMappings) == optimalKeyLength: # no ${groupingVariableName}s are suboptimal
+				if len(labelMappings) == optimalKeyLength: # no ${groupingVariableString}s are suboptimal
 					if optimalKeyLength >= 3:
-						caption += "All the {0} are optimal. ".format(pluralizeGroupingVariableName)
+						caption += "All the {0} are optimal. ".format(pluralLowercaseGroupingVariableString)
 					elif 2 == optimalKeyLength:
-						caption += "Both {0} are optimal. ".format(pluralizeGroupingVariableName)
+						caption += "Both {0} are optimal. ".format(pluralLowercaseGroupingVariableString)
 				elif optimalKeyLength >= 2:
 					if consumptionLikeVariable:
 						relativePerformanceMappings = {label:(labelMappings[label] - optimalValue) / labelMappings[label] for label in labelMappings.keys() if label not in optimalKeys}
@@ -804,7 +911,7 @@ class Drawer:
 						relativePerformanceMappings = {label:(optimalValue - labelMappings[label]) / labelMappings[label] for label in labelMappings.keys() if label not in optimalKeys}
 					relativePerformanceMappings = {key:"{{0:.{0}f}}\\%".format(decimalPlace).format(relativePerformanceMappings[key] * 100) for key in relativePerformanceMappings.keys()}
 					caption += "The {0}{1} outperform {2} by {3}{4}. ".format(
-						Drawer.__sequence2str(optimalKeys), " " + pluralizeGroupingVariableName if pluralizeGroupingVariableName else "", 
+						Drawer.__sequence2str(optimalKeys), " " + pluralLowercaseGroupingVariableString if pluralLowercaseGroupingVariableString else "", 
 						Drawer.__sequence2str(tuple(relativePerformanceMappings.keys())), Drawer.__sequence2str(tuple(relativePerformanceMappings.values())), 
 						", respectively" if len(relativePerformanceMappings) >= 2 else ""
 					)
@@ -815,7 +922,7 @@ class Drawer:
 						relativePerformanceMappings = {label:(optimalValue - labelMappings[label]) / labelMappings[label] for label in labelMappings.keys() if label not in optimalKeys}
 					relativePerformanceMappings = {key:"{{0:.{0}f}}\\%".format(decimalPlace).format(relativePerformanceMappings[key] * 100) for key in relativePerformanceMappings.keys()}
 					caption += "The {0}{1} outperforms {2} by {3}{4}. ".format(
-						Drawer.__sequence2str(optimalKeys), " " + singularGroupingVariableName if singularGroupingVariableName else "", 
+						Drawer.__sequence2str(optimalKeys), " " + singularLowercaseGroupingVariableString if singularLowercaseGroupingVariableString else "", 
 						Drawer.__sequence2str(tuple(relativePerformanceMappings.keys())), Drawer.__sequence2str(tuple(relativePerformanceMappings.values())), 
 						", respectively" if len(relativePerformanceMappings) >= 2 else ""
 					)
@@ -832,147 +939,162 @@ class Drawer:
 	def drawMappings(
 		mappings:dict, independentVariables:tuple|list, dependentVariables:tuple|list, groupingVariables:tuple|list, 
 		encoding:str = Parser.getDefaultEncoding(), decimalPlace:int = Parser.getDefaultPlace()
-	) -> tuple|BaseException:
+	) -> tuple|Exception:
 		if isinstance(mappings, dict) and all(isinstance(key, str) and Drawer.checkValues(value) for key, value in mappings.items()) and len(set(len(value) for value in mappings.values())) == 1:
 			variables = tuple(mappings.keys())
-			independentVariableNames = []
+			
+			# Fetch independent variable strings #
+			independentVariableStrings = []
 			if isinstance(independentVariables, (tuple, list)):
 				for independentVariable in independentVariables:
-					variableName = Drawer.__getVariableName(independentVariable, variables)
-					if isinstance(variableName, str):
-						independentVariableNames.append(variableName)
+					variableString = Drawer.__getVariableString(independentVariable, variables)
+					if isinstance(variableString, str):
+						independentVariableStrings.append(variableString)
 			else:
-				variableName = Drawer.__getVariableName(independentVariables, variables)
-				if isinstance(variableName, str):
-					independentVariableNames.append(variableName)
-			dependentVariableNames = []
+				variableString = Drawer.__getVariableString(independentVariables, variables)
+				if isinstance(variableString, str):
+					independentVariableStrings.append(variableString)
+			
+			# Fetch dependent variable strings #
+			dependentVariableStrings = []
 			if isinstance(dependentVariables, (tuple, list)):
 				for dependentVariable in dependentVariables:
-					variableName = Drawer.__getVariableName(dependentVariable, variables)
-					if isinstance(variableName, str):
-						dependentVariableNames.append(variableName)
+					variableString = Drawer.__getVariableString(dependentVariable, variables)
+					if isinstance(variableString, str):
+						dependentVariableStrings.append(variableString)
 			else:
-				variableName = Drawer.__getVariableName(dependentVariables, variables)
-				if isinstance(variableName, str):
-					dependentVariableNames.append(variableName)
-			groupingVariableNames = []
+				variableString = Drawer.__getVariableString(dependentVariables, variables)
+				if isinstance(variableString, str):
+					dependentVariableStrings.append(variableString)
+			
+			# Fetch grouping variable strings #
+			groupingVariableStrings = []
 			if isinstance(groupingVariables, (tuple, list)):
 				for groupingVariable in groupingVariables:
-					variableName = Drawer.__getVariableName(groupingVariable, variables)
-					if isinstance(variableName, str):
-						groupingVariableNames.append(variableName)
+					variableString = Drawer.__getVariableString(groupingVariable, variables)
+					if isinstance(variableString, str):
+						groupingVariableStrings.append(variableString)
 			else:
-				variableName = Drawer.__getVariableName(groupingVariables, variables)
-				if isinstance(variableName, str):
-					groupingVariableNames.append(variableName)
-			if independentVariableNames and dependentVariableNames and groupingVariableNames:
-				seenVariableNames = set()
-				for independentVariableName in independentVariableNames:
-					if independentVariableName in seenVariableNames:
-						return ValueError("The independent variable {0} is repeated. ".format(repr(independentVariableName)))
-					else:
-						seenVariableNames.add(independentVariableName)
-				for dependentVariableName in dependentVariableNames:
-					if dependentVariableName in seenVariableNames:
-						return ValueError("The dependent variable {0} is repeated. ".format(repr(dependentVariableName)))
-					else:
-						seenVariableNames.add(dependentVariableName)
-				for groupingVariableName in groupingVariableNames:
-					if groupingVariableName in seenVariableNames:
-						return ValueError("The grouping variable {0} is repeated. ".format(repr(groupingVariableName)))
-					else:
-						seenVariableNames.add(groupingVariableName)
-				del seenVariableNames
-				if Drawer.__plt is None:
-					configurationStatus = Drawer.configure()
-					if configurationStatus is not True:
-						return configurationStatus
-				valueLength = len(next(iter(mappings.values())))
-				byteMappings = {"main.tex":linesep.join((
-					"\\documentclass[a4paper]{article}", "\\setlength{\\parindent}{0pt}", "\\usepackage{amsmath,amssymb}", 
-					"\\usepackage{bm}", "\\usepackage{graphicx}", "\\usepackage{booktabs}", "", "\\begin{document}", ""
-				))}
-				validFigureTEXCount = 0
-				for groupingVariableName in groupingVariableNames:
-					groupingVariableIndex = variables.index(groupingVariableName) # for naming purposes
-					groupingVariableValues = []
-					for valueIndex in range(valueLength): # start to make the color and the marker for the same group variable value the same across different figures
-						if mappings[groupingVariableName][valueIndex] not in groupingVariableValues:
-							groupingVariableValues.append(mappings[groupingVariableName][valueIndex])
-					colors = {groupingVariableValue:Drawer.__Colors[enumerationIndex % Drawer.__ColorLength] for (
-						enumerationIndex, groupingVariableValue
-					) in enumerate(groupingVariableValues)}
-					markers = {groupingVariableValue:Drawer.__Markers[enumerationIndex % Drawer.__MarkerLength] for (
-						enumerationIndex, groupingVariableValue
-					) in enumerate(groupingVariableValues)} # finish
-					for independentVariableName in independentVariableNames:
-						if not Drawer.__checkNumbers(mappings[independentVariableName]):
+				variableString = Drawer.__getVariableString(groupingVariables, variables)
+				if isinstance(variableString, str):
+					groupingVariableStrings.append(variableString)
+			
+			# Check variable strings #
+			if not (independentVariableStrings and dependentVariableStrings and groupingVariableStrings):
+				return ValueError("Independent, dependent, and grouping variables should not be empty. ")
+			seenVariableStrings = set()
+			for independentVariableString in independentVariableStrings:
+				if independentVariableString in seenVariableStrings:
+					return ValueError("The independent variable {0} is repeated. ".format(repr(independentVariableString)))
+				else:
+					seenVariableStrings.add(independentVariableString)
+			for dependentVariableString in dependentVariableStrings:
+				if dependentVariableString in seenVariableStrings:
+					return ValueError("The dependent variable {0} is repeated. ".format(repr(dependentVariableString)))
+				else:
+					seenVariableStrings.add(dependentVariableString)
+			for groupingVariableString in groupingVariableStrings:
+				if groupingVariableString in seenVariableStrings:
+					return ValueError("The grouping variable {0} is repeated. ".format(repr(groupingVariableString)))
+				else:
+					seenVariableStrings.add(groupingVariableString)
+			del seenVariableStrings
+			
+			# Initialize the ``pyplot`` #
+			if Drawer.__plt is None:
+				configurationStatus = Drawer.configure()
+				if configurationStatus is not True:
+					return configurationStatus
+			
+			# Call the single drawing schema #
+			valueLength = len(next(iter(mappings.values())))
+			byteMappings = {"main.tex":linesep.join((
+				"\\documentclass[a4paper]{article}", "\\setlength{\\parindent}{0pt}", "\\usepackage{amsmath,amssymb}", 
+				"\\usepackage{bm}", "\\usepackage{graphicx}", "\\usepackage{booktabs}", "", "\\begin{document}", ""
+			))}
+			validFigureTEXCount = 0
+			for groupingVariableString in groupingVariableStrings:
+				groupingVariableIndex = variables.index(groupingVariableString) # for naming purposes
+				groupingVariableValues = []
+				for valueIndex in range(valueLength): # start to make the color and the marker for the same group variable value the same across different figures
+					if mappings[groupingVariableString][valueIndex] not in groupingVariableValues:
+						groupingVariableValues.append(mappings[groupingVariableString][valueIndex])
+				colors = {groupingVariableValue:Drawer.__Colors[enumerationIndex % Drawer.__ColorLength] for (
+					enumerationIndex, groupingVariableValue
+				) in enumerate(groupingVariableValues)}
+				markers = {groupingVariableValue:Drawer.__Markers[enumerationIndex % Drawer.__MarkerLength] for (
+					enumerationIndex, groupingVariableValue
+				) in enumerate(groupingVariableValues)} # finish
+				for independentVariableString in independentVariableStrings:
+					if not Drawer.__checkNumbers(mappings[independentVariableString]):
+						continue
+					independentVariableIndex = variables.index(independentVariableString) # for naming purposes
+					controlledVariableStrings = tuple(
+						controlledVariableString for controlledVariableString in independentVariableStrings if controlledVariableString != independentVariableString
+					)
+					controlledVariableIndexes = tuple(variables.index(controlledVariableString) for controlledVariableString in controlledVariableStrings) # for naming purposes
+					valueIndexGroups = {} # start to find out all the value index groups to reduce the time complexity
+					for valueIndex in range(valueLength):
+						valueIndexGroups.setdefault(
+							tuple(mappings[controlledVariableString][valueIndex] for controlledVariableString in controlledVariableStrings), []
+						).append(valueIndex) # finish
+					for dependentVariableString in dependentVariableStrings:
+						if not Drawer.__checkNumbers(mappings[dependentVariableString]):
 							continue
-						independentVariableIndex = variables.index(independentVariableName) # for naming purposes
-						controlledVariableNames = tuple(
-							controlledVariableName for controlledVariableName in independentVariableNames if controlledVariableName != independentVariableName
-						)
-						controlledVariableIndexes = tuple(variables.index(controlledVariableName) for controlledVariableName in controlledVariableNames) # for naming purposes
-						valueIndexGroups = {} # start to find out all the value index groups to reduce the time complexity
-						for valueIndex in range(valueLength):
-							valueIndexGroups.setdefault(
-								tuple(mappings[controlledVariableName][valueIndex] for controlledVariableName in controlledVariableNames), []
-							).append(valueIndex) # finish
-						for dependentVariableName in dependentVariableNames:
-							dependentVariableIndex = variables.index(dependentVariableName) # for naming purposes
-							for curveGroupIndex, (controlledVariableValues, valueIndexGroup) in enumerate(valueIndexGroups.items()):
-								curveMappings = {}
-								for valueIndex in valueIndexGroup:
-									groupingVariableValue = mappings[groupingVariableName][valueIndex]
-									curveMappings.setdefault(groupingVariableValue, {})
-									curveMappings[groupingVariableValue].setdefault(
-										mappings[independentVariableName][valueIndex], []
-									).append(mappings[dependentVariableName][valueIndex]) # to avoid multiple ``y`` values
-								curves = []
-								for outerKey, outerValue in curveMappings.items(): # convert {groupingVariableValue -> {x -> y(s)}} to [{"x":[], "y":[], ...}, ...]
-									curves.append({"color":colors[outerKey], "marker":markers[outerKey], "label":outerKey})
-									for innerKey, innerValue in outerValue.items(): # x -> y(s)
-										if Drawer.__checkNumbers(innerValue):
-											innerValueLength = len(innerValue)
-											if innerValueLength >= 2:
-												curves[-1].setdefault("x", []).append(innerKey)
-												curves[-1].setdefault("y", []).append(sum(innerValue) / innerValueLength)
-												if curves[-1]["y"][-1].is_integer:
-													curves[-1]["y"][-1] = int(curves[-1]["y"][-1])
-											elif 1 == innerValueLength:
-												curves[-1].setdefault("x", []).append(innerKey)
-												curves[-1].setdefault("y", []).append(innerValue[0])
-									if not ("x" in curves[-1] and curves[-1]["x"] and "y" in curves[-1] and curves[-1]["y"]):
-										del curves[-1]
-								figureFilePath = "x{0}y{1}{2}g{3}.pdf".format(independentVariableIndex, dependentVariableIndex, "".join(
-									"c{0}".format(controlledVariableIndex) for controlledVariableIndex in controlledVariableIndexes
-								), curveGroupIndex)
-								byteMappings[figureFilePath] = Drawer.draw(curves, xLabelName = independentVariableName, yLabelName = dependentVariableName)
-								if isinstance(byteMappings[figureFilePath], bytes):
-									figureTEX = Drawer.summarizeCurves(
-										curves, figureFilePath, independentVariableName, dependentVariableName, groupingVariableName, 
-										controlledVariableNames, controlledVariableValues, decimalPlace = decimalPlace
-									)
-									if isinstance(figureTEX, str) and figureTEX:
-										byteMappings["main.tex"] += figureTEX.strip() + linesep * 2
+						dependentVariableIndex = variables.index(dependentVariableString) # for naming purposes
+						for curveGroupIndex, (controlledVariableValues, valueIndexGroup) in enumerate(valueIndexGroups.items()):
+							curveMappings = {}
+							for valueIndex in valueIndexGroup:
+								groupingVariableValue = mappings[groupingVariableString][valueIndex]
+								curveMappings.setdefault(groupingVariableValue, {})
+								curveMappings[groupingVariableValue].setdefault(
+									mappings[independentVariableString][valueIndex], []
+								).append(mappings[dependentVariableString][valueIndex]) # to avoid multiple ``y`` values
+							curves = []
+							for outerKey, outerValue in curveMappings.items(): # convert {groupingVariableValue -> {x -> y(s)}} to [{"x":[], "y":[], ...}, ...]
+								curves.append({"color":colors[outerKey], "marker":markers[outerKey], "label":outerKey})
+								for innerKey, innerValue in outerValue.items(): # x -> y(s)
+									if Drawer.__checkNumbers(innerValue):
+										innerValueLength = len(innerValue)
+										if innerValueLength >= 2:
+											curves[-1].setdefault("x", []).append(innerKey)
+											curves[-1].setdefault("y", []).append(sum(innerValue) / innerValueLength)
+											if curves[-1]["y"][-1].is_integer():
+												curves[-1]["y"][-1] = int(curves[-1]["y"][-1])
+										elif 1 == innerValueLength:
+											curves[-1].setdefault("x", []).append(innerKey)
+											curves[-1].setdefault("y", []).append(innerValue[0])
+								if not ("x" in curves[-1] and curves[-1]["x"] and "y" in curves[-1] and curves[-1]["y"]):
+									del curves[-1]
+							figureFilePath = "x{0}y{1}{2}g{3}.pdf".format(independentVariableIndex, dependentVariableIndex, "".join(
+								"c{0}".format(controlledVariableIndex) for controlledVariableIndex in controlledVariableIndexes
+							), curveGroupIndex)
+							byteMappings[figureFilePath] = Drawer.draw(curves, xLabel = independentVariableString, yLabel = dependentVariableString)
+							if isinstance(byteMappings[figureFilePath], bytes):
+								figureTEX = Drawer.summarizeCurves(
+									curves, figureFilePath, independentVariableString, dependentVariableString, groupingVariableString, 
+									controlledVariableStrings, controlledVariableValues, decimalPlace = decimalPlace
+								)
+								if isinstance(figureTEX, str):
+									strippedFigureTEX = figureTEX.strip()
+									if strippedFigureTEX:
+										byteMappings["main.tex"] += strippedFigureTEX + linesep * 2
 										validFigureTEXCount += 1
 										if validFigureTEXCount % 10 == 0:
 											byteMappings["main.tex"] += "\\clearpage" + linesep * 2
-				byteMappings["main.tex"] += "\\end{document}"
+			byteMappings["main.tex"] += "\\end{document}"
+			try:
 				try:
+					lookup(encoding)
 					try:
-						lookup(encoding)
-						try:
-							byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding)
-						except Exception:
-							byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding, errors = "ignore")
+						byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding)
 					except Exception:
-						byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding())
+						byteMappings["main.tex"] = byteMappings["main.tex"].encode(encoding, errors = "ignore")
 				except Exception:
-					byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding(), errors = "ignore")
-				return byteMappings
-			else:
-				return ValueError("Independent, dependent and group variables should not be empty. ")
+					byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding())
+			except Exception:
+				byteMappings["main.tex"] = byteMappings["main.tex"].encode(Parser.getDefaultEncoding(), errors = "ignore")
+			return byteMappings
 		else:
 			return TypeError("The mappings should be a dictionary containing several mappings from a string to a tuple or a list of numbers. ")
 
@@ -982,103 +1104,235 @@ class Analyzer:
 		self.__outputFilePath = outputFilePath
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
 		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
-	def __load(self:tuple|list|str) -> dict|BaseException:
+	def load(self:tuple|list|str) -> dict|Exception:
 		if isinstance(self.__inputFilePaths, (tuple, list)):
 			index, length = 0, len(self.__inputFilePaths)
 			while index < length:
 				if isinstance(self.__inputFilePaths[index], str):
 					mappings = Loader.load(self.__inputFilePaths[index], encoding = self.__encoding)
-					if isinstance(mappings, dict) and all(isinstance(key, str) for key in mappings.keys()):
-						keys = set(mappings.keys())
-						index += 1
-						while index < length: # for (++index; index < length; ++index)
-							currentMappings = Loader.load(self.__inputFilePaths[index], encoding = self.__encoding)
-							if isinstance(currentMappings, dict) and all(isinstance(key, str) for key in currentMappings.keys()):
-								if set(currentMappings.keys()) == keys:
-									for key in mappings.keys():
-										mappings[key].extend(currentMappings[key])
-								else:
-									return KeyError("Keys mismatched across different mappings. ")
-							else:
-								return TypeError("Stopped loading remaining files, interrupted by {0} due to {1}. ".format(
-									repr(self.__inputFilePaths[index]), repr(currentMappings)
-								))
+					if (
+						isinstance(mappings, dict) and all(isinstance(key, str) and key and Drawer.checkValues(value) for key, value in mappings.items())
+						and len(set(len(value) for value in mappings.values())) == 1
+					):
+						keys = tuple(mappings.keys())
+						sanitizedKeys = tuple(Drawer.sanitize(key) for key in keys)
+						if None in sanitizedKeys or "" in sanitizedKeys:
+							return KeyError("Failed to load the input file(s) due to empty sanitized keys detected in {0}. ".format(repr(self.__inputFilePaths[index])))
+						duplicateKeys = {}
+						for sanitizedKey in set(sanitizedKeys):
+							keyIndexes = tuple(sanitizedKeyIndex for sanitizedKeyIndex, sanitizedKeyValue in enumerate(sanitizedKeys) if sanitizedKeyValue == sanitizedKey)
+							if len(keyIndexes) > 1:
+								duplicateKeys[sanitizedKey] = {keyIndex:keys[keyIndex] for keyIndex in keyIndexes}
+						duplicateKeyCount = len(duplicateKeys)
+						if duplicateKeyCount >= 2:
+							return KeyError("Failed to load the input file(s) due to the {0} duplicate sanitized keys {1} in {2}. ".format(
+								duplicateKeyCount, duplicateKeys, repr(self.__inputFilePaths[index])
+							))
+						elif 1 == duplicateKeyCount:
+							return KeyError("Failed to load the input file(s) due to the duplicate sanitized key {0} in {1}. ".format(
+								duplicateKeys, repr(self.__inputFilePaths[index])
+							))
+						else:
+							mappings = {key:value for key, value in zip(sanitizedKeys, mappings.values())}
+							sanitizedKeys = set(sanitizedKeys)
 							index += 1
-						return mappings
-					else:
-						return TypeError("Stopped loading remaining files, interrupted by {0} due to {1}. ".format(repr(self.__inputFilePaths[index]), repr(mappings)))
-				index += 1
-			return ValueError("No strings were found in the unit of the input file paths. ")
-		elif isinstance(self.__inputFilePaths, str):
-			return Loader.load(self.__inputFilePaths, encoding = self.__encoding)
-		else:
-			return TypeError("The input file path(s) should be a tuple, a list, or a string. ")
-	def analyze(self:object) -> bool|dict|BaseException:
-		mappings = self.__load()
-		if isinstance(mappings, BaseException):
-			return IOError("Failed to load mappings from {0} due to {1}. ".format(repr(self.__inputFilePaths), repr(mappings)))
-		elif isinstance(mappings, dict) and all(isinstance(key, str) and Drawer.checkValues(value) for key, value in mappings.items()) and len(set(len(value) for value in mappings.values())) == 1:
-			variables = tuple(mappings.keys())
-			lowercaseVariables = tuple(variable.lower() for variable in variables)
-			for possibleGroupingVariableName in ("algorithm", "scheme", "solution"):
-				if possibleGroupingVariableName in lowercaseVariables:
-					groupingVariableIndex = lowercaseVariables.index(possibleGroupingVariableName)
-					break
-			else:
-				return ValueError("Failed to find a suitable grouping variable in the mappings. ")
-			for possibleRunCountVariableName in ("run", "run count", "runcount"):
-				if possibleRunCountVariableName in lowercaseVariables:
-					runCountVariableIndex = lowercaseVariables.index(possibleRunCountVariableName)
-					break
-			else:
-				return ValueError("Failed to find a suitable run count variable in the mappings. ")
-			dependentVariableIndexes = tuple(variableIndex for variableIndex, variableName in enumerate(variables[runCountVariableIndex + 1:], start = runCountVariableIndex + 1) if (
-				(Drawer.checkConsumptionLikeVariableName(variableName) and not variableName.lower().startswith("elementof")) or Drawer.checkInlineMathematicalMode(variableName)
-			))
-			if groupingVariableIndex in dependentVariableIndexes:
-				return ValueError("The grouping variable should not be a dependent variable. ")
-			if dependentVariableIndexes and runCountVariableIndex < dependentVariableIndexes[0]:
-				independentVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex) if variableIndex != groupingVariableIndex and not (
-					"$\\lambda$" == variables[variableIndex] and any(
-						lowercaseVariable in ("security length", "security lengths") or lowercaseVariable.startswith("security length ") for lowercaseVariable in lowercaseVariables
-					)
-				))
-				validationVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex, dependentVariableIndexes[0]))
-				validationVariableNames = tuple(variables[variableIndex] for variableIndex in validationVariableIndexes)
-				for valueIndex in range(len(next(iter(mappings.values()))) - 1, -1, -1): # remove failed experiments
-					runCountVariableValue = mappings[variables[runCountVariableIndex]][valueIndex]
-					for validationVariableName in validationVariableNames[1:]:
-						if mappings[validationVariableName][valueIndex] != runCountVariableValue:
-							break
-					else: # end for naturally
-						continue
-					for value in mappings.values():
-						value.pop(valueIndex)
-				try:
-					outputDirectoryPath = dirname(self.__outputFilePath)
-					if outputDirectoryPath:
-						makedirs(outputDirectoryPath, exist_ok = True)
-					byteMappings = Drawer.drawMappings(mappings, independentVariableIndexes, dependentVariableIndexes, groupingVariableIndex)
-					if isinstance(byteMappings, dict):
-						compressionMappings = {}
-						while True: # try our best to avoid ``KeyboardInterrupt`` when writing the output file
-							try:
-								with ZipFile(self.__outputFilePath if ".zip" == splitext(self.__outputFilePath)[1].lower() else self.__outputFilePath + ".zip", "w") as zf:
-									for key, value in byteMappings.items():
-										if isinstance(key, str) and isinstance(value, bytes):
-											zf.writestr(key, value)
+							while index < length: # for (++index; index < length; ++index)
+								if isinstance(self.__inputFilePaths[index], str):
+									currentMappings = Loader.load(self.__inputFilePaths[index], encoding = self.__encoding)
+									if (
+										isinstance(currentMappings, dict)
+										and all(isinstance(key, str) and key and Drawer.checkValues(value) for key, value in currentMappings.items())
+										and len(set(len(value) for value in currentMappings.values())) == 1
+									):
+										currentKeys = tuple(currentMappings.keys())
+										sanitizedCurrentKeys = tuple(Drawer.sanitize(currentKey) for currentKey in currentKeys)
+										if None in sanitizedCurrentKeys or "" in sanitizedCurrentKeys:
+											return KeyError("Failed to load the input file(s) due to empty sanitized keys detected in {0}. ".format(
+												repr(self.__inputFilePaths[index])
+											))
+										duplicateCurrentKeys = {}
+										for sanitizedCurrentKey in set(sanitizedCurrentKeys):
+											currentKeyIndexes = tuple(
+												sanitizedCurrentKeyIndex
+												for sanitizedCurrentKeyIndex, sanitizedCurrentKeyValue in enumerate(sanitizedCurrentKeys)
+												if sanitizedCurrentKeyValue == sanitizedCurrentKey
+											)
+											if len(currentKeyIndexes) > 1:
+												duplicateCurrentKeys[sanitizedCurrentKey] = {
+													currentKeyIndex:currentKeys[currentKeyIndex] for currentKeyIndex in currentKeyIndexes
+												}
+										duplicateCurrentKeyCount = len(duplicateCurrentKeys)
+										if duplicateCurrentKeyCount >= 2:
+											return KeyError("Failed to load the input file(s) due to the {0} duplicate sanitized keys {1} in {2}. ".format(
+												duplicateCurrentKeyCount, duplicateCurrentKeys, repr(self.__inputFilePaths[index])
+											))
+										elif 1 == duplicateCurrentKeyCount:
+											return KeyError("Failed to load the input file(s) due to the duplicate sanitized key {0} in {1}. ".format(
+												duplicateCurrentKeys, repr(self.__inputFilePaths[index])
+											))
 										else:
-											compressionMappings[key] = value
-								break
-							except KeyboardInterrupt:
-								continue
-						return compressionMappings if compressionMappings else True
+											currentMappings = {
+												currentKey:currentValue for currentKey, currentValue in zip(sanitizedCurrentKeys, currentMappings.values())
+											}
+											if set(sanitizedCurrentKeys) == sanitizedKeys:
+												for key,value in mappings.items():
+													value.extend(currentMappings[key])
+											else:
+												return KeyError(
+													(
+														"Failed to load the input file(s) since the current sanitized keys {0} from the file {1} "
+														+ "mismatched the sanitized keys {2} from the first file {3}. "
+													).format(
+														sanitizedCurrentKeys, repr(self.__inputFilePaths[index]),
+														sanitizedKeys, repr(self.__inputFilePaths[0])
+													)
+												)
+									elif isinstance(currentMappings, Exception):
+										return type(currentMappings)("Failed to load the input file(s) due to {0} while loading {1}. ".format(
+											repr(currentMappings), repr(self.__inputFilePaths[index])
+										))
+									else:
+										return ValueError("Failed to load the input file(s) due to invalid keys or values detected in {0}. ".format(
+											repr(self.__inputFilePaths[index])
+										))
+								index += 1
+							return mappings
+					elif isinstance(mappings, Exception):
+						return type(mappings)("Failed to load the input file(s) due to {0} while loading {1}. ".format(repr(mappings), repr(self.__inputFilePaths[index])))
 					else:
-						return byteMappings
+						return ValueError("Failed to load the input file(s) due to invalid keys or values detected in {0}. ".format(repr(self.__inputFilePaths[index])))
+				index += 1
+			return ValueError("No strings were found in the unit of the input file path(s). ")
+		elif isinstance(self.__inputFilePaths, str):
+			mappings = Loader.load(self.__inputFilePaths, encoding = self.__encoding)
+			if isinstance(mappings, dict) and all(isinstance(key, str) and isinstance(value, (tuple, list)) for key, value in mappings.items()):
+				keys = tuple(mappings.keys())
+				sanitizedKeys = tuple(Drawer.sanitize(key) for key in keys)
+				if None in sanitizedKeys or "" in sanitizedKeys:
+					return KeyError("Failed to load the input file {0} due to empty sanitized keys detected. ".format(repr(self.__inputFilePaths)))
+				duplicateKeys = {}
+				for sanitizedKey in set(sanitizedKeys):
+					keyIndexes = tuple(sanitizedKeyIndex for sanitizedKeyIndex, sanitizedKeyValue in enumerate(sanitizedKeys) if sanitizedKeyValue == sanitizedKey)
+					if len(keyIndexes) > 1:
+						duplicateKeys[sanitizedKey] = {keyIndex:keys[keyIndex] for keyIndex in keyIndexes}
+				duplicateKeyCount = len(duplicateKeys)
+				if duplicateKeyCount >= 2:
+					return KeyError("Failed to load the input file {0} due to the {1} duplicate sanitized keys {2}. ".format(
+						repr(self.__inputFilePaths), duplicateKeyCount, duplicateKeys
+					))
+				elif 1 == duplicateKeyCount:
+					return KeyError("Failed to load the input file {0} due to the duplicate sanitized key {1}. ".format(repr(self.__inputFilePaths), duplicateKeys))
+				else:
+					return {key:value for key, value in zip(sanitizedKeys, mappings.values())}
+			else:
+				return Exception("Failed to load the input file {0} due to {1}. ".format(repr(self.__inputFilePaths), repr(mappings)))
+		else:
+			return TypeError("The unit of the input file path(s) should be a tuple, a list, or a string. ")
+	def analyze(self:object, specifiedGroupingVariable:str|int|None = None, specifiedRunCountVariable:str|int|None = None) -> bool|dict|Exception:
+		mappings = self.load()
+		if isinstance(mappings, Exception):
+			return mappings
+		elif (
+			isinstance(mappings, dict) and bool(mappings)
+			and all(isinstance(key, str) and key and Drawer.checkValues(value) for key, value in mappings.items())
+			and len(set(len(value) for value in mappings.values())) == 1
+		):
+			variables = tuple(mappings.keys())
+			lowercaseVariables = tuple(Drawer.lowercase(variable) for variable in variables)
+			lowercaseVariableLength = len(lowercaseVariables)
+			
+			# Locate the index of the grouping variable #
+			if isinstance(specifiedGroupingVariable, str):
+				try:
+					groupingVariableIndex = lowercaseVariables.index(specifiedGroupingVariable.lower())
 				except Exception as e:
 					return e
+			elif isinstance(specifiedGroupingVariable, int) and -lowercaseVariableLength <= specifiedGroupingVariable < lowercaseVariableLength:
+				groupingVariableIndex = specifiedGroupingVariable if specifiedGroupingVariable >= 0 else lowercaseVariableLength + specifiedGroupingVariable
 			else:
-				return ValueError("Data loaded do not contain suitable query, validator or metric variables. ")
+				for possibleGroupingVariableString in ("solution", "scheme", "schema", "algorithm"):
+					if possibleGroupingVariableString in lowercaseVariables:
+						groupingVariableIndex = lowercaseVariables.index(possibleGroupingVariableString)
+						break
+				else:
+					return ValueError("Failed to find a suitable grouping variable in the mappings. ")
+			
+			# Locate the index of the run count variable #
+			if isinstance(specifiedRunCountVariable, str):
+				try:
+					runCountVariableIndex = lowercaseVariables.index(specifiedRunCountVariable)
+				except Exception as e:
+					return e
+			elif isinstance(specifiedRunCountVariable, int) and -lowercaseVariableLength <= specifiedRunCountVariable < lowercaseVariableLength:
+				runCountVariableIndex = specifiedRunCountVariable if specifiedRunCountVariable >= 0 else lowercaseVariableLength + specifiedRunCountVariable
+			else:
+				for possibleRunCountVariableString in ("run", "run count", "runcount"):
+					if possibleRunCountVariableString in lowercaseVariables:
+						runCountVariableIndex = lowercaseVariables.index(possibleRunCountVariableString)
+						break
+				else:
+					return ValueError("Failed to find a suitable run count variable in the mappings. ")
+			if groupingVariableIndex >= runCountVariableIndex:
+				return IndexError("The index of the grouping variable ({0}) must be smaller than the run count variable ({1}). ".format(groupingVariableIndex, runCountVariableIndex))
+			
+			# Locate the indexes of the dependent variables #
+			dependentVariableIndexes = tuple(variableIndex for variableIndex, variableString in enumerate(variables[runCountVariableIndex + 1:], start = runCountVariableIndex + 1) if (
+				Drawer.checkMathematicalLikeString(variableString) or Drawer.checkConsumptionLikeString(variableString)
+			))
+			if not dependentVariableIndexes:
+				return ValueError("Data loaded do not contain metric variables after the run count variable. ")
+			
+			# Locate the indexes of the validation variables #
+			validationVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex, dependentVariableIndexes[0]))
+			validationVariableStrings = tuple(variables[variableIndex] for variableIndex in validationVariableIndexes)
+			dependentVariableIndexes = tuple(dependentVariableIndex for dependentVariableIndex in dependentVariableIndexes if (
+				not lowercaseVariables[dependentVariableIndex].startswith(("element of", "elementof"))
+			))
+			if not dependentVariableIndexes:
+				return ValueError("Data loaded do not contain suitable metric variables. ")
+			
+			# Locate the indexes of the independent variables #
+			containingSecurityLevel = any((
+				lowercaseVariable in ("security length", "security lengths", "security level", "security levels")
+				or lowercaseVariable.startswith(("security length ", "security lengths ", "security level ", "security levels "))
+			) for lowercaseVariable in lowercaseVariables)
+			independentVariableIndexes = tuple(variableIndex for variableIndex in range(runCountVariableIndex) if variableIndex != groupingVariableIndex and not (
+				containingSecurityLevel and lowercaseVariables[variableIndex] in ("$\\lambda$", "curve name", "curvename")
+			))
+			
+			# Remove failed experiments #
+			for valueIndex in range(len(next(iter(mappings.values()))) - 1, -1, -1):
+				runCountVariableValue = mappings[variables[runCountVariableIndex]][valueIndex]
+				for validationVariableString in validationVariableStrings[1:]:
+					if mappings[validationVariableString][valueIndex] != runCountVariableValue:
+						for value in mappings.values():
+							value.pop(valueIndex)
+						break
+			
+			# Call the mapping drawing schema #
+			try:
+				outputDirectoryPath = dirname(self.__outputFilePath)
+				if outputDirectoryPath:
+					makedirs(outputDirectoryPath, exist_ok = True)
+				byteMappings = Drawer.drawMappings(mappings, independentVariableIndexes, dependentVariableIndexes, groupingVariableIndex)
+				if isinstance(byteMappings, dict):
+					compressionMappings = {}
+					while True: # try our best to avoid ``KeyboardInterrupt`` when writing the output file
+						try:
+							with ZipFile(self.__outputFilePath if ".zip" == splitext(self.__outputFilePath)[1].lower() else self.__outputFilePath + ".zip", "w") as zf:
+								for key, value in byteMappings.items():
+									if isinstance(key, str) and isinstance(value, bytes):
+										zf.writestr(key, value)
+									else:
+										compressionMappings[key] = value
+							break
+						except KeyboardInterrupt:
+							continue
+					return compressionMappings if compressionMappings else True
+				else:
+					return byteMappings
+			except Exception as e:
+				return e
 		else:
 			return ValueError("The mappings loaded are invalid. ")
 
@@ -1089,6 +1343,9 @@ class Analyzers:
 		self.__formatString = formatString if isinstance(formatString, str) else Parser.getDefaultOutput()
 		self.__encoding = encoding if isinstance(encoding, str) else Parser.getDefaultEncoding()
 		self.__decimalPlace = decimalPlace if isinstance(decimalPlace, int) and decimalPlace >= 0 else Parser.getDefaultPlace()
+		self.__targetCount = 0
+		self.__successCount = 0
+		self.__failureCount = 0
 		self.updateUnits(*units if units else ".")
 	@staticmethod
 	def __getUnitInputFilePaths(*paths:tuple) -> tuple:
@@ -1207,14 +1464,26 @@ class Analyzers:
 				del self.__units[index]
 		currentLength = len(self.__analyzers)
 		return currentLength - originalLength
-	def analyze(self:object) -> int:
-		successCount = 0
-		for unit, analyzer in zip(self.__units, self.__analyzers):
+	def analyze(self:object, leftClosing:int|None = None, rightOpening:int|None = None) -> None:
+		self.__targetCount = 0
+		self.__successCount = 0
+		self.__failureCount = 0
+		leftClosingIndex = leftClosing if isinstance(leftClosing, int) else 0
+		rightOpeningIndex = rightOpening if isinstance(rightOpening, int) else None
+		for index, (unit, analyzer) in enumerate(tuple(zip(self.__units, self.__analyzers))[leftClosingIndex:rightOpeningIndex], start = leftClosingIndex):
+			self.__targetCount += 1
 			result = analyzer.analyze()
 			if result is True:
-				successCount += 1
-			print("Analyzers: {0} -> {1}".format(repr(unit), repr(result) if isinstance(result, BaseException) else result))
-		return successCount
+				self.__successCount += 1
+			else:
+				self.__failureCount += 1
+			print("Analyzers: [{0}] {1} -> {2}".format(index, repr(unit), repr(result) if isinstance(result, Exception) else result))
+	def getTargetCount(self:object) -> int:
+		return self.__targetCount
+	def getSuccessCount(self:object) -> int:
+		return self.__successCount
+	def getFailureCount(self:object) -> int:
+		return self.__failureCount
 	def __len__(self:object) -> int:
 		return len(self.__analyzers)
 
@@ -1223,22 +1492,24 @@ def main() -> int:
 	flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
 	if flag > EXIT_SUCCESS and flag > EOF:
+		analyzers = None
 		try:
 			analyzers = Analyzers(units, formatString = outputPathWithoutAnExtension, encoding = encoding, decimalPlace = decimalPlace)
 			totalCount = len(analyzers)
 			if totalCount >= 1:
-				successCount = analyzers.analyze()
+				print("Gathered {0} to be analyzed. ".format(("{0} unit" if 1 == totalCount else "{0} units").format(totalCount)))
 				print()
-				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
+				analyzers.analyze()
+				print()
 			else:
-				errorLevel = EOF
-				print("Nothing analyzed, please check the input paths and the runtime environments. ")
+				print("Nothing to be analyzed, please check the inputs. ")
 		except KeyboardInterrupt:
 			print()
 			print("The analysis was interrupted by users. Saved archives are retained. ")
 		except BaseException as e:
 			print()
 			print("The analysis was interrupted by {0}. Saved archives are retained. ".format(repr(e)))
+		errorLevel = EXIT_SUCCESS if isinstance(analyzers, Analyzers) and analyzers.getTargetCount() >= 1 and analyzers.getSuccessCount() >= 1 and analyzers.getFailureCount() == 0 else EXIT_FAILURE
 	elif EXIT_SUCCESS == flag:
 		errorLevel = flag
 	else:

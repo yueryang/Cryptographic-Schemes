@@ -13,7 +13,7 @@ from time import perf_counter, sleep
 from warnings import filterwarnings
 filterwarnings(
 	"ignore", category = DeprecationWarning, 
-	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+	message = "^Curve \'(MNT159|SS512|SS1024)\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
 )
 try:
 	chdir(abspath(dirname(__file__)))
@@ -612,14 +612,14 @@ class Saver:
 
 class SchemeIBMETR:
 	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
-	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
-	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime orders. 
+	__SecurityLevelMappings = {"BLS12-381":126, "BN254":99, "MNT159":70, "MNT201":90, "MNT224":100, "SS512":80, "SS1024":112}
+	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is only applicable to symmetric groups of prime order. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		try:
 			pair(self.__group.random(G1), self.__group.random(G1))
 		except:
 			self.__group = PairingGroup("SS512", secparam = self.__group.secparam)
-			print("Init: This scheme is only applicable to symmetric groups of prime orders. The curve name has been defaulted to \"SS512\". ")
+			print("Init: This scheme is only applicable to symmetric groups of prime order. The curve name has been defaulted to \"SS512\". ")
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
 			print("Init: The securtiy parameter should be a positive integer, but it is not, which has been defaulted to {0}. ".format(self.__group.secparam))
@@ -669,7 +669,7 @@ class SchemeIBMETR:
 			HHat = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 		else:
 			HHat = lambda x:int.from_bytes(sha3_512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $\hat{H}: \{0, 1\}^* \to \{0, 1\}^\lambda$
-			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 224, 256, 384, 512, or 1024 as the security parameter. ".format(self.__group.secparam))
+			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 512, 384, 256, 224, 160, or 128 as the security parameter. ".format(self.__group.secparam))
 		g0, g1 = self.__group.random(G1), self.__group.random(G1) # generate $g_0, g_1 \in \mathbb{G}_1$ randomly
 		w, alpha = self.__group.random(ZR, 2) # generate $w, \alpha \in \mathbb{Z}_r$ randomly
 		t1, t2 = tuple(self.__generateRandomNonZeroZRElement() for _ in range(2)) # generate $t_1, t_2 \in \mathbb{Z}_r^*$ randomly
@@ -979,7 +979,7 @@ class SchemeIBMETR:
 			if isVerbose is not False:
 				print("Original:", message)
 				print("Decrypted:", m)
-				print("Is the scheme correct (m == message)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Correctness (m == message): {0}".format(isSchemeCorrect))
 				print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
 				print("Time:", (timeSetup, timeEKGen, timeDKGen, timeTKGen, timeEnc, timeDec, timeTVerify))
 				print("Space:", (sizeZR, sizeG1G2, sizeGT, sizeMpk, sizeMsk, sizeEkIdS, sizeDkIdR, sizeTkIdR, sizeCt))
@@ -1010,7 +1010,7 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = (("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))
+			curveParameters = (("SS512", 256), ("SS512", 512), ("SS1024", 256), ("SS1024", 512))
 			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect", "isTracingVerified")
 			metrics = (

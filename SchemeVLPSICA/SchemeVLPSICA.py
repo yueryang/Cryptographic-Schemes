@@ -14,7 +14,7 @@ from time import perf_counter, sleep
 from warnings import filterwarnings
 filterwarnings(
 	"ignore", category = DeprecationWarning, 
-	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+	message = "^Curve \'(MNT159|SS512|SS1024)\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
 )
 try:
 	chdir(abspath(dirname(__file__)))
@@ -614,8 +614,8 @@ class Saver:
 class SchemeVLPSICA:
 	__DefaultM, __DefaultN, __DefaultD = 10, 10, 10
 	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
-	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
-	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders. 
+	__SecurityLevelMappings = {"BLS12-381":126, "BN254":99, "MNT159":70, "MNT201":90, "MNT224":100, "SS512":80, "SS1024":112}
+	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime order. 
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
@@ -699,7 +699,7 @@ class SchemeVLPSICA:
 			H = lambda x:int.from_bytes(md5(self.__group.serialize(x)).digest(), byteorder = "big")
 		else:
 			H = lambda x:int.from_bytes(sha3_512(self.__group.serialize(x)).digest() * (((self.__group.secparam - 1) >> 9) + 1), byteorder = "big") & self.__operand # $H: \mathbb{G}_T \to \{0, 1\}^\lambda$
-			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 224, 256, 384, 512, or 1024 as the security parameter. ".format(self.__group.secparam))
+			print("Setup: An irregular security parameter ($\\lambda = {0}$) is specified. It is recommended to use 512, 384, 256, 224, 160, or 128 as the security parameter. ".format(self.__group.secparam))
 		self.__mpk = (g1, SPrime, H) # $\textit{mpk} \gets (g_1, S', H)$
 		self.__msk = (g2, SVec) # $\textit{msk} \gets (g_2, \vec{S})$
 		
@@ -866,7 +866,7 @@ class SchemeVLPSICA:
 		else:
 			return "N/A"
 	@staticmethod
-	def conductScheme(curveParameter:tuple|list|dict|str, m:int = DefaultM, n:int = DefaultN, d:int = DefaultD, run:int|None = None, isVerbose:bool = True) -> list:
+	def conductScheme(curveParameter:tuple|list|dict|str, m:int = __DefaultM, n:int = __DefaultN, d:int = __DefaultD, run:int|None = None, isVerbose:bool = True) -> list:
 		# Begin #
 		curveName, securityParameter, securityLevel, mString, nString, dString, runString = "N/A", 512, "N/A", "N/A", "N/A", "N/A", "N/A" # the default value of the security parameter in the Python Charm-Crypto framework is 512
 		isSystemValid, isSchemeCorrect = False, False
@@ -982,7 +982,7 @@ class SchemeVLPSICA:
 			del schemeVLPSICA
 			if isVerbose is not False:
 				print("Verify:", result)
-				print("Is the scheme correct (result is not False)? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("Correctness (result is not False): {0}".format(isSchemeCorrect))
 				print("Time:", (timeSetup, timeSender, timeReceiver, timeCloud1, timeCloud2, timeVerify))
 				print("Space:", (sizeZR, sizeG1, sizeG2, sizeGT, sizeMpk, sizeMsk, sizeTTPrime, sizeUUPrime, sizeR, sizeRPrimeVec, sizeWVec, sizeKVec))
 				print()
@@ -1012,7 +1012,7 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
+			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", "SS512", "SS1024")
 			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$m$", "$n$", "$d$", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (

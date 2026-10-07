@@ -221,14 +221,31 @@ The [``runPython`` workflow](./.github/workflows/runPython.yml) will execute the
 
 Here are the details that cannot be controlled by the command-line arguments. 
 
-- If a scheme is applicable to symmetric and asymmetric groups of prime orders, curve types, and security parameters in the tuple ``("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))`` will be tested. 
-- If a scheme is only applicable to symmetric groups of prime orders, curve types and security parameters in the tuple ``(("SS512", 128), ("SS512", 160), ("SS512", 224), ("SS512", 256), ("SS512", 384), ("SS512", 512))`` will be tested. 
+- If a scheme is applicable to symmetric and asymmetric groups of prime order, curve types, and security parameters in the tuple ``("MNT159", "MNT201", "MNT224", "BN254", "SS512", "SS1024")`` will be tested. 
+- If a scheme is only applicable to symmetric groups of prime order, curve types and security parameters in the tuple ``(("SS512", 256), ("SS512", 512), ("SS1024", 256), ("SS1024", 512))`` will be tested. 
 - The output files in the three-line table or plain text form should contain the input parameters, correctness-related counts, procedure time consumption, program memory consumption, storing sizes of elements from different fields, and storing sizes of important variables. 
 - Users should only modify the ``# Parameters #`` part in the ``main`` function if they just want to test different parameters. 
 
-We have already noticed that MNT159, SS512, and SS1024 have been warned due to their inadequate security. While MNT159 has been removed from all our Python scripts, 
-we can hardly remove SS512 and SS1024 since, after all, there are no other curves supporting the $e(g_l, g_r), g_l, g_r \in \mathbb{G}_1$ operation in the Python Charm-Crypto framework. 
-Therefore, we have to keep using SS512 and SS1024 currently. 
+We note that MNT159, SS512, and SS1024 trigger warnings due to insufficient security levels. 
+If MNT159 is excluded, three asymmetric curves (MNT201, MNT224, and BN254) will remain available for cryptographic schemes that are applicable to symmetric and asymmetric groups of prime order. 
+However, if SS512 and SS1024 are excluded, no symmetric curves in the Python Charm-Crypto framework will remain available for cryptographic schemes 
+that are only applicable to symmetric groups of prime order, which require the support of the symmetric pairing $e(g_l, g_r)$, where $g_l, g_r \in \mathbb{G}_1$. 
+Therefore, we recommend using cryptographic schemes that are applicable to symmetric and asymmetric groups of prime order, based on MNT201, MNT224, or BN254, in production environments. 
+To broaden the experimental evaluation, we decided to use all applicable curves in experimental settings, including those that trigger warnings. The following code can be used to filter out the warnings. 
+
+```python
+filterwarnings(
+	"ignore", category = DeprecationWarning, 
+	message = "^Curve \'(MNT159|SS512|SS1024)\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+)
+```
+
+Notably, BN254 no longer provides 128-bit security after the exTNFS attack, which contradicts the warning message emitted by Charm-Crypto when instantiating a ``PairingGroup``. 
+In fact, the security level of BN254 is at most 100 bits. The estimated security levels of the supported curves are summarized below. 
+
+```python
+__SecurityLevelMappings = {"BLS12-381":126, "BN254":99, "MNT159":70, "MNT201":90, "MNT224":100, "SS512":80, "SS1024":112}
+```
 
 #### 1.1.3 Savers
 

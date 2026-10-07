@@ -830,7 +830,7 @@ def __conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bo
 		isCompleted = True
 		if isVerbose is not False:
 			print("Is the system valid? Yes. ")
-			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Correctness: {0}".format(isSchemeCorrect))
 			print("Time:", (timeSetup, timeKeyGenS, timeKeyGenR, timeKeyUpdate, timeEncryption, timeTrapdoor, timeTest))
 			print("Space:", (sizeParams, sizePkS, sizeSkS, sizePkR, sizeSkR, sizeForwardKey, sizeCipherText, sizeTrapdoor))
 			print()

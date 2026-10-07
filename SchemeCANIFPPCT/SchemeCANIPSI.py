@@ -13,7 +13,7 @@ from time import perf_counter, sleep
 from warnings import filterwarnings
 filterwarnings(
 	"ignore", category = DeprecationWarning, 
-	message = "^Curve \'SS[0-9]+\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
+	message = "^Curve \'(MNT159|SS512|SS1024)\' provides only ~80-bit security, which is below the 128-bit minimum recommended by NIST. Use \'BN254\' \\(128-bit\\) or stronger for production use\\.$"
 )
 try:
 	chdir(abspath(dirname(__file__)))
@@ -613,8 +613,8 @@ class Saver:
 class SchemeCANIPSI:
 	__DefaultN, __DefaultM = 30, 10
 	__CheckCurveName = lambda x:isinstance(x, str) and bool(x) and 'A'<= x[0] <= 'Z' and all('-' == character or '0' <= character <= '9' or 'A' <= character <= 'Z' for character in x[1:])
-	__SecurityLevelMappings = {"BLS12-381": 126, "BN254": 100, "MNT159": 70, "MNT201": 90, "MNT224": 100, "SS512": 80, "SS1024": 112}
-	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime orders.
+	__SecurityLevelMappings = {"BLS12-381":126, "BN254":99, "MNT159":70, "MNT201":90, "MNT224":100, "SS512":80, "SS1024":112}
+	def __init__(self:object, group:None|PairingGroup = None) -> object: # This scheme is applicable to symmetric and asymmetric groups of prime order.
 		self.__group = group if isinstance(group, PairingGroup) else PairingGroup("SS512", secparam = 512)
 		if self.__group.secparam < 1:
 			self.__group = PairingGroup(self.__group.groupType())
@@ -1236,8 +1236,8 @@ class SchemeCANIPSI:
 				print("bys:", "N/A" if isAsymmetric else bys)
 				print("ys:", ys)
 				print("identities:", identities)
-				print("Is the basic scheme correct? {0}. ".format("Yes" if isBSchemeCorrect else "No"))
-				print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+				print("BCorrectness: {0}".format(isBSchemeCorrect))
+				print("Correctness: {0}".format(isSchemeCorrect))
 				print("Is the tracing verified? {0}. ".format("Yes" if isTracingVerified else "No"))
 				print("Time:", (
 					(timeBSetup, timeBKGen, timeBEncryption, timeBTokenGen, timeBQuery), 
@@ -1276,7 +1276,7 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = ("MNT201", "MNT224", "BN254", ("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512), ("SS1024", 1024))
+			curveParameters = ("MNT159", "MNT201", "MNT224", "BN254", "SS512", "SS1024")
 			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "$n$", "$m$", "Run count")
 			validators = ("isSystemValid", "isBSchemeCorrect", "isSchemeCorrect", "isTracingVerified")
 			metrics = (

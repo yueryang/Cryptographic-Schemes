@@ -737,7 +737,7 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 		sizeCipherText, sizeTrapdoor = scheme.getLengthOf(cipherText), scheme.getLengthOf(trapdoor)
 		if isVerbose is not False:
 			print("Is the system valid? Yes. ")
-			print("Is the scheme correct? {0}. ".format("Yes" if isSchemeCorrect else "No"))
+			print("Correctness: {0}".format(isSchemeCorrect))
 			print("Time:", (timeSetup, timeDerive, timeEncrypt, timeTrapdoor, timeSearch))
 			print("Space:", (sizePublicParameters, sizeMasterSecretKey, sizeDerivedKey, sizeCipherText, sizeTrapdoor))
 			print()
