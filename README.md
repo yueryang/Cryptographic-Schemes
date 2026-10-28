@@ -222,7 +222,7 @@ The [``runPython`` workflow](./.github/workflows/runPython.yml) will execute the
 Here are the details that cannot be controlled by the command-line arguments. 
 
 - If a scheme is applicable to symmetric and asymmetric groups of prime order, curve types, and security parameters in the tuple ``("MNT159", "MNT201", "MNT224", "BN254", "SS512", "SS1024")`` will be tested. 
-- If a scheme is only applicable to symmetric groups of prime order, curve types and security parameters in the tuple ``(("SS512", 256), ("SS512", 512), ("SS1024", 256), ("SS1024", 512))`` will be tested. 
+- If a scheme is only applicable to symmetric groups of prime order, curve types and security parameters in the tuple ``(("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512))`` will be tested. 
 - The output files in the three-line table or plain text form should contain the input parameters, correctness-related counts, procedure time consumption, program memory consumption, storing sizes of elements from different fields, and storing sizes of important variables. 
 - Users should only modify the ``# Parameters #`` part in the ``main`` function if they just want to test different parameters. 
 

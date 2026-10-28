@@ -6,11 +6,11 @@ from codecs import lookup
 from getpass import getpass
 from importlib import import_module
 try:
-	from inflection import pluralize, singularize
+	from inflection import pluralize as pluralizeWord, singularize as singularizeWord
 except Exception:
-	def pluralize(word:str) -> str:
+	def pluralizeWord(word:str) -> str:
 		return word + "es" if word.lower().endswith(("s", "x", "z", "ch", "sh")) else word + "s"
-	def singularize(word:str) -> str:
+	def singularizeWord(word:str) -> str:
 		return word[:-1] if len(word) >= 2 and word.endswith(("S", "s")) else word
 from io import BytesIO
 from math import isclose, log as ln
@@ -514,22 +514,7 @@ class Loader:
 		except Exception as e:
 			return e
 
-class Drawer:
-	__Colors = ("red", "orange", "purple", "blue", "cyan", "green", "brown", "gray", "black", "magenta", "pink", "lime", "navy", "teal", "aqua", "maroon", "olive", "gold", "silver")
-	__ColorLength = len(__Colors)
-	__Markers = ("x", "o", "s", "^", "D", "+", ".", "p", "v", "d", "*", "|", "h", "<", "_", ">", "1", "2", "3", "4")
-	__MarkerLength = len(__Markers) # try to make ``gcd(__ColorLength, __MarkerLength)`` equal to 1, or as small a positive integer as possible
-	__plt = None
-	__LabelFontSize = 14
-	__LegendFontSize = 12
-	__escapeTEX = lambda x:"\\textbackslash{}".join(
-		string.replace("#", "\\#").replace("$", "\\$").replace("%", "\\%").replace("&", "\\&").replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
-		.replace("<", "\\textless{}").replace(">", "\\textgreater{}").replace("^", "\\textasciicircum{}").replace("~", "\\textasciitilde{}")
-		for string in "".join(character for character in str(x) if ' ' <= character <= '~').split("\\")
-	)
-	@staticmethod
-	def checkValues(values:tuple|list) -> bool:
-		return isinstance(values, (tuple, list)) and values and all(isinstance(value, (int, float, str)) for value in values)
+class TEX:
 	@staticmethod
 	def __splitUnit(string:str) -> tuple:
 		if isinstance(string, str):
@@ -580,89 +565,188 @@ class Drawer:
 		else:
 			return (None, None)
 	@staticmethod
-	def __checkInlineMathematicalMode(variableName:str) -> bool|None:
-		if isinstance(variableName, str) and len(variableName) >= 3 and variableName.startswith("$") and variableName.endswith("$"):
-			index, length = 1, len(variableName) - 1
+	def __splitInlineMathematicalMode(variableName:str) -> list|None:
+		if isinstance(variableName, str):
+			index, length, delimiter, buffers, startingIndex = 0, len(variableName), None, [], 0
 			while index < length:
 				if '\\' == variableName[index]:
 					index += 1
 					if index >= length:
-						return False
+						break
+					elif '(' == variableName[index]:
+						if delimiter:
+							break # treat the all remaining characters as plain text due to the illegal syntax
+						else:
+							if startingIndex < index - 1:
+								buffers.append((variableName[startingIndex:index - 1], False))
+							delimiter = '('
+							startingIndex = index - 1
+					elif ')' == variableName[index]:
+						if '(' == delimiter:
+							if startingIndex < index + 1:
+								buffers.append((variableName[startingIndex:index + 1], True))
+							delimiter = None
+							startingIndex = index + 1
+						else:
+							break # treat the all remaining characters as plain text due to the illegal syntax
 				elif '$' == variableName[index]:
-					return False
+					if delimiter is None:
+						if startingIndex < index:
+							buffers.append((variableName[startingIndex:index], False))
+						delimiter = '$'
+						startingIndex = index
+					elif '$' == delimiter:
+						if startingIndex < index:
+							buffers.append((variableName[startingIndex:index + 1], True))
+						delimiter = None
+						startingIndex = index + 1
+					else:
+						break # treat the all remaining characters as plain text due to the illegal syntax
 				index += 1
-			return True
+			if startingIndex < length:
+				buffers.append((variableName[startingIndex:], False))
+			return buffers
 		else:
-			return False
+			return None
 	@staticmethod
 	def __sanitize(string:str) -> tuple:
-		variableName, variableUnit = Drawer.__splitUnit(string)
+		variableName, variableUnit = TEX.__splitUnit(string)
 		if isinstance(variableName, str) and variableName and isinstance(variableUnit, str):
-			if Drawer.__checkInlineMathematicalMode(variableName):
-				sanitizedVariableName = " ".join("".join(character for character in variableName if ' ' <= character <= '~').split())
+			variableNameSegments = TEX.__splitInlineMathematicalMode(variableName)
+			if isinstance(variableNameSegments, list):
+				return (tuple((" ".join("".join(character for character in variableNameSegment[0] if ' ' <= character <= '~').split()) if variableNameSegment[1] else " ".join("".join(
+					character for character in variableNameSegment[0] if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
+				).split()).lstrip(" )-0123456789").rstrip(" (-"), variableNameSegment[1]) for variableNameSegment in variableNameSegments), variableUnit)
 			else:
-				sanitizedVariableName =  " ".join("".join(
-					character for character in variableName if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
-				).split()).lstrip(" )-0123456789").rstrip(" (-")
-			return (sanitizedVariableName, variableUnit)
+				return (None, None)
 		else:
 			return (None, None)
 	@staticmethod
 	def sanitize(string:str) -> str|None:
-		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
-		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			sanitizedVariableName = " ".join(sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments)
 			return "{0} {1}".format(sanitizedVariableName, variableUnit) if variableUnit else sanitizedVariableName
 		else:
 			return None
 	@staticmethod
 	def __lowercase(string:str) -> tuple:
-		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
-		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
-			currentWord = []
-			lowercaseSanitizedVariableBuffer = []
-			for character in sanitizedVariableName:
-				if '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z':
-					currentWord.append(character)
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			lowercaseSanitizedVariableNameSegments = []
+			for sanitizedVariableNameSegment in sanitizedVariableNameSegments:
+				if sanitizedVariableNameSegment[1]:
+					lowercaseSanitizedVariableNameSegments.append(sanitizedVariableNameSegment)
 				else:
+					currentWord = []
+					buffer = []
+					for character in sanitizedVariableNameSegment[0]:
+						if '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z':
+							currentWord.append(character)
+						else:
+							if currentWord:
+								if (
+									len(currentWord) >= 2 and ('0' <= currentWord[0] <= '9' or 'A' <= currentWord[0] <= 'Z')
+									and ('0' <= currentWord[1] <= '9' or 'A' <= currentWord[1] <= 'Z')
+								):
+									buffer.extend(currentWord)
+									currentWord.clear()
+								else:
+									buffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
+									currentWord.clear()
+							buffer.append(character)
 					if currentWord:
 						if len(currentWord) >= 2 and ('0' <= currentWord[0] <= '9' or 'A' <= currentWord[0] <= 'Z') and ('0' <= currentWord[1] <= '9' or 'A' <= currentWord[1] <= 'Z'):
-							lowercaseSanitizedVariableBuffer.extend(currentWord)
-							currentWord.clear()
+							buffer.extend(currentWord)
 						else:
-							lowercaseSanitizedVariableBuffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
-							currentWord.clear()
-					lowercaseSanitizedVariableBuffer.append(character)
-			if currentWord:
-				if len(currentWord) >= 2 and ('0' <= currentWord[0] <= '9' or 'A' <= currentWord[0] <= 'Z') and ('0' <= currentWord[1] <= '9' or 'A' <= currentWord[1] <= 'Z'):
-					lowercaseSanitizedVariableBuffer.extend(currentWord)
-				else:
-					lowercaseSanitizedVariableBuffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
-			return ("".join(lowercaseSanitizedVariableBuffer), variableUnit)
+							buffer.extend(currentCharacter.lower() for currentCharacter in currentWord)
+					lowercaseSanitizedVariableNameSegments.append(("".join(buffer), sanitizedVariableNameSegment[1]))
+			return (tuple(lowercaseSanitizedVariableNameSegments), variableUnit)
 		else:
 			return (None, None)
 	@staticmethod
 	def lowercase(string:str) -> str|None:
-		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
-		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
+		lowercaseSanitizedVariableNameSegments, variableUnit = TEX.__lowercase(string)
+		if isinstance(lowercaseSanitizedVariableNameSegments, tuple) and lowercaseSanitizedVariableNameSegments and isinstance(variableUnit, str):
+			lowercaseSanitizedVariableName = " ".join(lowercaseSanitizedVariableNameSegment[0] for lowercaseSanitizedVariableNameSegment in lowercaseSanitizedVariableNameSegments)
 			return "{0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else lowercaseSanitizedVariableName
 		else:
 			return None
 	@staticmethod
 	def checkMathematicalLikeString(string:str) -> bool|None:
-		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
-		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
-			return Drawer.__checkInlineMathematicalMode(sanitizedVariableName)
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			return len(sanitizedVariableNameSegments) == 1 and sanitizedVariableNameSegments[0][1]
 		else:
 			return None
 	@staticmethod
 	def checkConsumptionLikeString(string:str) -> bool|None:
-		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
-		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
-			return "consumption" in lowercaseSanitizedVariableName or variableUnit in (
+		lowercaseSanitizedVariableNameSegments, variableUnit = TEX.__lowercase(string)
+		if isinstance(lowercaseSanitizedVariableNameSegments, tuple) and lowercaseSanitizedVariableNameSegments and isinstance(variableUnit, str):
+			return any("consumption" in lowercaseSanitizedVariableNameSegment[0] for lowercaseSanitizedVariableNameSegment in lowercaseSanitizedVariableNameSegments) or variableUnit in (
 				"(ns)", "(\\textmu{}s)", "(ms)", "(s)", "(min)", "(h)", "(bit)", "(B)", "(Byte)", "(kB)", "(MB)", "(GB)", "(TB)", "(PB)", "(KiB)", "(MiB)", "(GiB)", "(TiB)", "(PiB)"
 			)
 		else:
 			return None
+	@staticmethod
+	def pluralize(string:str) -> str|None:
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			if sanitizedVariableNameSegments[-1][1]:
+				sanitizedVariableName = " ".join(sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments)
+				return "{0} values {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} values".format(sanitizedVariableName)
+			else:
+				pluralizedSanitizedVariableName = " ".join(
+					sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments[:-1]
+				) + pluralizeWord(sanitizedVariableNameSegments[-1][0])
+				return "{0} {1}".format(pluralizedSanitizedVariableName, variableUnit) if variableUnit else pluralizedSanitizedVariableName
+		else:
+			return None
+	@staticmethod
+	def singularize(string:str) -> str|None:
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			if sanitizedVariableNameSegments[-1][1]:
+				sanitizedVariableName = " ".join(sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments)
+				return "{0} value {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} value".format(sanitizedVariableName)
+			else:
+				singularizedSanitizedVariableName = " ".join(
+					sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments[:-1]
+				) + singularizeWord(sanitizedVariableNameSegments[-1][0])
+				return "{0} {1}".format(singularizedSanitizedVariableName, variableUnit) if variableUnit else singularizedSanitizedVariableName
+		else:
+			return None
+	@staticmethod
+	def addArticle(string:str, capitalized:bool = False) -> str|None:
+		lowercaseSanitizedString = TEX.lowercase(string)
+		if isinstance(lowercaseSanitizedString, str) and lowercaseSanitizedString:
+			return ("The " if capitalized is True else "the ") + lowercaseSanitizedString
+		else:
+			return None
+	@staticmethod
+	def capitalize(string:str) -> str|None:
+		sanitizedString = TEX.sanitize(string)
+		if isinstance(sanitizedString, str) and sanitizedString:
+			return sanitizedString[0].upper() + sanitizedString[1:] if 'a' <= sanitizedString[0] <= 'z' else sanitizedString
+		else:
+			return None
+
+class Drawer:
+	__Colors = ("red", "orange", "purple", "blue", "cyan", "green", "brown", "gray", "black", "magenta", "pink", "lime", "navy", "teal", "aqua", "maroon", "olive", "gold", "silver")
+	__ColorLength = len(__Colors)
+	__Markers = ("x", "o", "s", "^", "D", "+", ".", "p", "v", "d", "*", "|", "h", "<", "_", ">", "1", "2", "3", "4")
+	__MarkerLength = len(__Markers) # try to make ``gcd(__ColorLength, __MarkerLength)`` equal to 1, or as small a positive integer as possible
+	__plt = None
+	__LabelFontSize = 14
+	__LegendFontSize = 12
+	__escapeTEX = lambda x:"\\textbackslash{}".join(
+		string.replace("#", "\\#").replace("$", "\\$").replace("%", "\\%").replace("&", "\\&").replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
+		.replace("<", "\\textless{}").replace(">", "\\textgreater{}").replace("^", "\\textasciicircum{}").replace("~", "\\textasciitilde{}")
+		for string in "".join(character for character in str(x) if ' ' <= character <= '~').split("\\")
+	)
+	@staticmethod
+	def checkValues(values:tuple|list) -> bool:
+		return isinstance(values, (tuple, list)) and values and all(isinstance(value, (int, float, str)) for value in values)
 	@staticmethod
 	def __getVariableString(variable:str|int, variables:tuple|list) -> str|None:
 		if isinstance(variables, (tuple, list)):
@@ -724,7 +808,7 @@ class Drawer:
 						keywordArguments = {key:value for key, value in curve.items() if key in ("color", "marker", "label")}
 						try:
 							if "label" in keywordArguments:
-								keywordArguments["label"] = Drawer.sanitize(keywordArguments["label"])
+								keywordArguments["label"] = TEX.sanitize(keywordArguments["label"])
 								if not keywordArguments["label"]:
 									del keywordArguments["label"]
 							if "label" in keywordArguments:
@@ -740,9 +824,9 @@ class Drawer:
 				if logarithmicSpacing:
 					Drawer.__plt.xscale("log")
 				if isinstance(xLabel, str):
-					Drawer.__plt.xlabel(Drawer.sanitize(xLabel) + " (logarithmic scale)" if logarithmicSpacing else xLabel.strip(), fontsize = Drawer.__LabelFontSize)
+					Drawer.__plt.xlabel(TEX.sanitize(xLabel) + " (logarithmic scale)" if logarithmicSpacing else xLabel.strip(), fontsize = Drawer.__LabelFontSize)
 				if isinstance(yLabel, str):
-					Drawer.__plt.ylabel(Drawer.sanitize(yLabel), fontsize = Drawer.__LabelFontSize)
+					Drawer.__plt.ylabel(TEX.sanitize(yLabel), fontsize = Drawer.__LabelFontSize)
 				_, labels = Drawer.__plt.gca().get_legend_handles_labels()
 				if labels:
 					Drawer.__plt.legend(loc = "best", frameon = True, fontsize = Drawer.__LegendFontSize)
@@ -755,26 +839,6 @@ class Drawer:
 				return e
 		else:
 			return TypeError("The curves should be a tuple or a list containing at least one dictionary. ")
-	@staticmethod
-	def __pluralize(string:str) -> str|None:
-		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
-		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
-			if Drawer.__checkInlineMathematicalMode(sanitizedVariableName):
-				return "{0} values {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} values".format(sanitizedVariableName)
-			else:
-				return "{0} {1}".format(pluralize(sanitizedVariableName), variableUnit) if variableUnit else pluralize(sanitizedVariableName)
-		else:
-			return None
-	@staticmethod
-	def __singularize(string:str) -> str|None:
-		sanitizedVariableName, variableUnit = Drawer.__sanitize(string)
-		if isinstance(sanitizedVariableName, str) and sanitizedVariableName and isinstance(variableUnit, str):
-			if Drawer.__checkInlineMathematicalMode(sanitizedVariableName):
-				return "{0} value {1}".format(sanitizedVariableName, variableUnit) if variableUnit else "{0} value".format(sanitizedVariableName)
-			else:
-				return "{0} {1}".format(singularize(sanitizedVariableName), variableUnit) if variableUnit else singularize(sanitizedVariableName)
-		else:
-			return None
 	@staticmethod
 	def __sequence2str(items:tuple|list|str, itemPrefix:str = "", itemSuffix:str = "", decimalPlace:int|None = None) -> str|None:
 		try:
@@ -790,16 +854,6 @@ class Drawer:
 			else:
 				return ""
 		except Exception:
-			return None
-	@staticmethod
-	def __addArticle(string:str, capitalized:bool = False) -> str|None:
-		lowercaseSanitizedVariableName, variableUnit = Drawer.__lowercase(string)
-		if isinstance(lowercaseSanitizedVariableName, str) and lowercaseSanitizedVariableName and isinstance(variableUnit, str):
-			if capitalized is True:
-				return "The {0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else "The {0}".format(lowercaseSanitizedVariableName)
-			else:
-				return "the {0} {1}".format(lowercaseSanitizedVariableName, variableUnit) if variableUnit else "the {0}".format(lowercaseSanitizedVariableName)
-		else:
 			return None
 	@staticmethod
 	def __getFigureLabelWithoutPrefix(figureFilePath:str) -> str|None:
@@ -825,27 +879,34 @@ class Drawer:
 			countOfCurvesDrawn = 0
 			labelMappings = {}
 			xValues = set()
+			curveMappings = [] # for the table: [(label, {x:y}), ...]
+			tableXValues = set()
 			for curve in curves: # gather the mappings from a sanitized label to a sum of valid curves
 				if (
 					isinstance(curve, dict) and "x" in curve and Drawer.__checkNumbers(curve["x"]) and len(set(curve["x"])) == len(curve["x"])
 					and "y" in curve and Drawer.__checkNumbers(curve["y"]) and len(curve["x"]) == len(curve["y"])
 				):
 					countOfCurvesDrawn += 1
+					sortedX, sortedY = zip(*sorted(zip(curve["x"], curve["y"]))) # sort $x$ and $y$ by ascending $x$ values
+					tableXValues.update(sortedX)
 					if "label" in curve and isinstance(curve["label"], str):
-						sanitizedLabel = Drawer.sanitize(curve["label"])
+						sanitizedLabel = TEX.sanitize(curve["label"])
 						if not sanitizedLabel or sanitizedLabel in labelMappings: # the sanitized label is empty or repeated
 							labelMappings.clear() # disable statements related to labels
+							curveMappings.append(("Curve {0}".format(len(curveMappings) + 1), dict(zip(sortedX, sortedY))))
 							break
 						else:
 							labelMappings[sanitizedLabel] = sum(curve["y"]) # gather information for statements related to relative performance
 							xValues.update(curve["x"]) # gather information for statements related to $x$ values
+							curveMappings.append((sanitizedLabel, dict(zip(sortedX, sortedY))))
 					else: # exists a valid curve without a label
 						labelMappings.clear() # disable statements related to labels
+						curveMappings.append(("Curve {0}".format(len(curveMappings) + 1), dict(zip(sortedX, sortedY))))
 						break
 			if countOfCurvesDrawn < 1:
 				return ""
-			pluralLowercaseGroupingVariableString = Drawer.__pluralize(Drawer.lowercase(groupingVariableString)) # will be used again in relative performance statements
-			singularLowercaseGroupingVariableString = Drawer.__singularize(Drawer.lowercase(groupingVariableString)) # will be used again in relative performance statements
+			pluralLowercaseGroupingVariableString = TEX.pluralize(TEX.lowercase(groupingVariableString)) # will be used again in relative performance statements
+			singularLowercaseGroupingVariableString = TEX.singularize(TEX.lowercase(groupingVariableString)) # will be used again in relative performance statements
 			if labelMappings: # avoid "\"\", \"\" and \"\""
 				if len(labelMappings) >= 2:
 					caption = "Comparison of the {0}{1}".format(
@@ -860,19 +921,19 @@ class Drawer:
 					caption = "Comparison of different {0}".format(pluralLowercaseGroupingVariableString) if pluralLowercaseGroupingVariableString else "Comparison"
 				else:
 					caption = "Plot of the {0}".format(singularLowercaseGroupingVariableString) if singularLowercaseGroupingVariableString else "Plot"
-			dependentVariableStringWithArticle = Drawer.__addArticle(dependentVariableString)
+			dependentVariableStringWithArticle = TEX.addArticle(dependentVariableString)
 			if dependentVariableStringWithArticle:
 				caption += " in terms of {0}".format(dependentVariableStringWithArticle)
 			if len(xValues) >= 2:
-				pluralIndependentVariableString = Drawer.__pluralize(independentVariableString)
+				pluralIndependentVariableString = TEX.pluralize(independentVariableString)
 				if pluralIndependentVariableString:
 					caption += ", evaluated at different {0}".format(pluralIndependentVariableString)
 			elif len(xValues) == 1:
-				singularIndependentVariableString = Drawer.__singularize(independentVariableString)
-				sanitizedIndependentVariableValue = Drawer.sanitize(next(iter(xValues)))
+				singularIndependentVariableString = TEX.singularize(independentVariableString)
+				sanitizedIndependentVariableValue = TEX.sanitize(next(iter(xValues)))
 				if singularIndependentVariableString and sanitizedIndependentVariableValue:
 					if (
-						len(singularIndependentVariableValue) >= 3 and singularIndependentVariableValue.startswith("$") and singularIndependentVariableValue.endswith("$")
+						len(singularIndependentVariableString) >= 3 and singularIndependentVariableString.startswith("$") and singularIndependentVariableString.endswith("$")
 						and len(sanitizedIndependentVariableValue) >= 3 and sanitizedIndependentVariableValue.startswith("$") and sanitizedIndependentVariableValue.endswith("$")
 					):
 						caption += ", evaluated at {0} = {1}".format(singularIndependentVariableString[:-1], sanitizedIndependentVariableValue[1:])
@@ -882,20 +943,20 @@ class Drawer:
 				sanitizedControlledVariableStrings = []
 				sanitizedControlledVariableValues = []
 				for controlledVariableString, controlledVariableValue in zip(controlledVariableStrings, controlledVariableValues):
-					sanitizedControlledVariableString = Drawer.sanitize(controlledVariableString)
-					sanitizedControlledVariableValue = Drawer.sanitize(controlledVariableValue)
+					sanitizedControlledVariableString = TEX.sanitize(controlledVariableString)
+					sanitizedControlledVariableValue = TEX.sanitize(controlledVariableValue)
 					if sanitizedControlledVariableString and sanitizedControlledVariableValue:
 						sanitizedControlledVariableStrings.append(sanitizedControlledVariableString)
 						sanitizedControlledVariableValues.append(sanitizedControlledVariableValue)
 				if len(sanitizedControlledVariableStrings) >= 2:
 					caption += ", with {0} set to {1}, respectively".format(Drawer.__sequence2str(
-						tuple(Drawer.__addArticle(sanitizedControlledVariableString) for sanitizedControlledVariableString in sanitizedControlledVariableStrings)
+						tuple(TEX.addArticle(sanitizedControlledVariableString) for sanitizedControlledVariableString in sanitizedControlledVariableStrings)
 					), Drawer.__sequence2str(sanitizedControlledVariableValues))
 				elif len(sanitizedControlledVariableStrings) == 1:
-					caption += ", with {0} set to {1}".format(Drawer.__addArticle(sanitizedControlledVariableStrings[0]), sanitizedControlledVariableValues[0])
+					caption += ", with {0} set to {1}".format(TEX.addArticle(sanitizedControlledVariableStrings[0]), sanitizedControlledVariableValues[0])
 			caption += ". "
 			if labelMappings:
-				consumptionLikeVariable = Drawer.checkConsumptionLikeString(dependentVariableString)
+				consumptionLikeVariable = TEX.checkConsumptionLikeString(dependentVariableString)
 				optimalValue = min(labelMappings.values()) if consumptionLikeVariable else max(labelMappings.values())
 				optimalKeys = tuple(key for key, value in labelMappings.items() if isclose(value, optimalValue))
 				optimalKeyLength = len(optimalKeys)
@@ -926,20 +987,75 @@ class Drawer:
 						Drawer.__sequence2str(tuple(relativePerformanceMappings.keys())), Drawer.__sequence2str(tuple(relativePerformanceMappings.values())), 
 						", respectively" if len(relativePerformanceMappings) >= 2 else ""
 					)
-			return linesep.join((
+			figureTEXLines = [
 				"\\begin{figure}[htbp]", 
 				"\t\\centerline{{\\includegraphics[width=\\columnwidth]{{{0}}}}}".format(figureFilePath), 
 				"\t\\caption{{{0}}}".format(caption), 
 				"\t\\label{{fig:{0}}}".format(Drawer.__getFigureLabelWithoutPrefix(figureFilePath)), 
 				"\\end{figure}"
-			))
+			]
+			capitalizedGroupingVariableString = TEX.capitalize(groupingVariableString)
+			tableTEXLines = []
+			if curveMappings:
+				tableTEXLines.extend((
+					"\\begin{table}[htbp]", "\t\\centering", "\t\\caption{{{0}}}".format(caption), #####
+					"\t\\begin{{tabular}}{{{0}}}".format("c" * (len(curveMappings) + 1)), "\t\t\\toprule", 
+					"\t\t{0} \\\\".format(" & ".join((
+						"\\textbf{{{0}}}".format(capitalizedGroupingVariableString if capitalizedGroupingVariableString else "~"), 
+						*("\\textbf{{{0}}}".format(label) for label, _ in curveMappings)
+					))), "\t\t\\midrule"
+				))
+				for xValue in sorted(tableXValues):
+					tableTEXLines.append("\t\t{0} \\\\".format(" & ".join((
+						Drawer.__escapeTEX(xValue), *(Drawer.__escapeTEX(curveMapping[xValue]) if xValue in curveMapping else "" for _, curveMapping in curveMappings)
+					))))
+				tableTEXLines.extend(("\t\t\\bottomrule", "\t\\end{tabular}%", "\\end{table}"))
+			if tableTEXLines:
+				figureTEXLines.append("")
+				figureTEXLines.extend(tableTEXLines)
+			return linesep.join(figureTEXLines)
 		else:
 			return ""
 	@staticmethod
+	def tabulateMappings(mappings:dict) -> str|None:
+		if not (
+			isinstance(mappings, dict) and mappings
+			and all(isinstance(key, str) and key and Drawer.checkValues(value) for key, value in mappings.items())
+			and len(set(len(value) for value in mappings.values())) == 1
+		):
+			return None
+		variables = tuple(mappings.keys())
+		maximumValueLength = max(len(values) for values in mappings.values())
+		sanitizedHeaders = tuple("\\textbf{{{0}}}".format(TEX.sanitize(variable) or "~") for variable in variables)
+		sanitizedBodyMatrix = []
+		for variable in variables:
+			tp = tuple(TEX.sanitize(value) or "~" for value in mappings[variable])
+			tpLength = len(tp)
+			if tpLength < maximumValueLength:
+				tp += ("~", ) * (maximumValueLength - tpLength)
+			sanitizedBodyMatrix.append(tp)
+		variableLength = len(variables)
+		sanitizedBodyMatrix = tuple(tuple(sanitizedBodyMatrix[rowIndex][columnIndex] for rowIndex in range(variableLength)) for columnIndex in range(maximumValueLength))
+		tableTEXLines = [
+			"\\begin{table}[htbp]", 
+			"\t\\centering", 
+			"\t\\caption{Complete experimental results. }", 
+			"\t\\label{tab:mappgins}", 
+			"\t\\resizebox{\\columnwidth}{!}{%", 
+			"\t\t\\begin{tabular}{{{0}}}".format("c" * variableLength), 
+			"\t\t\t\\toprule", 
+			"\t\t\t{0} \\\\".format(" & ".join(sanitizedHeaders)), 
+			"\t\t\t\\midrule", 
+		]
+		for sanitizedBodyRow in sanitizedBodyMatrix:
+			tableTEXLines.append("\t\t\t{0} \\\\".format(" & ".join(sanitizedBodyRow)))
+		tableTEXLines.extend(("\t\t\t\\bottomrule", "\t\t\\end{tabular}%", "\t}", "\\end{table}"))
+		return linesep.join(tableTEXLines)
+	@staticmethod
 	def drawMappings(
 		mappings:dict, independentVariables:tuple|list, dependentVariables:tuple|list, groupingVariables:tuple|list, 
-		encoding:str = Parser.getDefaultEncoding(), decimalPlace:int = Parser.getDefaultPlace()
-	) -> tuple|Exception:
+		encoding:str = Parser.getDefaultEncoding(), decimalPlace:int = Parser.getDefaultPlace(), appendFullTable:bool = False
+	) -> dict|Exception:
 		if isinstance(mappings, dict) and all(isinstance(key, str) and Drawer.checkValues(value) for key, value in mappings.items()) and len(set(len(value) for value in mappings.values())) == 1:
 			variables = tuple(mappings.keys())
 			
@@ -1082,6 +1198,11 @@ class Drawer:
 										validFigureTEXCount += 1
 										if validFigureTEXCount % 10 == 0:
 											byteMappings["main.tex"] += "\\clearpage" + linesep * 2
+			if appendFullTable is True:
+				fullTableTEX = Drawer.tabulateMappings(mappings, independentVariableStrings, dependentVariableStrings, groupingVariableStrings)
+				if isinstance(fullTableTEX, str):
+					strippedFullTableTEX = fullTableTEX.strip()
+					byteMappings["main.tex"] += strippedFullTableTEX + linesep * 2
 			byteMappings["main.tex"] += "\\end{document}"
 			try:
 				try:
@@ -1115,7 +1236,7 @@ class Analyzer:
 						and len(set(len(value) for value in mappings.values())) == 1
 					):
 						keys = tuple(mappings.keys())
-						sanitizedKeys = tuple(Drawer.sanitize(key) for key in keys)
+						sanitizedKeys = tuple(TEX.sanitize(key) for key in keys)
 						if None in sanitizedKeys or "" in sanitizedKeys:
 							return KeyError("Failed to load the input file(s) due to empty sanitized keys detected in {0}. ".format(repr(self.__inputFilePaths[index])))
 						duplicateKeys = {}
@@ -1145,7 +1266,7 @@ class Analyzer:
 										and len(set(len(value) for value in currentMappings.values())) == 1
 									):
 										currentKeys = tuple(currentMappings.keys())
-										sanitizedCurrentKeys = tuple(Drawer.sanitize(currentKey) for currentKey in currentKeys)
+										sanitizedCurrentKeys = tuple(TEX.sanitize(currentKey) for currentKey in currentKeys)
 										if None in sanitizedCurrentKeys or "" in sanitizedCurrentKeys:
 											return KeyError("Failed to load the input file(s) due to empty sanitized keys detected in {0}. ".format(
 												repr(self.__inputFilePaths[index])
@@ -1207,7 +1328,7 @@ class Analyzer:
 			mappings = Loader.load(self.__inputFilePaths, encoding = self.__encoding)
 			if isinstance(mappings, dict) and all(isinstance(key, str) and isinstance(value, (tuple, list)) for key, value in mappings.items()):
 				keys = tuple(mappings.keys())
-				sanitizedKeys = tuple(Drawer.sanitize(key) for key in keys)
+				sanitizedKeys = tuple(TEX.sanitize(key) for key in keys)
 				if None in sanitizedKeys or "" in sanitizedKeys:
 					return KeyError("Failed to load the input file {0} due to empty sanitized keys detected. ".format(repr(self.__inputFilePaths)))
 				duplicateKeys = {}
@@ -1238,13 +1359,13 @@ class Analyzer:
 			and len(set(len(value) for value in mappings.values())) == 1
 		):
 			variables = tuple(mappings.keys())
-			lowercaseVariables = tuple(Drawer.lowercase(variable) for variable in variables)
+			lowercaseVariables = tuple(TEX.lowercase(variable) for variable in variables)
 			lowercaseVariableLength = len(lowercaseVariables)
 			
 			# Locate the index of the grouping variable #
 			if isinstance(specifiedGroupingVariable, str):
 				try:
-					groupingVariableIndex = lowercaseVariables.index(specifiedGroupingVariable.lower())
+					groupingVariableIndex = lowercaseVariables.index(TEX.lowercase(specifiedGroupingVariable))
 				except Exception as e:
 					return e
 			elif isinstance(specifiedGroupingVariable, int) and -lowercaseVariableLength <= specifiedGroupingVariable < lowercaseVariableLength:
@@ -1260,7 +1381,7 @@ class Analyzer:
 			# Locate the index of the run count variable #
 			if isinstance(specifiedRunCountVariable, str):
 				try:
-					runCountVariableIndex = lowercaseVariables.index(specifiedRunCountVariable)
+					runCountVariableIndex = lowercaseVariables.index(TEX.lowercase(specifiedRunCountVariable))
 				except Exception as e:
 					return e
 			elif isinstance(specifiedRunCountVariable, int) and -lowercaseVariableLength <= specifiedRunCountVariable < lowercaseVariableLength:
@@ -1277,7 +1398,7 @@ class Analyzer:
 			
 			# Locate the indexes of the dependent variables #
 			dependentVariableIndexes = tuple(variableIndex for variableIndex, variableString in enumerate(variables[runCountVariableIndex + 1:], start = runCountVariableIndex + 1) if (
-				Drawer.checkMathematicalLikeString(variableString) or Drawer.checkConsumptionLikeString(variableString)
+				TEX.checkMathematicalLikeString(variableString) or TEX.checkConsumptionLikeString(variableString)
 			))
 			if not dependentVariableIndexes:
 				return ValueError("Data loaded do not contain metric variables after the run count variable. ")

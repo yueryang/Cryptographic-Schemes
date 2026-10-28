@@ -324,12 +324,126 @@ class Parser:
 				return False
 		return True
 
+class TEX:
+	@staticmethod
+	def __splitUnit(string:str) -> tuple:
+		if isinstance(string, str):
+			strippedString = " ".join(string.split())
+			lowercaseStrippedString = strippedString.lower()
+			if lowercaseStrippedString.endswith("(ns)"):
+				return (strippedString[:-4].rstrip(), "(ns)")
+			elif lowercaseStrippedString.endswith("(\\textmu s)"):
+				return (strippedString[:-11].rstrip(), "(\\textmu{}s)")
+			elif lowercaseStrippedString.endswith("(\\textmu{}s)"):
+				return (strippedString[:-12].rstrip(), "(\\textmu{}s)")
+			elif lowercaseStrippedString.endswith("(ms)"):
+				return (strippedString[:-4].rstrip(), "(ms)")
+			elif lowercaseStrippedString.endswith("(s)"):
+				return (strippedString[:-3].rstrip(), "(s)")
+			elif lowercaseStrippedString.endswith("(min)"):
+				return (strippedString[:-5].rstrip(), "(min)")
+			elif lowercaseStrippedString.endswith("(h)"):
+				return (strippedString[:-3].rstrip(), "(h)")
+			elif lowercaseStrippedString.endswith("(bit)"):
+				return (strippedString[:-5].rstrip(), "(bit)")
+			elif lowercaseStrippedString.endswith("(b)"):
+				return (strippedString[:-3].rstrip(), "(B)")
+			elif lowercaseStrippedString.endswith("(byte)"):
+				return (strippedString[:-6].rstrip(), "(Byte)")
+			elif lowercaseStrippedString.endswith("(kb)"):
+				return (strippedString[:-4].rstrip(), "(kB)")
+			elif lowercaseStrippedString.endswith("(mb)"):
+				return (strippedString[:-4].rstrip(), "(MB)")
+			elif lowercaseStrippedString.endswith("(gb)"):
+				return (strippedString[:-4].rstrip(), "(GB)")
+			elif lowercaseStrippedString.endswith("(tb)"):
+				return (strippedString[:-4].rstrip(), "(TB)")
+			elif lowercaseStrippedString.endswith("(pb)"):
+				return (strippedString[:-4].rstrip(), "(PB)")
+			elif lowercaseStrippedString.endswith("(kib)"):
+				return (strippedString[:-5].rstrip(), "(KiB)")
+			elif lowercaseStrippedString.endswith("(mib)"):
+				return (strippedString[:-5].rstrip(), "(MiB)")
+			elif lowercaseStrippedString.endswith("(gib)"):
+				return (strippedString[:-5].rstrip(), "(GiB)")
+			elif lowercaseStrippedString.endswith("(tib)"):
+				return (strippedString[:-5].rstrip(), "(TiB)")
+			elif lowercaseStrippedString.endswith("(pib)"):
+				return (strippedString[:-5].rstrip(), "(PiB)")
+			else:
+				return (strippedString, "")
+		else:
+			return (None, None)
+	@staticmethod
+	def __splitInlineMathematicalMode(variableName:str) -> list|None:
+		if isinstance(variableName, str):
+			index, length, delimiter, buffers, startingIndex = 0, len(variableName), None, [], 0
+			while index < length:
+				if '\\' == variableName[index]:
+					index += 1
+					if index >= length:
+						break
+					elif '(' == variableName[index]:
+						if delimiter:
+							break # treat the all remaining characters as plain text due to the illegal syntax
+						else:
+							if startingIndex < index - 1:
+								buffers.append((variableName[startingIndex:index - 1], False))
+							delimiter = '('
+							startingIndex = index - 1
+					elif ')' == variableName[index]:
+						if '(' == delimiter:
+							if startingIndex < index + 1:
+								buffers.append((variableName[startingIndex:index + 1], True))
+							delimiter = None
+							startingIndex = index + 1
+						else:
+							break # treat the all remaining characters as plain text due to the illegal syntax
+				elif '$' == variableName[index]:
+					if delimiter is None:
+						if startingIndex < index:
+							buffers.append((variableName[startingIndex:index], False))
+						delimiter = '$'
+						startingIndex = index
+					elif '$' == delimiter:
+						if startingIndex < index:
+							buffers.append((variableName[startingIndex:index + 1], True))
+						delimiter = None
+						startingIndex = index + 1
+					else:
+						break # treat the all remaining characters as plain text due to the illegal syntax
+				index += 1
+			if startingIndex < length:
+				buffers.append((variableName[startingIndex:], False))
+			return buffers
+		else:
+			return None
+	@staticmethod
+	def __sanitize(string:str) -> tuple:
+		variableName, variableUnit = TEX.__splitUnit(string)
+		if isinstance(variableName, str) and variableName and isinstance(variableUnit, str):
+			variableNameSegments = TEX.__splitInlineMathematicalMode(variableName)
+			if isinstance(variableNameSegments, list):
+				return (tuple((" ".join("".join(character for character in variableNameSegment[0] if ' ' <= character <= '~').split()) if variableNameSegment[1] else " ".join("".join(
+					character for character in variableNameSegment[0] if character in (' ', '(', ')', '-') or '0' <= character <= '9' or 'A' <= character <= 'Z' or 'a' <= character <= 'z'
+				).split()).lstrip(" )-0123456789").rstrip(" (-"), variableNameSegment[1]) for variableNameSegment in variableNameSegments), variableUnit)
+			else:
+				return (None, None)
+		else:
+			return (None, None)
+	@staticmethod
+	def sanitize(string:str) -> str|None:
+		sanitizedVariableNameSegments, variableUnit = TEX.__sanitize(string)
+		if isinstance(sanitizedVariableNameSegments, tuple) and sanitizedVariableNameSegments and isinstance(variableUnit, str):
+			sanitizedVariableName = " ".join(sanitizedVariableNameSegment[0] for sanitizedVariableNameSegment in sanitizedVariableNameSegments)
+			return "{0} {1}".format(sanitizedVariableName, variableUnit) if variableUnit else sanitizedVariableName
+		else:
+			return None
+
 class Saver:
 	__Writer = None # CSV/TSV
 	__escapeHTML = None # HTM/HTML
 	__dumpsJSON = None # JSON/YAML/YML
-	__escapeTEX = None # TEX
-	__columnsTEX = None # TEX
 	__WorkbookXLS = None #XLS
 	__styleXLSColumns = None # XLS
 	__styleXLSValues = None # XLS
@@ -369,7 +483,7 @@ class Saver:
 							try:
 								if "CSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f)
 										writer.writerow(self.__columns)
@@ -407,30 +521,19 @@ class Saver:
 										f.write("\t\t\t</tbody>\n\t\t</table>\n\t</body>\n</html>")
 								elif "JSON" == self.__extensionName:
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										f.write(Saver.__dumpsJSON({"columns":self.__columns, "results":results}, indent = "\t", sort_keys = True, ensure_ascii = True))
 								elif "TEX" == self.__extensionName:
-									if Saver.__escapeTEX is None:
-										Saver.__escapeTEX = lambda x:"\\textbackslash{}".join(
-											string.replace("#", "\\#").replace("$", "\\$").replace("%", "\\%").replace("&", "\\&")
-											.replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
-											.replace("<", "\\textless{}").replace(">", "\\textgreater{}")
-											.replace("^", "\\textasciicircum{}").replace("~", "\\textasciitilde{}")
-											for string in "".join(character for character in str(x) if ' ' <= character <= '~').split("\\")
-										)
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
-										maxLength = max(
-											len(Saver.__columnsTEX) if isinstance(Saver.__columnsTEX, (tuple, list)) else 0, 
-											max(len(result) for result in results)
-										)
+										maxLength = max(len(self.__columns), max((len(result) for result in results), default = 0))
 										f.write("\\documentclass[a4paper]{article}\n\\setlength{\\parindent}{0pt}\n")
 										f.write("\\usepackage{graphicx}\n\\usepackage{textcomp}\n\\usepackage{booktabs}\n\\usepackage{rotating}\n\n")
 										f.write("\\begin{document}\n\n\\begin{sidewaystable}\n\t\\caption{The comparison results. }\n")
 										f.write("\t\\label{tab:comparison}\n\t\\centering\n\t\\resizebox{\\textwidth}{!}{%\n\t\t\\begin{tabular}{")
 										f.write("c" * maxLength + "}\n\t\t\t\\toprule\n\t\t\t\t")
 										if self.__columns:
-											f.write(" & ".join("\\textbf{{{0}}}".format(Saver.__escapeTEX(column)) for column in self.__columns))
+											f.write(" & ".join("\\textbf{{{0}}}".format(TEX.sanitize(column) or "~") for column in self.__columns))
 											if len(self.__columns) < maxLength:
 												f.write(" & \\textbf{~}" * (maxLength - len(self.__columns)))
 										else:
@@ -439,13 +542,13 @@ class Saver:
 										for result in results:
 											if result:
 												f.write("\t\t\t\t")
-												f.write(" & ".join(
-													(
-														"${0}$" if isinstance(r, int) else "${{0:.{0}f}}$".format(self.__decimalPlace)
-													).format(r) if (
-														isinstance(r, (float, int)) and not isinstance(r, bool)
-													) else Saver.__escapeTEX(r) for r in result
-												))
+												f.write(" & ".join((
+													(isinstance(r, bool) and str(r))
+													or (isinstance(r, int) and "${0}$".format(r))
+													or (isinstance(r, float) and "${{0:.{0}f}}$".format(self.__decimalPlace).format(r))
+													or ("N/A" == r and "N/A")
+													or (TEX.sanitize(r) or "~")
+												) for r in result))
 												if len(result) < maxLength:
 													f.write(" & ~" * (maxLength - len(result)))
 												f.write(" \\\\\n")
@@ -453,7 +556,7 @@ class Saver:
 										f.write("\\end{sidewaystable}\n\n\\end{document}")
 								elif "TSV" == self.__extensionName:
 									if Saver.__Writer is None:
-										Saver.__Writer = __import__("csv").writer
+										Saver.__Writer = import_module("csv").writer
 									with open(self.__outputFilePath, "w", newline = "", encoding = self.__encoding) as f:
 										writer = Saver.__Writer(f, delimiter = '\t')
 										writer.writerow(self.__columns)
@@ -461,24 +564,24 @@ class Saver:
 											writer.writerow("{{0:.{0}f}}".format(self.__decimalPlace).format(r) if isinstance(r, float) else r for r in result)
 								elif "XLS" == self.__extensionName:
 									if Saver.__WorkbookXLS is None:
-										Saver.__WorkbookXLS = __import__("xlwt").Workbook
+										Saver.__WorkbookXLS = import_module("xlwt").Workbook
 									if Saver.__styleXLSColumns is None:
-										Saver.__styleXLSColumns = __import__("xlwt").XFStyle()
-										Saver.__styleXLSColumns.font = __import__("xlwt").Font()
+										Saver.__styleXLSColumns = import_module("xlwt").XFStyle()
+										Saver.__styleXLSColumns.font = import_module("xlwt").Font()
 										Saver.__styleXLSColumns.font.name = "Times New Roman"
 										Saver.__styleXLSColumns.font.height = 240 # 12 * 20
 										Saver.__styleXLSColumns.font.bold = True
-										Saver.__styleXLSColumns.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSColumns.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSColumns.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSColumns.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSColumns.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSColumns.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									if Saver.__styleXLSValues is None:
-										Saver.__styleXLSValues = __import__("xlwt").XFStyle()
-										Saver.__styleXLSValues.font = __import__("xlwt").Font()
+										Saver.__styleXLSValues = import_module("xlwt").XFStyle()
+										Saver.__styleXLSValues.font = import_module("xlwt").Font()
 										Saver.__styleXLSValues.font.name = "Times New Roman"
 										Saver.__styleXLSValues.font.height = 240 # 12 * 20
-										Saver.__styleXLSValues.alignment = __import__("xlwt").Alignment()
-										Saver.__styleXLSValues.alignment.horz = __import__("xlwt").Alignment.HORZ_CENTER
-										Saver.__styleXLSValues.alignment.vert = __import__("xlwt").Alignment.VERT_CENTER
+										Saver.__styleXLSValues.alignment = import_module("xlwt").Alignment()
+										Saver.__styleXLSValues.alignment.horz = import_module("xlwt").Alignment.HORZ_CENTER
+										Saver.__styleXLSValues.alignment.vert = import_module("xlwt").Alignment.VERT_CENTER
 									workbook = Saver.__WorkbookXLS(encoding = self.__encoding)
 									worksheet = workbook.add_sheet(Parser.getSchemeName())
 									for columnIndex, columnName in enumerate(self.__columns):
@@ -491,13 +594,13 @@ class Saver:
 									workbook.save(self.__outputFilePath)
 								elif "XLSX" == self.__extensionName:
 									if Saver.__WorkbookXLSX is None:
-										Saver.__WorkbookXLSX = __import__("openpyxl").Workbook
+										Saver.__WorkbookXLSX = import_module("openpyxl").Workbook
 									if Saver.__alignmentXLSX is None:
-										Saver.__alignmentXLSX = __import__("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
+										Saver.__alignmentXLSX = import_module("openpyxl").styles.Alignment(horizontal = "center", vertical = "center")
 									if Saver.__fontXLSXColumns is None:
-										Saver.__fontXLSXColumns = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
+										Saver.__fontXLSXColumns = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12, bold = True)
 									if Saver.__fontXLSXValues is None:
-										Saver.__fontXLSXValues = __import__("openpyxl").styles.Font(name = "Times New Roman", size = 12)
+										Saver.__fontXLSXValues = import_module("openpyxl").styles.Font(name = "Times New Roman", size = 12)
 									if Saver.__escapeXLSX is None:
 										Saver.__escapeXLSX = lambda x:"".join(character for character in str(x) if character in ("\t", "\n", "\r") or character >= ' ')
 									workbook = Saver.__WorkbookXLSX()
@@ -540,7 +643,7 @@ class Saver:
 										f.write("\t</results>\n</data>")
 								elif self.__extensionName in ("YAML", "YML"):
 									if Saver.__dumpsJSON is None:
-										Saver.__dumpsJSON = __import__("json").dumps
+										Saver.__dumpsJSON = import_module("json").dumps
 									with open(self.__outputFilePath, "w", encoding = self.__encoding) as f:
 										if self.__columns:
 											f.write("columns:\n")
@@ -853,12 +956,12 @@ def main() -> int:
 			print()
 			
 			# Parameters #
-			curveParameters = (("SS512", 256), ("SS512", 512), ("SS1024", 256), ("SS1024", 512))
+			curveParameters = (("SS512", 128), ("SS512", 256), ("SS512", 512), ("SS1024", 512))
 			queries = ("Scheme", "Curve name", "$\\lambda$", "Security level (bit)", "Run count")
 			validators = ("isSystemValid", "isSchemeCorrect")
 			metrics = (
 				"Setup (s)", "Extract (s)", "Encrypt (s)", "Decrypt (s)", 
-				"elementOfZR (B)", "elementOfG1G2 (B)", "elementOfGT (B)", 
+				"Element of $\\mathbb{Z}_r$ (B)", "Element of $\\mathbb{G}$ (B)", "Element of $\\mathbb{G}_T$ (B)",
 				"mpk (B)", "msk (B)", "Pvk_Id (B)", "CT (B)"
 			)
 			getValidatorJudges = lambda x:x[queryLength:queryValidatorLength]
