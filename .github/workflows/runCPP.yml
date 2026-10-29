@@ -301,3 +301,9 @@ jobs:
           path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
           archive: false
           if-no-files-found: error
+      
+      - name: Print the workspace tree on failure
+        if: failure()
+        run: |
+          cd "${{ github.workspace }}"
+          tree

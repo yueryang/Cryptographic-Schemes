@@ -375,8 +375,8 @@ jobs:
             echo "\$ java -cp ${{ steps.dependencies.outputs.dependencies }} \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }}"
             java -cp "${{ steps.dependencies.outputs.dependencies }}" "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }}
           else
-            echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Java ${{ github.event.inputs.javaVersion || 25 }}. "
-            tree
+            echo "Failed to execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Java ${{ github.event.inputs.javaVersion || 25 }}. "
+            false
           fi
       
       - name: Upload the result
@@ -385,3 +385,9 @@ jobs:
           path: ${{ github.workspace }}/${{ steps.ready.outputs.outputFilePath }}
           archive: false
           if-no-files-found: error
+      
+      - name: Print the workspace tree on failure
+        if: failure()
+        run: |
+          cd "${{ github.workspace }}"
+          tree

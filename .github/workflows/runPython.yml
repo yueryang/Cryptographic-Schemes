@@ -331,30 +331,12 @@ jobs:
       matrix:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          sparse-checkout: |
-            **/Scheme*.py
-            **/requirements.txt
-            analyze.py
-            buildSchemeLaTeXPDFs.py
-            pbc-*.tar.gz
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-      
       - name: Get ready
         id: ready
         run: |
           cd "${{ github.workspace }}"
           directoryPath="$(dirname -- "${{ matrix.cryptographicScheme }}")"
           requirementFilePath="${directoryPath}/requirements.txt"
-          if [[ -f "${requirementFilePath}" ]] && grep -qiF "charm" "${requirementFilePath}";
-          then
-            charmBasedScheme="true"
-          else
-            charmBasedScheme="false"
-          fi
           mainFileName="$(basename -- "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
           outputFilePath="${directoryPath}/${mainFileName}-Python${pythonVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
           outputFileName="$(basename "${outputFilePath}")"
@@ -362,8 +344,8 @@ jobs:
           schemePDFFilePath="${directoryPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
           analysisFilePath="${directoryPath}/${mainFileName}-Python${pythonVersion}-p${decimalPlace}-r${runCount}-${timeString}.zip"
           echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
+          echo "Directory path: ${directoryPath}"
           echo "Requirement file path: ${requirementFilePath}"
-          echo "Charm-based scheme: ${charmBasedScheme}"
           echo "Python version: ${pythonVersion}"
           echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
           echo "Run count: ${runCount}"
@@ -374,8 +356,8 @@ jobs:
           echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
           echo "Scheme PDF file path: ${schemePDFFilePath}"
           echo "Analysis file path: ${analysisFilePath}"
+          echo "directoryPath=${directoryPath}" >> "${GITHUB_OUTPUT}"
           echo "requirementFilePath=${requirementFilePath}" >> "${GITHUB_OUTPUT}"
-          echo "charmBasedScheme=${charmBasedScheme}" >> "${GITHUB_OUTPUT}"
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
           echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
@@ -389,6 +371,38 @@ jobs:
           timeString: ${{ needs.prepare.outputs.timeString }}
           outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
       
+      - name: Checkout code
+        if: ${{ matrix.cryptographicScheme != 'SchemeCoefficientComputation/SchemeCoefficientComputation.py' }}
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+            ${{ steps.ready.outputs.directoryPath }}/requirements.txt
+            analyze.py
+            buildSchemeLaTeXPDFs.py
+            pbc-1.0.0.tar.gz
+            requirements.txt
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      
+      - name: Checkout code with dependent schemes
+        if: ${{ matrix.cryptographicScheme == 'SchemeCoefficientComputation/SchemeCoefficientComputation.py' }}
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+            ${{ steps.ready.outputs.directoryPath }}/requirements.txt
+            SchemeCANIFPPCT/SchemeCANIFPPCT.py
+            SchemeCANIFPPCT/SchemeCANIPSI.py
+            SchemeIBMEMR/SchemeIBBME.py
+            SchemeIBMEMR/SchemeIBMEMR.py
+            analyze.py
+            buildSchemeLaTeXPDFs.py
+            pbc-1.0.0.tar.gz
+            requirements.txt
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      
       - name: Install system dependencies
         run: |
           cd "${{ github.workspace }}"
@@ -401,11 +415,20 @@ jobs:
           python-version: ${{ github.event.inputs.pythonVersion || '3.x' }}
       
       - name: Install Python dependencies
+        id: pip
         run: |
           cd "${{ github.workspace }}"
           python -m pip install --upgrade pip
           python -m pip install wheel
           python -m pip install -r requirements.txt -r "${{ steps.ready.outputs.requirementFilePath }}"
+          if grep -qiF "charm" "${{ steps.ready.outputs.requirementFilePath }}";
+          then
+            pairing="true"
+          else
+            pairing="false"
+          fi
+          echo "Pairing: ${pairing}"
+          echo "pairing=${pairing}" >> "${GITHUB_OUTPUT}"
       
       - name: Build LaTeX and the PDF for the cryptographic scheme
         run: |
@@ -419,8 +442,7 @@ jobs:
             echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatString}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
             python buildSchemeLaTeXPDFs.py -o "${formatString}" -t 0 -- "${{ matrix.cryptographicScheme }}"
           else
-            echo "Could not execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
-            tree
+            echo "Failed to execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
           fi
       
       - name: Upload the LaTeX source code for the cryptographic scheme
@@ -438,19 +460,19 @@ jobs:
           if-no-files-found: warn
       
       - name: Build and install the PBC library
-        if: ${{ steps.ready.outputs.charmBasedScheme == 'true' }}
+        if: ${{ steps.pip.outputs.pairing == 'true' }}
         run: |
           cd "${{ github.workspace }}"
-          pbcIndexPage="https://crypto.stanford.edu/pbc/files"
           requestTimeout=10
           maximumTryCount=1
+          pbcIndexPage="https://crypto.stanford.edu/pbc/files"
+          pbcTarballPattern='pbc-(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*\.tar\.gz'
           downloadTimeout=50
           pbcTarballFilePath=""
           candidates=("pbc-1.0.0.tar.gz" "pbc-0.5.14.tar.gz")
-          locallyStoredPBCFilePattern='^pbc-[0-9]+(\.[0-9]+)*\.tar\.gz$'
           
           # Try to fetch the index page of PBC and pick the latest pbc-*.tar.gz #
-          latestTarballName="$(wget -q --timeout=${requestTimeout} --tries=${maximumTryCount} -O - "${pbcIndexPage}/" 2>/dev/null | grep -oE 'pbc-[0-9]+(\.[0-9]+)*\.tar\.gz' | sort -Vu | tail -n 1)" || latestTarballName=""
+          latestTarballName="$(wget -q --timeout=${requestTimeout} --tries=${maximumTryCount} -O - "${pbcIndexPage}/" 2>/dev/null | grep -oE "${pbcTarballPattern}" | sort -Vu | tail -n 1)" || latestTarballName=""
           if [[ -n "${latestTarballName}" ]];
           then
             echo "The latest PBC tarball on the PBC index page ${pbcIndexPage@Q} is ${latestTarballName@Q}. "
@@ -487,14 +509,15 @@ jobs:
           # Fall back to the locally stored file in the repository #
           if [[ -z "${pbcTarballFilePath}" ]];
           then
-            localTarballFilePath="$(ls -1 2>/dev/null | grep -E "${locallyStoredPBCFilePattern}" | sort -uV | tail -n 1)" || localTarballFilePath=""
+            echo "Failed to fetch a tarball from any of the hard-coded URLs. This will fall back to the one stored locally in the repository. "
+            localTarballFilePath="$(ls -1 2>/dev/null | grep -E "^${pbcTarballPattern}\$" | sort -Vu | tail -n 1)" || localTarballFilePath=""
             if [[ -n "${localTarballFilePath}" ]] && tar -tzf "${localTarballFilePath}" >/dev/null 2>&1;
             then
               echo "Detected and falling back to the local tarball ${localTarballFilePath@Q}. "
               pbcTarballFilePath="${localTarballFilePath}"
             else
               echo "Failed to find a PBC tarball from the official website or the local storage. "
-              exit 1
+              false
             fi
           fi
           
@@ -508,7 +531,7 @@ jobs:
           sudo ldconfig
       
       - name: Build and install the Python Charm-Crypto framework
-        if: ${{ steps.ready.outputs.charmBasedScheme == 'true' }}
+        if: ${{ steps.pip.outputs.pairing == 'true' }}
         run: |
           cd "${{ github.workspace }}"
           git clone https://github.com/JHUISI/charm
@@ -530,8 +553,8 @@ jobs:
             echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y"
             python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y
           else
-            echo "Could not execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
-            tree
+            echo "Failed to execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
+            false
           fi
       
       - name: Upload the result
@@ -553,8 +576,7 @@ jobs:
             echo "\$ python \"analyze.py\" -t 0 -- \"${{ steps.ready.outputs.outputFilePath }}\""
             python "analyze.py" -t 0 -- "${{ steps.ready.outputs.outputFilePath }}"
           else
-            echo "Could not execute the analyzer \"analyze.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
-            tree
+            echo "Failed to execute the analyzer \"analyze.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
           fi
       
       - name: Upload the analysis
@@ -563,3 +585,9 @@ jobs:
           path: ${{ github.workspace }}/${{ steps.ready.outputs.analysisFilePath }}
           archive: false
           if-no-files-found: warn
+      
+      - name: Print the workspace tree on failure
+        if: failure()
+        run: |
+          cd "${{ github.workspace }}"
+          tree

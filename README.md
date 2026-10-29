@@ -128,8 +128,8 @@ please be aware of the risks and execute ``apt purge --auto-remove python3`` as 
 ```shell
 apt-get update
 apt-get install -y clang gh git make wget
-major="$(curl -s https://www.python.org/ftp/python/ | grep -oP 'href="\K[0-9]+\.[0-9]+(\.[0-9]+)?(?=/")' | sort -V | tail -n 1)"
-minor="$(curl -s "https://www.python.org/ftp/python/${major}/" | grep -oP 'href="\KPython-[0-9]+\.[0-9]+(\.[0-9]+[a-z0-9]*)?\.tgz' | sort -V | tail -n 1)"
+major="$(curl -s https://www.python.org/ftp/python/ | grep -oP 'href="\K[0-9]+\.[0-9]+(\.[0-9]+)?(?=/")' | sort -Vu | tail -n 1)"
+minor="$(curl -s "https://www.python.org/ftp/python/${major}/" | grep -oP 'href="\KPython-[0-9]+\.[0-9]+(\.[0-9]+[a-z0-9]*)?\.tgz' | sort -Vu | tail -n 1)"
 wget -c "https://www.python.org/ftp/python/${major}/${minor}"
 tar -xf "${minor}"
 cd "${minor%.tgz}"
