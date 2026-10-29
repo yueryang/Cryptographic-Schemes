@@ -12,6 +12,7 @@ on:
       - '.github/workflows/runPython.yml'
       - 'analyze.py'
       - 'buildSchemeLaTeXPDFs.py'
+      - 'pbc-*.tar.gz'
   push:
     branches:
       - main
@@ -21,6 +22,7 @@ on:
       - '.github/workflows/runPython.yml'
       - 'analyze.py'
       - 'buildSchemeLaTeXPDFs.py'
+      - 'pbc-*.tar.gz'
   workflow_dispatch:
     inputs:
       executeSchemeAAIBME:
@@ -298,7 +300,7 @@ jobs:
           integerNumberString="$(echo "${integerNumberString}" | sed 's/^0*//')"
           integerNumberString="${integerNumberString%%.*}"
           runCount=0
-          { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null
+          { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null || runCount=0
           if (( minusCount % 2 == 1 ));
           then
             runCount=$(( -runCount ))
@@ -337,6 +339,7 @@ jobs:
             **/requirements.txt
             analyze.py
             buildSchemeLaTeXPDFs.py
+            pbc-*.tar.gz
           sparse-checkout-cone-mode: false
           persist-credentials: false
       
@@ -438,9 +441,67 @@ jobs:
         if: ${{ steps.ready.outputs.charmBasedScheme == 'true' }}
         run: |
           cd "${{ github.workspace }}"
-          wget https://crypto.stanford.edu/pbc/files/pbc-1.0.0.tar.gz
-          tar -xzf pbc-1.0.0.tar.gz
-          cd pbc-1.0.0
+          pbcIndexPage="https://crypto.stanford.edu/pbc/files"
+          requestTimeout=10
+          maximumTryCount=1
+          downloadTimeout=50
+          pbcTarballFilePath=""
+          candidates=("pbc-1.0.0.tar.gz" "pbc-0.5.14.tar.gz")
+          locallyStoredPBCFilePattern='^pbc-[0-9]+(\.[0-9]+)*\.tar\.gz$'
+          
+          # Try to fetch the index page of PBC and pick the latest pbc-*.tar.gz #
+          latestTarballName="$(wget -q --timeout=${requestTimeout} --tries=${maximumTryCount} -O - "${pbcIndexPage}/" 2>/dev/null | grep -oE 'pbc-[0-9]+(\.[0-9]+)*\.tar\.gz' | sort -Vu | tail -n 1)" || latestTarballName=""
+          if [[ -n "${latestTarballName}" ]];
+          then
+            echo "The latest PBC tarball on the PBC index page ${pbcIndexPage@Q} is ${latestTarballName@Q}. "
+            latestTarballURL="${pbcIndexPage}/${latestTarballName}"
+            if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${latestTarballURL}" -O "${latestTarballName}" && tar -tzf "${latestTarballName}" >/dev/null 2>&1;
+            then
+              pbcTarballFilePath="${latestTarballName}"
+              echo "Successfully downloaded ${latestTarballName@Q} from ${latestTarballURL@Q}. "
+            else
+              rm -f "${latestTarballName}"
+              echo "Failed to download ${latestTarballName@Q} from ${latestTarballURL@Q}. This will fall back to the hard-coded URLs. "
+            fi
+          else
+            echo "Failed to read the PBC index page ${pbcIndexPage@Q}. "
+          fi
+          
+          # Fall back to a few known official URLs with a short timeout #
+          if [[ -z "${pbcTarballFilePath}" ]];
+          then
+            for candidate in "${candidates[@]}";
+            do
+              candidateURL="${pbcIndexPage}/${candidate}"
+              if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${candidateURL}" -O "${candidate}" && tar -tzf "${candidate}" >/dev/null 2>&1;
+              then
+                pbcTarballFilePath="${candidate}"
+                echo "Successfully downloaded ${candidate@Q} from ${candidateURL@Q}. "
+                break
+              else
+                rm -f "${candidate}"
+              fi
+            done
+          fi
+          
+          # Fall back to the locally stored file in the repository #
+          if [[ -z "${pbcTarballFilePath}" ]];
+          then
+            localTarballFilePath="$(ls -1 2>/dev/null | grep -E "${locallyStoredPBCFilePattern}" | sort -uV | tail -n 1)" || localTarballFilePath=""
+            if [[ -n "${localTarballFilePath}" ]] && tar -tzf "${localTarballFilePath}" >/dev/null 2>&1;
+            then
+              echo "Detected and falling back to the local tarball ${localTarballFilePath@Q}. "
+              pbcTarballFilePath="${localTarballFilePath}"
+            else
+              echo "Failed to find a PBC tarball from the official website or the local storage. "
+              exit 1
+            fi
+          fi
+          
+          echo "Trying to build and install using the PBC tarball ${pbcTarballFilePath@Q}. "
+          pbcDirectoryName="$(basename "${pbcTarballFilePath}" .tar.gz)"
+          tar -xzf "${pbcTarballFilePath}"
+          cd "${pbcDirectoryName}"
           ./configure LDFLAGS="-lgmp"
           make -j$(nproc)
           sudo make install

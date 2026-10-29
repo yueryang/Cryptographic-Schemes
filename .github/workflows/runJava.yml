@@ -271,7 +271,7 @@ jobs:
           integerNumberString="$(echo "${integerNumberString}" | sed 's/^0*//')"
           integerNumberString="${integerNumberString%%.*}"
           runCount=0
-          { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null
+          { runCount=$((${radix}#$integerNumberString)); } 2>/dev/null || runCount=0
           if (( minusCount % 2 == 1 ));
           then
             runCount=$(( -runCount ))
