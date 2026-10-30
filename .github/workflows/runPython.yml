@@ -477,12 +477,13 @@ jobs:
           then
             echo "The latest PBC tarball on the PBC index page ${pbcIndexPage@Q} is ${latestTarballName@Q}. "
             latestTarballURL="${pbcIndexPage}/${latestTarballName}"
-            if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${latestTarballURL}" -O "${latestTarballName}" && tar -tzf "${latestTarballName}" >/dev/null 2>&1;
+            if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${latestTarballURL}" -O "${latestTarballName}.download" && tar -tzf "${latestTarballName}.download" >/dev/null 2>&1;
             then
+              mv -f "${latestTarballName}.download" "${latestTarballName}"
               pbcTarballFilePath="${latestTarballName}"
               echo "Successfully downloaded ${latestTarballName@Q} from ${latestTarballURL@Q}. "
             else
-              rm -f "${latestTarballName}"
+              rm -f "${latestTarballName}.download"
               echo "Failed to download ${latestTarballName@Q} from ${latestTarballURL@Q}. This will fall back to the hard-coded URLs. "
             fi
           else
@@ -495,13 +496,14 @@ jobs:
             for candidate in "${candidates[@]}";
             do
               candidateURL="${pbcIndexPage}/${candidate}"
-              if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${candidateURL}" -O "${candidate}" && tar -tzf "${candidate}" >/dev/null 2>&1;
+              if wget -q --timeout=${downloadTimeout} --tries=${maximumTryCount} "${candidateURL}" -O "${candidate}.download" && tar -tzf "${candidate}.download" >/dev/null 2>&1;
               then
+                mv -f "${candidate}.download" "${candidate}"
                 pbcTarballFilePath="${candidate}"
                 echo "Successfully downloaded ${candidate@Q} from ${candidateURL@Q}. "
                 break
               else
-                rm -f "${candidate}"
+                rm -f "${candidate}.download"
               fi
             done
           fi
