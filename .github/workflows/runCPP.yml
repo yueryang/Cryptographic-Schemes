@@ -235,13 +235,6 @@ jobs:
       matrix:
         cryptographicScheme: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          sparse-checkout: |
-            ${{ matrix.cryptographicScheme }}
-          persist-credentials: false
-      
       - name: Get ready
         id: ready
         run: |
@@ -252,6 +245,7 @@ jobs:
           binaryFilePath="${directoryPath}/${mainFileName}.bin"
           outputFilePath="${directoryPath}/${mainFileName}-C++${cppVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
           outputFileName="$(basename -- "${outputFilePath}")"
+          
           echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
           echo "C++ version: ${cppVersion}"
           echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
@@ -260,6 +254,7 @@ jobs:
           echo "Output format: ${outputFormat}"
           echo "Output file path: ${outputFilePath}"
           echo "Output file name: ${outputFileName}"
+          
           echo "sourceFilePath=${sourceFilePath}" >> "${GITHUB_OUTPUT}"
           echo "binaryFilePath=${binaryFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
@@ -271,6 +266,13 @@ jobs:
           runCount: ${{ needs.prepare.outputs.runCount }}
           timeString: ${{ needs.prepare.outputs.timeString }}
           outputFormat: ${{ github.event.inputs.outputFormat || '.csv' }}
+      
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+          persist-credentials: false
       
       - name: Compile the cryptographic scheme
         run: |

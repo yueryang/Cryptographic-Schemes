@@ -5,7 +5,6 @@ set -o pipefail
 
 readonly EXIT_SUCCESS=0
 readonly EXIT_FAILURE=1
-readonly SCRIPT_NAME='fetchJavaDependencies.sh'
 readonly LOG4J_SUPPORTED_MAJOR='2'
 readonly -a DOWNLOADABLE_ARTIFACTS=(
 	'commons-collections4'
@@ -106,19 +105,19 @@ is_downloadable_filename()
 	return 1
 }
 
-is_known_filename()
+is_known_jar_filename()
 {
 	local filename="$1"
 
 	case "$filename" in
-	"$SCRIPT_NAME"|'jpbc-api-2.0.0.jar'|'jpbc-plaf-2.0.0.jar')
+	'jpbc-api-2.0.0.jar'|'jpbc-plaf-2.0.0.jar')
 		return 0
 		;;
 	esac
 	is_downloadable_filename "$filename"
 }
 
-validate_directory_entries()
+validate_jar_entries()
 {
 	local entry=''
 	local filename=''
@@ -126,9 +125,9 @@ validate_directory_entries()
 	while IFS= read -r -d '' entry
 	do
 		filename="${entry##*/}"
-		is_known_filename "$filename" || fail "unexpected lib entry was preserved: ${filename}"
-		[[ -f "$entry" && ! -L "$entry" ]] || fail "lib entry is not a regular file: ${filename}"
-	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -print0)
+		is_known_jar_filename "$filename" || fail "unexpected JAR entry was preserved: ${filename}"
+		[[ -f "$entry" && ! -L "$entry" ]] || fail "JAR entry is not a regular file: ${filename}"
+	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -name '*.jar' -print0)
 }
 
 read_latest_version()
@@ -357,12 +356,12 @@ verify_final_directory()
 	local entry_count=0
 	local entry=''
 
-	validate_directory_entries
+	validate_jar_entries
 	while IFS= read -r -d '' entry
 	do
 		entry_count=$((entry_count + 1))
-	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -print0)
-	[[ $entry_count -eq 12 ]] || fail "the final lib directory contains ${entry_count} entries instead of 12"
+	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -name '*.jar' -print0)
+	[[ $entry_count -eq ${#ORDERED_ARTIFACTS[@]} ]] || fail "the final lib directory contains ${entry_count} JAR files instead of ${#ORDERED_ARTIFACTS[@]}"
 }
 
 main()
@@ -371,7 +370,7 @@ main()
 	local artifact_index=0
 
 	require_commands
-	validate_directory_entries
+	validate_jar_entries
 	validate_jar "$LIB_DIRECTORY/jpbc-api-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-api-2.0.0.jar'
 	validate_jar "$LIB_DIRECTORY/jpbc-plaf-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-plaf-2.0.0.jar'
 	TEMPORARY_DIRECTORY="$(mktemp -d "$LIB_DIRECTORY/.fetchJavaDependencies.XXXXXX")" || fail 'failed to create the temporary directory'
