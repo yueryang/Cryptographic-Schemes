@@ -1225,7 +1225,8 @@ def main() -> int:
 			metrics = (
 				"Setup (s)", "DKGen (s)", "EKGen (s)", "ReEKGen (s)", "Enc (s)", "ReEnc (s)", "Dec1 (s)", "Dec2 (s)", 
 				"Element of $\\mathbb{Z}_r$ (B)", "Element of $\\mathbb{G}$ (B)", "Element of $\\mathbb{G}_T$ (B)",
-				"mpk (B)", "msk (B)", "ek_id_1 (B)", "ek_id_2 (B)", "dk_id_2 (B)", "dk_id_3 (B)", "rk (B)", "ct (B)", "ct\' (B)"
+				"$\\textit{mpk}$ (B)", "$\\textit{msk}$ (B)", "$\\textit{ek}_{\\textit{id}_1}$ (B)", "$\\textit{ek}_{\\textit{id}_2}$ (B)", 
+				"$\\textit{dk}_{\\textit{id}_2}$ (B)", "$\\textit{dk}_{\\textit{id}_3}$ (B)", "$\\textit{rk}$ (B)", "$\\textit{ct}$ (B)", "$\\textit{ct}\'$ (B)"
 			)
 			getValidatorJudges = lambda x:x[queryLength:queryValidatorLength]
 			getMetricJudges = lambda x:x[queryValidatorLength:]

@@ -180,7 +180,6 @@ jobs:
       - name: Prepare the decimal place
         id: decimalPlace
         run: |
-          cd "${{ github.workspace }}"
           case "${decimalPlaceString}" in
             0|s|second)
               decimalPlace=0
@@ -211,7 +210,6 @@ jobs:
       - name: Prepare the run count
         id: runCount
         run: |
-          cd "${{ github.workspace }}"
           integerNumberString="$(echo -n "${runCountString}" | tr -cd '0-9A-Za-z+.-' | tr 'A-Z' 'a-z')"
           leadingSigns="${integerNumberString%%[!+-]*}"
           minusCount=$(echo -n "${leadingSigns}" | tr -cd '-' | wc -c)
@@ -287,7 +285,6 @@ jobs:
       - name: Prepare the time string
         id: timeString
         run: |
-          cd "${{ github.workspace }}"
           timeString="HKT$(date '+%Y%m%d%H%M%S')"
           echo "timeString=${timeString}" >> "${GITHUB_OUTPUT}"
         env:
@@ -313,7 +310,6 @@ jobs:
       - name: Get ready
         id: ready
         run: |
-          cd "${{ github.workspace }}"
           directoryPath="$(dirname -- "${{ matrix.cryptographicScheme }}")"
           mainFileName="$(basename -- "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
           outputFilePath="${directoryPath}/${mainFileName}-Java${javaVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
