@@ -29,6 +29,16 @@ on:
         required: true
         default: true
         type: boolean
+      executeSchemeFSLLRS:
+        description: 'SchemeFSLLRS'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeFSMUAEKS:
+        description: 'SchemeFSMUAEKS'
+        required: true
+        default: true
+        type: boolean
       executeSchemeGRS:
         description: 'SchemeGRS'
         required: true
@@ -51,6 +61,16 @@ on:
         type: boolean
       executeSchemeIBPRME:
         description: 'SchemeIBPRME'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeLBPEAKS:
+        description: 'SchemeLBPEAKS'
+        required: true
+        default: true
+        type: boolean
+      executeSchemeLWEPEKS:
+        description: 'SchemeLWEPEKS'
         required: true
         default: true
         type: boolean
@@ -147,30 +167,42 @@ jobs:
           then
             executeSchemeAAIBME="${{ github.event.inputs.executeSchemeAAIBME }}"
             executeSchemeCANIFPPCT="${{ github.event.inputs.executeSchemeCANIFPPCT }}"
+            executeSchemeFSLLRS="${{ github.event.inputs.executeSchemeFSLLRS }}"
+            executeSchemeFSMUAEKS="${{ github.event.inputs.executeSchemeFSMUAEKS }}"
             executeSchemeGRS="${{ github.event.inputs.executeSchemeGRS }}"
             executeSchemeHIBME="${{ github.event.inputs.executeSchemeHIBME }}"
             executeSchemeIBMEMR="${{ github.event.inputs.executeSchemeIBMEMR }}"
             executeSchemeIBMETR="${{ github.event.inputs.executeSchemeIBMETR }}"
             executeSchemeIBPRME="${{ github.event.inputs.executeSchemeIBPRME }}"
+            executeSchemeLBPEAKS="${{ github.event.inputs.executeSchemeLBPEAKS }}"
+            executeSchemeLWEPEKS="${{ github.event.inputs.executeSchemeLWEPEKS }}"
             executeSchemeVLPSICA="${{ github.event.inputs.executeSchemeVLPSICA }}"
           else
-            executeSchemeAAIBME="false"
+            executeSchemeAAIBME="true"
             executeSchemeCANIFPPCT="true"
+            executeSchemeFSLLRS="true"
+            executeSchemeFSMUAEKS="true"
             executeSchemeGRS="true"
-            executeSchemeHIBME="false"
+            executeSchemeHIBME="true"
             executeSchemeIBMEMR="true"
             executeSchemeIBMETR="true"
             executeSchemeIBPRME="true"
-            executeSchemeVLPSICA="false"
+            executeSchemeLBPEAKS="true"
+            executeSchemeLWEPEKS="true"
+            executeSchemeVLPSICA="true"
           fi
           matrix=()
           [[ "true" == "${executeSchemeAAIBME}" ]] && matrix+=("SchemeAAIBME/SchemeAAIBME.java" "SchemeAAIBME/SchemeFuzzyME.java")
           [[ "true" == "${executeSchemeCANIFPPCT}" ]] && matrix+=("SchemeCANIFPPCT/SchemeCANIFPPCT.java" "SchemeCANIFPPCT/SchemeCANIPSI.java")
+          [[ "true" == "${executeSchemeFSLLRS}" ]] && matrix+=("SchemeFSLLRS/SchemeFSLLRS.java")
+          [[ "true" == "${executeSchemeFSMUAEKS}" ]] && matrix+=("SchemeFSMUAEKS/SchemeFSMUAEKS.java")
           [[ "true" == "${executeSchemeGRS}" ]] && matrix+=("SchemeGRS/SchemeGRS.java")
           [[ "true" == "${executeSchemeHIBME}" ]] && matrix+=("SchemeHIBME/SchemeAnonymousME.java" "SchemeHIBME/SchemeHIBME.java")
           [[ "true" == "${executeSchemeIBMEMR}" ]] && matrix+=("SchemeIBMEMR/SchemeIBBME.java" "SchemeIBMEMR/SchemeIBMEMR.java")
           [[ "true" == "${executeSchemeIBMETR}" ]] && matrix+=("SchemeIBMETR/SchemeAIBE.java" "SchemeIBMETR/SchemeARES.java" "SchemeIBMETR/SchemeIBME.java" "SchemeIBMETR/SchemeIBMECH.java" "SchemeIBMETR/SchemeIBMETR.java")
           [[ "true" == "${executeSchemeIBPRME}" ]] && matrix+=("SchemeIBPRME/SchemeIBPME.java" "SchemeIBPRME/SchemeIBPRME.java" "SchemeIBPRME/SchemePBAC.java")
+          [[ "true" == "${executeSchemeLBPEAKS}" ]] && matrix+=("SchemeLBPEAKS/SchemeLBPEAKS.java")
+          [[ "true" == "${executeSchemeLWEPEKS}" ]] && matrix+=("SchemeLWEPEKS/SchemeLWEPEKS.java")
           [[ "true" == "${executeSchemeVLPSICA}" ]] && matrix+=("SchemeVLPSICA/SchemeVLPSICA.java")
           if [[ ${#matrix[@]} -ge 1 ]];
           then
@@ -304,6 +336,14 @@ jobs:
       - name: Get ready
         id: ready
         run: |
+          case "${{ matrix.cryptographicScheme }}" in
+            "SchemeFSLLRS/SchemeFSLLRS.java" | "SchemeFSMUAEKS/SchemeFSMUAEKS.java" | "SchemeLBPEAKS/SchemeLBPEAKS.java" | "SchemeLWEPEKS/SchemeLWEPEKS.java")
+              pairingBased="false"
+              ;;
+            *)
+              pairingBased="true"
+              ;;
+          esac
           directoryPath="$(dirname -- "${{ matrix.cryptographicScheme }}")"
           mainFileName="$(basename -- "${{ matrix.cryptographicScheme }}" | sed "s/\.[^.]*\$//g")"
           outputFilePath="${directoryPath}/${mainFileName}-Java${javaVersion}-p${decimalPlace}-r${runCount}-${timeString}${outputFormat}"
@@ -312,6 +352,7 @@ jobs:
           schemePDFFilePath="${directoryPath}/${mainFileName}LaTeX/${mainFileName}-${timeString}.pdf"
           
           echo "Cryptographic scheme: ${{ matrix.cryptographicScheme }}"
+          echo "Pairing-based: ${pairingBased}"
           echo "Java version: ${javaVersion}"
           echo "Decimal place: ${decimalPlaceString} (${decimalPlace})"
           echo "Run count: ${runCount}"
@@ -322,6 +363,7 @@ jobs:
           echo "Scheme LaTeX file path: ${schemeLaTeXFilePath}"
           echo "Scheme PDF file path: ${schemePDFFilePath}"
           
+          echo "pairingBased=${pairingBased}" >> "${GITHUB_OUTPUT}"
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
           echo "schemeLaTeXFilePath=${schemeLaTeXFilePath}" >> "${GITHUB_OUTPUT}"
@@ -334,13 +376,39 @@ jobs:
           timeString: ${{ needs.prepare.outputs.timeString }}
           outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
       
-      - name: Checkout code
+      - name: Checkout code (pairing-based)
+        if: ${{ steps.ready.outputs.pairingBased != 'false' }}
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
             ${{ matrix.cryptographicScheme }}
-            lib/*.jar
+            lib/commons-collections4-*.jar
+            lib/commons-compress-*.jar
+            lib/commons-io-*.jar
             lib/fetchJavaDependencies.sh
+            lib/jpbc-api-2.0.0.jar
+            lib/jpbc-plaf-2.0.0.jar
+            lib/log4j-api-*.jar
+            lib/log4j-core-*.jar
+            lib/poi-*.jar
+            lib/xmlbeans-*.jar
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      
+      - name: Checkout code (non-pairing-based)
+        if: ${{ steps.ready.outputs.pairingBased == 'false' }}
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            ${{ matrix.cryptographicScheme }}
+            lib/commons-collections4-*.jar
+            lib/commons-compress-*.jar
+            lib/commons-io-*.jar
+            lib/fetchJavaDependencies.sh
+            lib/log4j-api-*.jar
+            lib/log4j-core-*.jar
+            lib/poi-*.jar
+            lib/xmlbeans-*.jar
           sparse-checkout-cone-mode: false
           persist-credentials: false
       
@@ -350,36 +418,52 @@ jobs:
           java-version: ${{ github.event.inputs.javaVersion || 25 }}
           distribution: 'temurin'
       
-      - name: Update Java dependencies
+      - name: Prepare the Java dependencies
         id: dependencies
         run: |
           cd "${{ github.workspace }}/lib"
-          readonly EXIT_SUCCESS=0
-          chmod u+x ./fetchJavaDependencies.sh
-          dependencies="$(./fetchJavaDependencies.sh)"
-          exitCode=$?
-          if [[ ${exitCode} -eq ${EXIT_SUCCESS} ]];
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
+          if [[ -f "./fetchJavaDependencies.sh" ]];
           then
-            echo "dependencies ${exitCode}: ${dependencies}"
-            echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
+            readonly EXIT_SUCCESS=0
+            chmod u+x ./fetchJavaDependencies.sh
+            dependencies="$(./fetchJavaDependencies.sh)"
+            returnStatus=$?
+            if [[ ${returnStatus} -eq ${EXIT_SUCCESS} ]];
+            then
+              echo "Dependencies (${returnStatus}): ${dependencies}"
+              echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
+            else
+              dependencies="$(find . -maxdepth 1 -type f -name '*.jar' -printf 'lib/%f\n' | sort | paste -s -d ':')"
+              echo "Dependencies (${returnStatus}): ${dependencies}"
+              echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
+            fi
           else
-            dependencies="$(find . -maxdepth 1 -type f -name '*.jar' -printf 'lib/%f\n' | sort | paste -s -d ':')"
-            echo "dependencies ${exitCode}: ${dependencies}"
-            echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
+            echo "Failed to prepare the Java dependencies. "
+            false
           fi
       
       - name: Run the cryptographic scheme
         run: |
           cd "${{ github.workspace }}"
-          echo "The current working directory is \"$(pwd)\". "
-          if [[ -f "${{ matrix.cryptographicScheme }}" ]];
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
+          if [[ -f "${cryptographicScheme}" ]];
           then
-            echo "\$ java -cp ${{ steps.dependencies.outputs.dependencies }} \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }}"
-            java -cp "${{ steps.dependencies.outputs.dependencies }}" "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }}
+            echo "\$ java -cp ${dependencies@Q} ${cryptographicScheme@Q} -o ${outputFileName@Q} -p ${decimalPlace@Q} -r ${runCount@Q}"
+            java -cp "${dependencies}" "${cryptographicScheme}" -o "${outputFileName}" -p ${decimalPlace} -r ${runCount}
           else
-            echo "Failed to execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Java ${{ github.event.inputs.javaVersion || 25 }}. "
+            echo "Failed to execute the cryptographic scheme file ${cryptographicScheme@Q} via Java ${javaVersion@Q}. "
             false
           fi
+        env:
+          cryptographicScheme: ${{ matrix.cryptographicScheme }}
+          dependencies: ${{ steps.dependencies.outputs.dependencies }}
+          outputFileName: ${{ steps.ready.outputs.outputFileName }}
+          decimalPlace: ${{ needs.prepare.outputs.decimalPlace }}
+          runCount: ${{ needs.prepare.outputs.runCount }}
+          javaVersion: ${{ github.event.inputs.javaVersion || 25 }}
       
       - name: Upload the result
         uses: actions/upload-artifact@v7

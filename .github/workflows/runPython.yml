@@ -28,7 +28,7 @@ on:
       executeSchemeAAIBME:
         description: 'SchemeAAIBME'
         required: true
-        default: true
+        default: false
         type: boolean
       executeSchemeCANIFPPCT:
         description: 'SchemeCANIFPPCT'
@@ -173,7 +173,7 @@ jobs:
             executeSchemeLWEPEKS="${{ github.event.inputs.executeSchemeLWEPEKS }}"
             executeSchemeVLPSICA="${{ github.event.inputs.executeSchemeVLPSICA }}"
           else
-            executeSchemeAAIBME="true"
+            executeSchemeAAIBME="false"
             executeSchemeCANIFPPCT="true"
             executeSchemeCoefficientComputation="true"
             executeSchemeFSMUAEKS="true"
@@ -377,8 +377,8 @@ jobs:
           timeString: ${{ needs.prepare.outputs.timeString }}
           outputFormat: ${{ github.event.inputs.outputFormat || '.xlsx' }}
       
-      - name: Checkout code
-        if: ${{ steps.ready.outputs.pairingBased == 'true' && matrix.cryptographicScheme != 'SchemeCoefficientComputation/SchemeCoefficientComputation.py' }}
+      - name: Checkout code (pairing-based)
+        if: ${{ steps.ready.outputs.pairingBased != 'false' && matrix.cryptographicScheme != 'SchemeCoefficientComputation/SchemeCoefficientComputation.py' }}
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
@@ -391,7 +391,7 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
       
-      - name: Checkout code for non-pairing-based cryptographic schemes
+      - name: Checkout code (non-pairing-based)
         if: ${{ steps.ready.outputs.pairingBased == 'false' }}
         uses: actions/checkout@v7
         with:
@@ -404,7 +404,7 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
       
-      - name: Checkout code with dependent cryptographic schemes
+      - name: Checkout code (with dependent cryptographic schemes)
         if: ${{ matrix.cryptographicScheme == 'SchemeCoefficientComputation/SchemeCoefficientComputation.py' }}
         uses: actions/checkout@v7
         with:
@@ -442,17 +442,24 @@ jobs:
       - name: Build LaTeX and the PDF for the cryptographic scheme
         run: |
           cd "${{ github.workspace }}"
-          echo "The current working directory is \"$(pwd)\". "
-          if [[ -f buildSchemeLaTeXPDFs.py && -f "${{ matrix.cryptographicScheme }}" ]];
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
+          if [[ -f "buildSchemeLaTeXPDFs.py" && -f "${cryptographicScheme}" ]];
           then
-            formatString='%p/%nLaTeX/%n-${{ needs.prepare.outputs.timeString }}'
+            formatString="%p/%nLaTeX/%n-${timeString}"
+            echo ""
             echo "\$ python buildSchemeLaTeXPDFs.py -t 0 -h"
-            python buildSchemeLaTeXPDFs.py -t 0 -h
-            echo "\$ python buildSchemeLaTeXPDFs.py -o \"${formatString}\" -t 0 -- \"${{ matrix.cryptographicScheme }}\""
-            python buildSchemeLaTeXPDFs.py -o "${formatString}" -t 0 -- "${{ matrix.cryptographicScheme }}" || true
+            python "buildSchemeLaTeXPDFs.py" -t 0 -h
+            echo ""
+            echo "\$ python \"buildSchemeLaTeXPDFs.py\" -o ${formatString@Q} -t 0 -- ${cryptographicScheme@Q}"
+            python "buildSchemeLaTeXPDFs.py" -o "${formatString}" -t 0 -- "${cryptographicScheme}" || true
           else
-            echo "Failed to execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
+            echo "Failed to execute the LaTeX and PDF builder \"buildSchemeLaTeXPDFs.py\" via Python ${pythonVersion@Q}. "
           fi
+        env:
+          cryptographicScheme: ${{ matrix.cryptographicScheme }}
+          timeString: ${{ needs.prepare.outputs.timeString }}
+          pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
       
       - name: Upload the LaTeX source code for the cryptographic scheme
         uses: actions/upload-artifact@v7
@@ -555,18 +562,26 @@ jobs:
       - name: Run the cryptographic scheme
         run: |
           cd "${{ github.workspace }}"
-          echo "The current working directory is \"$(pwd)\". "
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
           if [[ -f "${{ matrix.cryptographicScheme }}" ]];
           then
-            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -t 0 -h"
-            python "${{ matrix.cryptographicScheme }}" -t 0 -h
             echo ""
-            echo "\$ python \"${{ matrix.cryptographicScheme }}\" -o \"${{ steps.ready.outputs.outputFileName }}\" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y"
-            python "${{ matrix.cryptographicScheme }}" -o "${{ steps.ready.outputs.outputFileName }}" -p ${{ needs.prepare.outputs.decimalPlace }} -r ${{ needs.prepare.outputs.runCount }} -t 0 -y
+            echo "\$ python ${cryptographicScheme@Q} -t 0 -h"
+            python "${cryptographicScheme}" -t 0 -h
+            echo ""
+            echo "\$ python ${cryptographicScheme@Q} -o ${outputFileName@Q} -p ${decimalPlace@Q} -r ${runCount@Q} -t 0 -y"
+            python "${cryptographicScheme}" -o "${outputFileName}" -p ${decimalPlace} -r ${runCount} -t 0 -y
           else
-            echo "Failed to execute the cryptographic scheme file \"${{ matrix.cryptographicScheme }}\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
+            echo "Failed to execute the cryptographic scheme file ${cryptographicScheme@Q} via Python ${pythonVersion@Q}. "
             false
           fi
+        env:
+          cryptographicScheme: ${{ matrix.cryptographicScheme }}
+          outputFileName: ${{ steps.ready.outputs.outputFileName }}
+          decimalPlace: ${{ needs.prepare.outputs.decimalPlace }}
+          runCount: ${{ needs.prepare.outputs.runCount }}
+          pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
       
       - name: Upload the result
         uses: actions/upload-artifact@v7
@@ -578,17 +593,22 @@ jobs:
       - name: Analyze
         run: |
           cd "${{ github.workspace }}"
-          echo "The current working directory is \"$(pwd)\". "
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
           if [[ -f "analyze.py" ]];
           then
+            echo ""
             echo "\$ python \"analyze.py\" -t 0 -h"
             python "analyze.py" -t 0 -h
             echo ""
-            echo "\$ python \"analyze.py\" -t 0 -- \"${{ steps.ready.outputs.outputFilePath }}\""
-            python "analyze.py" -t 0 -- "${{ steps.ready.outputs.outputFilePath }}" || true
+            echo "\$ python \"analyze.py\" -t 0 -- ${outputFilePath@Q}"
+            python "analyze.py" -t 0 -- "${outputFilePath}" || true
           else
-            echo "Failed to execute the analyzer \"analyze.py\" via Python ${{ github.event.inputs.pythonVersion || '3.x' }}. "
+            echo "Failed to execute the analyzer \"analyze.py\" via Python ${pythonVersion@Q}. "
           fi
+        env:
+          outputFilePath: ${{ steps.ready.outputs.outputFilePath }}
+          pythonVersion: ${{ github.event.inputs.pythonVersion || '3.x' }}
       
       - name: Upload the analysis
         uses: actions/upload-artifact@v7

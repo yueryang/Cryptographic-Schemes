@@ -33,12 +33,13 @@ on:
       cppVersion:
         description: 'C++ version'
         required: true
-        default: 23
+        default: 26
         type: choice
         options:
           - 17
           - 20
           - 23
+          - 26
       outputFormat:
         description: 'Output format'
         required: true
@@ -260,7 +261,7 @@ jobs:
           echo "outputFilePath=${outputFilePath}" >> "${GITHUB_OUTPUT}"
           echo "outputFileName=${outputFileName}" >> "${GITHUB_OUTPUT}"
         env:
-          cppVersion: ${{ github.event.inputs.cppVersion || 23 }}
+          cppVersion: ${{ github.event.inputs.cppVersion || 26 }}
           decimalPlaceString: ${{ github.event.inputs.decimalPlace || '9' }}
           decimalPlace: ${{ needs.prepare.outputs.decimalPlace }}
           runCount: ${{ needs.prepare.outputs.runCount }}
@@ -277,16 +278,33 @@ jobs:
       - name: Compile the cryptographic scheme
         run: |
           cd "${{ github.workspace }}"
-          g++ -std=c++${cppVersion} -Wall -Wextra -Wpedantic "${sourceFilePath}" -o "${binaryFilePath}"
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
+          echo "\$ g++ -std=c++${cppVersion} -Wall -Wextra -Wpedantic ${sourceFilePath@Q} -o ${binaryFilePath@Q} -static-libstdc++ -static-libgcc"
+          g++ -std=c++${cppVersion} -Wall -Wextra -Wpedantic "${sourceFilePath}" -o "${binaryFilePath}" -static-libstdc++ -static-libgcc
         env:
-          cppVersion: ${{ github.event.inputs.cppVersion || 23 }}
+          cppVersion: ${{ github.event.inputs.cppVersion || 26 }}
           sourceFilePath: ${{ steps.ready.outputs.sourceFilePath }}
           binaryFilePath: ${{ steps.ready.outputs.binaryFilePath }}
       
+      - name: Upload the binary
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/${{ steps.ready.outputs.binaryFilePath }}
+          archive: false
+          if-no-files-found: error
+      
       - name: Run the cryptographic scheme
         run: |
+          cd "${{ github.workspace }}"
+          currentWorkingDirectory="$(pwd)"
+          echo "The current working directory is ${currentWorkingDirectory@Q}. "
+          echo ""
+          echo "\$ ${binaryFilePath@Q} -t 0 -h"
           "${binaryFilePath}" -t 0 -h
-          "${binaryFilePath}" -o "${outputFileName}" -p "${decimalPlace}" -r "${runCount}" -t 0 -y
+          echo ""
+          echo "\$ ${binaryFilePath@Q} -o ${outputFileName@Q} -p ${decimalPlace@Q} -r ${runCount@Q} -t 0 -y"
+          "${binaryFilePath}" -o "${outputFileName}" -p ${decimalPlace} -r ${runCount} -t 0 -y
         env:
           binaryFilePath: ${{ steps.ready.outputs.binaryFilePath }}
           outputFileName: ${{ steps.ready.outputs.outputFileName }}
