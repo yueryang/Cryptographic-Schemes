@@ -1204,7 +1204,12 @@ public final class SchemeVLPSICA
 
 	private static boolean expectedUnavailable(final List<Object> result)
 	{
-		return result != null && !result.isEmpty() && ("MNT201".equals(result.get(0)) || "MNT224".equals(result.get(0))) && Boolean.FALSE.equals(result.get(6));
+		if (result == null || result.size() < 8)
+			return false;
+		final Object systemValidCount = result.get(6);
+		return ("MNT201".equals(result.get(0)) || "MNT224".equals(result.get(0)))
+			&& systemValidCount instanceof Number
+			&& ((Number)systemValidCount).intValue() == 0;
 	}
 
 	private List<Element> randomGroupElements(final int count, final boolean sourceGroup)

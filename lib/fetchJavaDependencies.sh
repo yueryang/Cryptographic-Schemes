@@ -35,6 +35,7 @@ declare -a SELECTED_VERSIONS=()
 declare -a STAGED_ARTIFACTS=()
 TEMPORARY_DIRECTORY=''
 DEPENDENCY_PATHS=''
+PAIRING_BASED=true
 
 fail()
 {
@@ -353,15 +354,28 @@ commit_fixed_artifact()
 
 verify_final_directory()
 {
-	local entry_count=0
+	local downloadable_entry_count=0
 	local entry=''
+	local filename=''
 
 	validate_jar_entries
 	while IFS= read -r -d '' entry
 	do
-		entry_count=$((entry_count + 1))
+		filename="${entry##*/}"
+		case "$filename" in
+		'jpbc-api-2.0.0.jar'|'jpbc-plaf-2.0.0.jar')
+			;;
+		*)
+			downloadable_entry_count=$((downloadable_entry_count + 1))
+			;;
+		esac
 	done < <(find "$LIB_DIRECTORY" -mindepth 1 -maxdepth 1 -name '*.jar' -print0)
-	[[ $entry_count -eq ${#ORDERED_ARTIFACTS[@]} ]] || fail "the final lib directory contains ${entry_count} JAR files instead of ${#ORDERED_ARTIFACTS[@]}"
+	[[ $downloadable_entry_count -eq ${#DOWNLOADABLE_ARTIFACTS[@]} ]] || fail "the final lib directory contains ${downloadable_entry_count} downloadable JAR files instead of ${#DOWNLOADABLE_ARTIFACTS[@]}"
+	if [[ "$PAIRING_BASED" == 'true' ]]
+	then
+		validate_jar "$LIB_DIRECTORY/jpbc-api-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-api-2.0.0.jar'
+		validate_jar "$LIB_DIRECTORY/jpbc-plaf-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-plaf-2.0.0.jar'
+	fi
 }
 
 main()
@@ -370,9 +384,30 @@ main()
 	local artifact_index=0
 
 	require_commands
+	if (( $# > 1 ))
+	then
+		fail 'usage: fetchJavaDependencies.sh [--pairing|--non-pairing]'
+	fi
+	if (( $# == 1 ))
+	then
+		case "$1" in
+		'--pairing')
+			PAIRING_BASED=true
+			;;
+		'--non-pairing')
+			PAIRING_BASED=false
+			;;
+		*)
+			fail "unknown option: $1"
+			;;
+		esac
+	fi
 	validate_jar_entries
-	validate_jar "$LIB_DIRECTORY/jpbc-api-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-api-2.0.0.jar'
-	validate_jar "$LIB_DIRECTORY/jpbc-plaf-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-plaf-2.0.0.jar'
+	if [[ "$PAIRING_BASED" == 'true' ]]
+	then
+		validate_jar "$LIB_DIRECTORY/jpbc-api-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-api-2.0.0.jar'
+		validate_jar "$LIB_DIRECTORY/jpbc-plaf-2.0.0.jar" || fail 'required fixed JAR is missing or invalid: jpbc-plaf-2.0.0.jar'
+	fi
 	TEMPORARY_DIRECTORY="$(mktemp -d "$LIB_DIRECTORY/.fetchJavaDependencies.XXXXXX")" || fail 'failed to create the temporary directory'
 
 	for ((artifact_index = 0; artifact_index < ${#DOWNLOADABLE_ARTIFACTS[@]}; ++artifact_index))
@@ -386,7 +421,10 @@ main()
 	do
 		case "$artifact" in
 		'jpbc-api'|'jpbc-plaf')
-			commit_fixed_artifact "$artifact"
+			if [[ "$PAIRING_BASED" == 'true' ]]
+			then
+				commit_fixed_artifact "$artifact"
+			fi
 			;;
 		*)
 			artifact_index="$(downloadable_artifact_index "$artifact")" || fail "unknown downloadable artifact: ${artifact}"

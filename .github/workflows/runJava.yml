@@ -178,12 +178,12 @@ jobs:
             executeSchemeLWEPEKS="${{ github.event.inputs.executeSchemeLWEPEKS }}"
             executeSchemeVLPSICA="${{ github.event.inputs.executeSchemeVLPSICA }}"
           else
-            executeSchemeAAIBME="true"
+            executeSchemeAAIBME="false"
             executeSchemeCANIFPPCT="true"
             executeSchemeFSLLRS="true"
             executeSchemeFSMUAEKS="true"
             executeSchemeGRS="true"
-            executeSchemeHIBME="true"
+            executeSchemeHIBME="false"
             executeSchemeIBMEMR="true"
             executeSchemeIBMETR="true"
             executeSchemeIBPRME="true"
@@ -427,22 +427,29 @@ jobs:
           if [[ -f "./fetchJavaDependencies.sh" ]];
           then
             readonly EXIT_SUCCESS=0
-            chmod u+x ./fetchJavaDependencies.sh
-            dependencies="$(./fetchJavaDependencies.sh)"
-            returnStatus=$?
+            chmod u+x "./fetchJavaDependencies.sh"
+            if [[ "false" == "${pairingBased}" ]];
+            then
+              dependencies="$("./fetchJavaDependencies.sh" --non-pairing)"
+              returnStatus=$?
+            else
+              dependencies="$("./fetchJavaDependencies.sh" --pairing)"
+              returnStatus=$?
+            fi
             if [[ ${returnStatus} -eq ${EXIT_SUCCESS} ]];
             then
               echo "Dependencies (${returnStatus}): ${dependencies}"
               echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
             else
-              dependencies="$(find . -maxdepth 1 -type f -name '*.jar' -printf 'lib/%f\n' | sort | paste -s -d ':')"
-              echo "Dependencies (${returnStatus}): ${dependencies}"
-              echo "dependencies=${dependencies}" >> "${GITHUB_OUTPUT}"
+              echo "Failed to prepare the Java dependencies (${returnStatus}). "
+              false
             fi
           else
             echo "Failed to prepare the Java dependencies. "
             false
           fi
+        env:
+          pairingBased: ${{ steps.ready.outputs.pairingBased }}
       
       - name: Run the cryptographic scheme
         run: |
