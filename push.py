@@ -6,9 +6,9 @@ try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__)))
 except:
 	pass
-EXIT_SUCCESS = 0
-EXIT_FAILURE = 1
-EOF = (-1)
+ExitStatus.EXIT_SUCCESS = 0
+ExitStatus.EXIT_FAILURE = 1
+ExitStatus.EXIT_USAGE = (-1)
 
 
 class GitPusher:
@@ -19,7 +19,7 @@ class GitPusher:
 		self.__gitFlag = False
 		try:
 			result = run(("git", "--version"), capture_output = True, text = True, cwd = self.__localRepositoryPath)
-			if EXIT_SUCCESS == result.returncode and result.stdout.startswith("git version") and not result.stderr:
+			if ExitStatus.EXIT_SUCCESS == result.returncode and result.stdout.startswith("git version") and not result.stderr:
 				self.__gitFlag = True
 				print("Successfully initialized ``git``. ")
 			else:
@@ -34,9 +34,9 @@ class GitPusher:
 			commitMessage = "Regular Update (HKT {0})".format(datetime.now().strftime("%Y%m%d%H%M%S%f"))
 			print("The commit message prepared is \"{0}\". ".format(commitMessage))
 			result = run(("git", "add", "."), capture_output = True, text = True, cwd = self.__localRepositoryPath)
-			if EXIT_SUCCESS == result.returncode and not result.stdout and not result.stderr:
+			if ExitStatus.EXIT_SUCCESS == result.returncode and not result.stdout and not result.stderr:
 				result = run(("git", "commit", "-m", commitMessage), capture_output = True, text = True, cwd = self.__localRepositoryPath)
-				if EXIT_SUCCESS == result.returncode or EXIT_FAILURE == result.returncode and "(use \"git push\" to publish your local commits)" in result.stdout:
+				if ExitStatus.EXIT_SUCCESS == result.returncode or ExitStatus.EXIT_FAILURE == result.returncode and "(use \"git push\" to publish your local commits)" in result.stdout:
 					print(result.stdout.replace("nothing to commit, working tree clean", "").rstrip())
 					try:
 						result = run(("git", "push"), cwd = self.__localRepositoryPath)
@@ -46,13 +46,13 @@ class GitPusher:
 					except BaseException as e:
 						print("Failed to execute ``git push`` due to {0}. ".format(repr(e)))
 						return False
-					if EXIT_SUCCESS == result.returncode:
+					if ExitStatus.EXIT_SUCCESS == result.returncode:
 						print("Successfully pushed to GitHub. ")
 						return True
 					else:
 						print("Failed to execute ``git push`` due to {0}. ".format(result))
 						return False
-				elif EXIT_FAILURE == result.returncode and "nothing to commit, working tree clean" in result.stdout:
+				elif ExitStatus.EXIT_FAILURE == result.returncode and "nothing to commit, working tree clean" in result.stdout:
 					print("Nothing to commit or push, the working tree is clean. ")
 					return True
 				else:
@@ -69,9 +69,9 @@ class GitPusher:
 def main() -> int:
 	gitPusher = GitPusher()
 	if gitPusher.initialize():
-		errorLevel = EXIT_SUCCESS if gitPusher.push() else EXIT_FAILURE
+		errorLevel = ExitStatus.EXIT_SUCCESS if gitPusher.push() else ExitStatus.EXIT_FAILURE
 	else:
-		errorLevel = EOF
+		errorLevel = ExitStatus.EXIT_USAGE
 	print("Please press the Enter key to exit ({0}). ".format(errorLevel))
 	try:
 		input()

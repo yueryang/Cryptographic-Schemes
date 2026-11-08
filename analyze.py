@@ -20,9 +20,9 @@ try:
 	chdir(abspath(dirname(__file__)))
 except Exception:
 	pass
-EXIT_SUCCESS = 0
-EXIT_FAILURE = 1
-EOF = (-1)
+ExitStatus.EXIT_SUCCESS = 0
+ExitStatus.EXIT_FAILURE = 1
+ExitStatus.EXIT_USAGE = (-1)
 
 
 class Parser:
@@ -140,7 +140,7 @@ class Parser:
 	def parse(args:tuple|list) -> tuple:
 		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
 		flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = (
-			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutput, Parser.__DefaultPlace, Parser.__DefaultTime, []
+			max(ExitStatus.EXIT_SUCCESS, ExitStatus.EXIT_USAGE) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutput, Parser.__DefaultPlace, Parser.__DefaultTime, []
 		)
 		index, argumentCount, nonOptionMode, buffers = 1, len(arguments), False, []
 		while index < argumentCount:
@@ -156,21 +156,21 @@ class Parser:
 						lookup(arguments[index])
 						encoding = arguments[index]
 					except Exception:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [{0}] = {1} for the encoding option is invalid. ".format(index, repr(arguments[index])))
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the encoding option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionHelp:
 				Parser.__printHelp()
-				flag = EXIT_SUCCESS
+				flag = ExitStatus.EXIT_SUCCESS
 				break
 			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
 					outputPathWithoutAnExtension = arguments[index]
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the output path without an extension option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionPlace:
 				index += 1
@@ -181,32 +181,32 @@ class Parser:
 					else:
 						p = Parser.__parseRealNumber(arguments[index])
 						if p is None:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(arguments[index])))
 						elif isinstance(p, int) and p >= 0:
 							decimalPlace = p
 						else:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
 						del p
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
 					t = Parser.__parseRealNumber(arguments[index])
 					if t is None:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(arguments[index])))
 					elif t >= 0:
 						waitingTime = t
 					else:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
 					del t
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionUnit:
 				index += 1
@@ -222,12 +222,12 @@ class Parser:
 					except Exception as e:
 						buffers.append("Parser: The value [{0}] = {1} for the unit option cannot be literally evaluated due to {2}. ".format(index, repr(arguments[index]), repr(e)))
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the unit option is missing at [{0}]. ".format(index))
 			else:
 				units.append(arguments[index])
 			index += 1
-		if EOF == flag:
+		if ExitStatus.EXIT_USAGE == flag:
 			for buffer in buffers:
 				print(buffer)
 		return (flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units)
@@ -1612,7 +1612,7 @@ class Analyzers:
 def main() -> int:
 	flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
-	if flag > EXIT_SUCCESS and flag > EOF:
+	if flag > ExitStatus.EXIT_SUCCESS and flag > ExitStatus.EXIT_USAGE:
 		analyzers = None
 		try:
 			analyzers = Analyzers(units, formatString = outputPathWithoutAnExtension, encoding = encoding, decimalPlace = decimalPlace)
@@ -1630,11 +1630,11 @@ def main() -> int:
 		except BaseException as e:
 			print()
 			print("The analysis was interrupted by {0}. Saved archives are retained. ".format(repr(e)))
-		errorLevel = EXIT_SUCCESS if isinstance(analyzers, Analyzers) and analyzers.getTargetCount() >= 1 and analyzers.getSuccessCount() >= 1 and analyzers.getFailureCount() == 0 else EXIT_FAILURE
-	elif EXIT_SUCCESS == flag:
+		errorLevel = ExitStatus.EXIT_SUCCESS if isinstance(analyzers, Analyzers) and analyzers.getTargetCount() >= 1 and analyzers.getSuccessCount() >= 1 and analyzers.getFailureCount() == 0 else ExitStatus.EXIT_FAILURE
+	elif ExitStatus.EXIT_SUCCESS == flag:
 		errorLevel = flag
 	else:
-		errorLevel = EOF
+		errorLevel = ExitStatus.EXIT_USAGE
 	if 0 == waitingTime:
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()

@@ -11,14 +11,12 @@ try:
 except:
 	concatenate, dot, eye, ndarray, np_sum, randint = (None, ) * 6
 from time import perf_counter, sleep
-try:
-	chdir(abspath(dirname(__file__)))
-except:
-	pass
-EXIT_SUCCESS = 0
-EXIT_FAILURE = 1
-EOF = (-1)
 
+
+class ExitStatus:
+	EXIT_SUCCESS = 0
+	EXIT_FAILURE = 1
+	EXIT_USAGE = 64
 
 class Parser:
 	__SchemeName = "SchemeLWEPEKS" # splitext(basename(__file__))[0]
@@ -155,7 +153,7 @@ class Parser:
 	def parse(args:tuple|list) -> tuple:
 		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
 		flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = (
-			max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, True, Parser.__DefaultRun, Parser.__DefaultTime, False
+			None, Parser.__DefaultEncoding, Parser.__DefaultOutputFileName, Parser.__DefaultPlace, True, Parser.__DefaultRun, Parser.__DefaultTime, False
 		)
 		index, argumentCount, buffers = 1, len(arguments), []
 		while index < argumentCount:
@@ -167,21 +165,21 @@ class Parser:
 						lookup(arguments[index])
 						encoding = arguments[index]
 					except:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [0] = {1} for the encoding option is invalid. ".format(index, repr(arguments[index])))
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the encoding option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionHelp:
 				Parser.__printHelp()
-				flag = EXIT_SUCCESS
+				flag = ExitStatus.EXIT_SUCCESS
 				break
 			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
 					outputFilePath = Parser.__handlePath(arguments[index])
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the output file path option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionPlace:
 				index += 1
@@ -192,16 +190,16 @@ class Parser:
 					else:
 						p = Parser.__parseRealNumber(arguments[index])
 						if p is None:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(arguments[index])))
 						elif isinstance(p, int) and p >= 0:
 							decimalPlace = p
 						else:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
 						del p
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionQuiet:
 				isVerbose = False
@@ -210,40 +208,40 @@ class Parser:
 				if index < argumentCount:
 					r = Parser.__parseRealNumber(arguments[index])
 					if r is None:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The type of the value [{0}] = {1} for the run count option is invalid. ".format(index, repr(arguments[index])))
 					elif isinstance(r, int) and r >= 1:
 						runCount = r
 					else:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [{0}] = {1} for the run count option should be a positive integer. ".format(index, r))
 					del r
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the run count option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
 					t = Parser.__parseRealNumber(arguments[index])
 					if t is None:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(arguments[index])))
 					elif t >= 0:
 						waitingTime = t
 					else:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
 					del t
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionYes:
 				overwritingConfirmed = True
 			else:
-				flag = EOF
+				flag = ExitStatus.EXIT_USAGE
 				buffers.append("Parser: The option [{0}] = {1} is unknown. ".format(index, repr(arguments[index])))
 			index += 1
-		if EOF == flag:
+		if ExitStatus.EXIT_USAGE == flag:
 			for buffer in buffers:
 				print(buffer)
 		return (flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed)
@@ -856,13 +854,20 @@ def conductScheme(parameter:tuple|list|dict, run:int|None = None, isVerbose:bool
 	]
 
 def main() -> int:
+	# Bootstrap #
+	try:
+		chdir(abspath(dirname(__file__)))
+	except:
+		pass
+	
+	# Execution #
 	flag, encoding, outputFilePath, decimalPlace, isVerbose, runCount, waitingTime, overwritingConfirmed = Parser.parse(argv)
-	if flag > EXIT_SUCCESS and flag > EOF:
+	if flag is None:
 		if any((concatenate is None, dot is None, eye is None, ndarray is None, np_sum is None, randint is None)):
 			Parser.disableConsoleEchoes()
 			print("The runtime environment of the Python NumPy library is not correctly configured. ")
 			print("Please install the libraries via the active Python package manager (e.g., pip). ")
-			errorLevel = EOF
+			errorLevel = ExitStatus.EXIT_USAGE
 		else:
 			outputFilePath, overwritingConfirmed = Parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			Parser.disableConsoleEchoes()
@@ -902,17 +907,19 @@ def main() -> int:
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = EXIT_SUCCESS if results and all(
+			errorLevel = ExitStatus.EXIT_SUCCESS if results and all(
 				all(result[index] == runCount for index in range(queryLength, queryValidatorLength))
 				and all(isinstance(result[index], (float, int)) and result[index] > 0 for index in range(queryValidatorLength, len(columns)))
 				for result in results
-			) else EXIT_FAILURE
-	elif EXIT_SUCCESS == flag:
+			) else ExitStatus.EXIT_FAILURE
+	elif ExitStatus.EXIT_SUCCESS == flag:
 		errorLevel = flag
 		Parser.disableConsoleEchoes()
 	else:
-		errorLevel = EOF
+		errorLevel = ExitStatus.EXIT_USAGE
 		Parser.disableConsoleEchoes()
+	
+	# Exit #
 	if 0 == waitingTime:
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
@@ -943,7 +950,6 @@ def main() -> int:
 			print()
 	Parser.restoreConsoleEchoes()
 	return errorLevel
-
 
 
 if "__main__" == __name__:

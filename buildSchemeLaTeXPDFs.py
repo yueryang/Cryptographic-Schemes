@@ -15,9 +15,9 @@ try:
 	chdir(abspath(dirname(__file__)))
 except:
 	pass
-EXIT_SUCCESS = 0
-EXIT_FAILURE = 1
-EOF = (-1)
+ExitStatus.EXIT_SUCCESS = 0
+ExitStatus.EXIT_FAILURE = 1
+ExitStatus.EXIT_USAGE = (-1)
 
 
 class Parser:
@@ -129,7 +129,7 @@ class Parser:
 	@staticmethod
 	def parse(args:tuple|list) -> tuple:
 		arguments = tuple(argument for argument in args if isinstance(argument, str)) if isinstance(args, (tuple, list)) else ()
-		flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = max(EXIT_SUCCESS, EOF) + 1, Parser.__DefaultOutput, Parser.__DefaultPlace, Parser.__DefaultTime, []
+		flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = max(ExitStatus.EXIT_SUCCESS, ExitStatus.EXIT_USAGE) + 1, Parser.__DefaultOutput, Parser.__DefaultPlace, Parser.__DefaultTime, []
 		index, argumentCount, nonOptionMode, buffers = 1, len(arguments), False, []
 		while index < argumentCount:
 			argument = arguments[index].lower()
@@ -139,14 +139,14 @@ class Parser:
 				nonOptionMode = True
 			elif argument in Parser.__OptionHelp:
 				Parser.__printHelp()
-				flag = EXIT_SUCCESS
+				flag = ExitStatus.EXIT_SUCCESS
 				break
 			elif argument in Parser.__OptionOutput:
 				index += 1
 				if index < argumentCount:
 					outputPathWithoutAnExtension = arguments[index]
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the output path without an extension option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionPlace:
 				index += 1
@@ -157,32 +157,32 @@ class Parser:
 					else:
 						p = Parser.__parseRealNumber(arguments[index])
 						if p is None:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option cannot be recognized. ".format(index, repr(arguments[index])))
 						elif isinstance(p, int) and p >= 0:
 							decimalPlace = p
 						else:
-							flag = EOF
+							flag = ExitStatus.EXIT_USAGE
 							buffers.append("Parser: The value [{0}] = {1} for the decimal place option should be a non-negative integer. ".format(index, p))
 						del p
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the decimal place option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionTime:
 				index += 1
 				if index < argumentCount:
 					t = Parser.__parseRealNumber(arguments[index])
 					if t is None:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The type of the value [{0}] = {1} for the waiting time option is invalid. ".format(index, repr(arguments[index])))
 					elif t >= 0:
 						waitingTime = t
 					else:
-						flag = EOF
+						flag = ExitStatus.EXIT_USAGE
 						buffers.append("Parser: The value [{0}] = {1} for the waiting time option should be a non-negative value. ".format(index, t))
 					del t
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the waiting time option is missing at [{0}]. ".format(index))
 			elif argument in Parser.__OptionUnit:
 				index += 1
@@ -198,12 +198,12 @@ class Parser:
 					except BaseException as e:
 						buffers.append("Parser: The value [{0}] = {1} for the unit option cannot be literally evaluated due to {2}. ".format(index, repr(arguments[index]), repr(e)))
 				else:
-					flag = EOF
+					flag = ExitStatus.EXIT_USAGE
 					buffers.append("Parser: The value for the unit option is missing at [{0}]. ".format(index))
 			else:
 				units.append(arguments[index])
 			index += 1
-		if EOF == flag:
+		if ExitStatus.EXIT_USAGE == flag:
 			for buffer in buffers:
 				print(buffer)
 		return (flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, units)
@@ -540,7 +540,7 @@ class Builder:
 			startTime = perf_counter()
 			try:
 				result = run(("pdflatex", self.__schemeLaTeXFileName), capture_output = True, text = True, timeout = Builder.__DefaultCompilationTimeout, cwd = self.__targetDirectoryPath)
-				if EXIT_SUCCESS == result.returncode:
+				if ExitStatus.EXIT_SUCCESS == result.returncode:
 					self.__flag = 3
 				else:
 					self.__compilationDiagnostics = result
@@ -703,14 +703,14 @@ class Builders: # ("%%", "%d", "%n", "%p", "%x") = ("%", "driveLetter:", "mainFi
 def main() -> int:
 	flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
-	if flag > EXIT_SUCCESS and flag > EOF:
+	if flag > ExitStatus.EXIT_SUCCESS and flag > ExitStatus.EXIT_USAGE:
 		if any((
 			Attribute is None, CSTNode is None, Call is None, ClassDef is None, ConcatenatedString is None, EmptyLine is None, 
 			FunctionDef is None, Name is None, SimpleString is None, TrailingWhitespace is None, parse_module is None
 		)):
 			print("The runtime environment of the Python libcst library is not correctly configured. ")
 			print("Please install the libraries via the active Python package manager (e.g., pip). ")
-			errorLevel = EOF
+			errorLevel = ExitStatus.EXIT_USAGE
 		else:
 			builders = Builders(*units, formatString = outputPathWithoutAnExtension, collectionMode = False)
 			totalCount = len(builders)
@@ -718,17 +718,17 @@ def main() -> int:
 				print("Gathered {0} to be built. ".format(("{0} item" if 1 == totalCount else "{0} items").format(totalCount)))
 				print()
 				successCount = builders.build()
-				errorLevel = EXIT_SUCCESS if successCount == totalCount else EXIT_FAILURE
+				errorLevel = ExitStatus.EXIT_SUCCESS if successCount == totalCount else ExitStatus.EXIT_FAILURE
 				print("Successfully built {0} / {1} {2} with a success rate of {3:.2f}%. ".format(
 					successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount
 				))
 			else:
-				errorLevel = EOF
+				errorLevel = ExitStatus.EXIT_USAGE
 				print("Nothing to be built, please check the inputs. ")
-	elif EXIT_SUCCESS == flag:
+	elif ExitStatus.EXIT_SUCCESS == flag:
 		errorLevel = flag
 	else:
-		errorLevel = EOF
+		errorLevel = ExitStatus.EXIT_USAGE
 	if 0 == waitingTime:
 		print("The execution has finished ({0}). ".format(errorLevel))
 		print()
