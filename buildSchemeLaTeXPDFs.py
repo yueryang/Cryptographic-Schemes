@@ -11,14 +11,12 @@ from importlib import import_module
 from re import match
 from subprocess import TimeoutExpired, run
 from time import perf_counter, sleep
-try:
-	chdir(abspath(dirname(__file__)))
-except:
-	pass
-ExitStatus.EXIT_SUCCESS = 0
-ExitStatus.EXIT_FAILURE = 1
-ExitStatus.EXIT_USAGE = (-1)
 
+
+class ExitStatus:
+	EXIT_SUCCESS = 0
+	EXIT_FAILURE = 1
+	EXIT_USAGE = 64
 
 class Parser:
 	__OptionDelimiter = ("//", "--")
@@ -701,6 +699,13 @@ class Builders: # ("%%", "%d", "%n", "%p", "%x") = ("%", "driveLetter:", "mainFi
 
 
 def main() -> int:
+	# Bootstrap #
+	try:
+		chdir(abspath(dirname(__file__)))
+	except:
+		pass
+	
+	# Execution #
 	flag, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
 	if flag > ExitStatus.EXIT_SUCCESS and flag > ExitStatus.EXIT_USAGE:
@@ -710,7 +715,7 @@ def main() -> int:
 		)):
 			print("The runtime environment of the Python libcst library is not correctly configured. ")
 			print("Please install the libraries via the active Python package manager (e.g., pip). ")
-			errorLevel = ExitStatus.EXIT_USAGE
+			exitStatus = ExitStatus.EXIT_USAGE
 		else:
 			builders = Builders(*units, formatString = outputPathWithoutAnExtension, collectionMode = False)
 			totalCount = len(builders)
@@ -718,19 +723,21 @@ def main() -> int:
 				print("Gathered {0} to be built. ".format(("{0} item" if 1 == totalCount else "{0} items").format(totalCount)))
 				print()
 				successCount = builders.build()
-				errorLevel = ExitStatus.EXIT_SUCCESS if successCount == totalCount else ExitStatus.EXIT_FAILURE
+				exitStatus = ExitStatus.EXIT_SUCCESS if successCount == totalCount else ExitStatus.EXIT_FAILURE
 				print("Successfully built {0} / {1} {2} with a success rate of {3:.2f}%. ".format(
 					successCount, totalCount, "items" if successCount > 1 else "item", successCount * 100 / totalCount
 				))
 			else:
-				errorLevel = ExitStatus.EXIT_USAGE
+				exitStatus = ExitStatus.EXIT_USAGE
 				print("Nothing to be built, please check the inputs. ")
 	elif ExitStatus.EXIT_SUCCESS == flag:
-		errorLevel = flag
+		exitStatus = flag
 	else:
-		errorLevel = ExitStatus.EXIT_USAGE
+		exitStatus = ExitStatus.EXIT_USAGE
+	
+	# Exit #
 	if 0 == waitingTime:
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
 		integerTime, timeString = int(waitingTime), str(waitingTime)
@@ -738,28 +745,27 @@ def main() -> int:
 		if "e" in timeString:
 			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, exitStatus))
 		try:
-			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			print("\rThe countdown is {0} second(s). ".format(timeString, exitStatus), end = "")
 			sleep(decimalTime)
 			while integerTime >= 1:
-				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, exitStatus), end = "")
 				sleep(1)
 				integerTime -= 1
 		except:
 			pass
-		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, exitStatus))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	else:
-		print("Please press the Enter key to exit ({0}). ".format(errorLevel))
+		print("Please press the Enter key to exit ({0}). ".format(exitStatus))
 		try:
 			getpass("")
 		except:
 			print()
 	Parser.restoreConsoleEchoes()
-	return errorLevel
-
+	return exitStatus
 
 
 if "__main__" == __name__:

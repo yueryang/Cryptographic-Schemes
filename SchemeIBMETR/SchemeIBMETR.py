@@ -1116,7 +1116,7 @@ def main() -> int:
 			Parser.disableConsoleEchoes()
 			print("The runtime environment of the Python Charm-Crypto framework is not correctly configured. ")
 			print("Please refer to https://github.com/JHUISI/charm if necessary. ")
-			errorLevel = ExitStatus.EXIT_USAGE
+			exitStatus = ExitStatus.EXIT_USAGE
 		else:
 			outputFilePath, overwritingConfirmed = Parser.checkOverwriting(outputFilePath, overwritingConfirmed)
 			Parser.disableConsoleEchoes()
@@ -1170,21 +1170,21 @@ def main() -> int:
 			except BaseException as e:
 				print()
 				print("The experiments were interrupted by {0}. Saved results are retained. ".format(repr(e)))
-			errorLevel = ExitStatus.EXIT_SUCCESS if results and all(
+			exitStatus = ExitStatus.EXIT_SUCCESS if results and all(
 				all(r == runCount for r in getValidatorJudges(result))
 				and all(isinstance(r, (float, int)) and r > 0 for r in getMetricJudges(result))
 				for result in results
 			) else ExitStatus.EXIT_FAILURE
 	elif ExitStatus.EXIT_SUCCESS == flag:
-		errorLevel = flag
+		exitStatus = flag
 		Parser.disableConsoleEchoes()
 	else:
-		errorLevel = ExitStatus.EXIT_USAGE
+		exitStatus = ExitStatus.EXIT_USAGE
 		Parser.disableConsoleEchoes()
 	
 	# Exit #
 	if 0 == waitingTime:
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
 		integerTime, timeString = int(waitingTime), str(waitingTime)
@@ -1192,27 +1192,27 @@ def main() -> int:
 		if "e" in timeString:
 			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, exitStatus))
 		try:
-			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			print("\rThe countdown is {0} second(s). ".format(timeString, exitStatus), end = "")
 			sleep(decimalTime)
 			while integerTime >= 1:
-				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, exitStatus), end = "")
 				sleep(1)
 				integerTime -= 1
 		except:
 			pass
-		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, exitStatus))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	else:
-		print("Please press the Enter key to exit ({0}). ".format(errorLevel))
+		print("Please press the Enter key to exit ({0}). ".format(exitStatus))
 		try:
 			getpass("")
 		except:
 			print()
 	Parser.restoreConsoleEchoes()
-	return errorLevel
+	return exitStatus
 
 
 if "__main__" == __name__:

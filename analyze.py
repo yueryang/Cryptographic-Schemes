@@ -16,14 +16,12 @@ from io import BytesIO
 from math import isclose, log as ln
 from time import sleep
 from zipfile import ZipFile
-try:
-	chdir(abspath(dirname(__file__)))
-except Exception:
-	pass
-ExitStatus.EXIT_SUCCESS = 0
-ExitStatus.EXIT_FAILURE = 1
-ExitStatus.EXIT_USAGE = (-1)
 
+
+class ExitStatus:
+	EXIT_SUCCESS = 0
+	EXIT_FAILURE = 1
+	EXIT_USAGE = 64
 
 class Parser:
 	__OptionDelimiter = ("//", "--")
@@ -1610,6 +1608,13 @@ class Analyzers:
 
 
 def main() -> int:
+	# Bootstrap #
+	try:
+		chdir(abspath(dirname(__file__)))
+	except:
+		pass
+	
+	# Execution #
 	flag, encoding, outputPathWithoutAnExtension, decimalPlace, waitingTime, units = Parser.parse(argv)
 	Parser.disableConsoleEchoes()
 	if flag > ExitStatus.EXIT_SUCCESS and flag > ExitStatus.EXIT_USAGE:
@@ -1630,13 +1635,15 @@ def main() -> int:
 		except BaseException as e:
 			print()
 			print("The analysis was interrupted by {0}. Saved archives are retained. ".format(repr(e)))
-		errorLevel = ExitStatus.EXIT_SUCCESS if isinstance(analyzers, Analyzers) and analyzers.getTargetCount() >= 1 and analyzers.getSuccessCount() >= 1 and analyzers.getFailureCount() == 0 else ExitStatus.EXIT_FAILURE
+		exitStatus = ExitStatus.EXIT_SUCCESS if isinstance(analyzers, Analyzers) and analyzers.getTargetCount() >= 1 and analyzers.getSuccessCount() >= 1 and analyzers.getFailureCount() == 0 else ExitStatus.EXIT_FAILURE
 	elif ExitStatus.EXIT_SUCCESS == flag:
-		errorLevel = flag
+		exitStatus = flag
 	else:
-		errorLevel = ExitStatus.EXIT_USAGE
+		exitStatus = ExitStatus.EXIT_USAGE
+	
+	# Exit #
 	if 0 == waitingTime:
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	elif isinstance(waitingTime, (float, int)) and 0 < waitingTime < float("inf"):
 		integerTime, timeString = int(waitingTime), str(waitingTime)
@@ -1644,28 +1651,27 @@ def main() -> int:
 		if "e" in timeString:
 			timeString = str(integerTime) + ("{{0:.{0}f}}".format(decimalPlace).format(decimalTime).strip("0").rstrip(".") if decimalTime >= 10 ** (-decimalPlace) else "")
 		timeStringLength = len(timeString)
-		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, errorLevel))
+		print("Please wait {0} second(s) for automatic exit, or exit manually, for example by pressing ``Ctrl + C`` ({1}). ".format(timeString, exitStatus))
 		try:
-			print("\rThe countdown is {0} second(s). ".format(timeString, errorLevel), end = "")
+			print("\rThe countdown is {0} second(s). ".format(timeString, exitStatus), end = "")
 			sleep(decimalTime)
 			while integerTime >= 1:
-				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, errorLevel), end = "")
+				print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(integerTime, exitStatus), end = "")
 				sleep(1)
 				integerTime -= 1
 		except:
 			pass
-		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, errorLevel))
-		print("The execution has finished ({0}). ".format(errorLevel))
+		print("\rThe countdown is {{0:>{0}}} second(s). ".format(timeStringLength).format(0, exitStatus))
+		print("The execution has finished ({0}). ".format(exitStatus))
 		print()
 	else:
-		print("Please press the Enter key to exit ({0}). ".format(errorLevel))
+		print("Please press the Enter key to exit ({0}). ".format(exitStatus))
 		try:
 			getpass("")
 		except:
 			print()
 	Parser.restoreConsoleEchoes()
-	return errorLevel
-
+	return exitStatus
 
 
 if "__main__" == __name__:

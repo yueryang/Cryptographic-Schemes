@@ -1,15 +1,13 @@
 import os
 from sys import exit
-from subprocess import run
 from datetime import datetime
-try:
-	os.chdir(os.path.abspath(os.path.dirname(__file__)))
-except:
-	pass
-ExitStatus.EXIT_SUCCESS = 0
-ExitStatus.EXIT_FAILURE = 1
-ExitStatus.EXIT_USAGE = (-1)
+from getpass import getpass
+from subprocess import run
 
+
+class ExitStatus:
+	EXIT_SUCCESS = 0
+	ExitStatus.EXIT_FAILURE = 1
 
 class GitPusher:
 	def __init__(self:object, localRepositoryPath:str = ".") -> object:
@@ -67,19 +65,26 @@ class GitPusher:
 
 
 def main() -> int:
-	gitPusher = GitPusher()
-	if gitPusher.initialize():
-		errorLevel = ExitStatus.EXIT_SUCCESS if gitPusher.push() else ExitStatus.EXIT_FAILURE
-	else:
-		errorLevel = ExitStatus.EXIT_USAGE
-	print("Please press the Enter key to exit ({0}). ".format(errorLevel))
+	# Bootstrap #
 	try:
-		input()
+		os.chdir(os.path.abspath(os.path.dirname(__file__)))
+	except:
+		pass
+	
+	# Execution #
+	gitPusher = GitPusher()
+	if gitPusher.initialize() and gitPusher.push():
+		exitStatus = ExitStatus.EXIT_SUCCESS
+	else:
+		exitStatus = ExitStatus.EXIT_FAILURE
+	
+	# Exit #
+	print("Please press the Enter key to exit ({0}). ".format(exitStatus))
+	try:
+		getpass("")
 	except:
 		print()
-	print()
-	return errorLevel
-
+	return exitStatus
 
 
 if __name__ == "__main__":
