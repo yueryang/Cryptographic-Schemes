@@ -1388,7 +1388,7 @@ public:
 	}
 	bool verify()
 	{
-		return this->W1 == this->W2;
+		return is_permutation(this->W1.begin(), this->W1.end(), this->W2.begin(), this->W2.end());
 	}
 	void rand_V()
 	{
@@ -1512,8 +1512,8 @@ class Cloud
 private:
 	Element T[n] = { NULL };
 	vector<Element> Y_pi{};
-	Element omega[n] = { NULL };
-	vector<Element> W = { NULL };
+	Element omega[m] = { NULL };
+	vector<Element> W{};
 
 public:
 	void receive_T(Element* T)
@@ -1529,13 +1529,14 @@ public:
 	}
 	void compute_omega()
 	{
-		for (int i = 0; i < n; ++i)
+		for (int i = 0; i < m; ++i)
 			this->omega[i] = decode(this->T[i], this->Y_pi[i]);
 		return;
 	}
 	void rand_W()
 	{
-		for (int i = 0; i < n; ++i)
+		this->W.clear();
+		for (int i = 0; i < m; ++i)
 			this->W.push_back(this->omega[i]);
 		legacyRandomShuffle(this->W.begin(), this->W.end());
 		return;
